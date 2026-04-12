@@ -1,0 +1,38 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente — NUNCA commitar o .env
+.env
+.env.local
+.env.*.local
+
+# Build do Next.js
+.next/
+out/
+
+# Prisma — não commitar o client gerado
+node_modules/.prisma/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Cobertura de testes
+coverage/
+
+# Superpowers plugin (dados locais)
+.superpowers/
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+
+# Review logs temporários
+reviews-backend.md

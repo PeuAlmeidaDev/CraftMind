@@ -1,0 +1,438 @@
+// ============================================================
+// Craft Mind — Prisma Schema
+// Versão inicial cobrindo Fases 2–8 do roadmap
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum HabitCategory {
+  PHYSICAL     // Físicos — Ataque Físico, Defesa Física, Vida
+  INTELLECTUAL // Intelectuais — Ataque Mágico + chance de habilidade
+  MENTAL       // Mentais — Defesa Mágica, Velocidade
+  SOCIAL       // Sociais — a definir
+  SPIRITUAL    // Espirituais — a definir
+}
+
+enum BattleStatus {
+  WAITING    // aguardando oponente
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+enum HouseName {
+  ARION   // Leão — Físicos
+  LYCUS   // Lobo — Físicos + Intelectual + Mental
+  NOCTIS  // Coruja — Intelectual + Espiritual
+  NEREID  // Sereia — Social + Mental
+}
+
+// ============================================================
+// HOUSE — Casas do jogo (seed: 4 registros fixos)
+// ============================================================
+
+model House {
+  id          String    @id @default(cuid())
+  name        HouseName @unique
+  animal      String    // ex: "Leão"
+  description String    // essência da casa
+  users       User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// USER — Jogador
+// ============================================================
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  houseId      String?
+
+  house      House?      @relation(fields: [houseId], references: [id])
+  character  Character?
+  habits     UserHabit[]
+  habitLogs  HabitLog[]
+  dailyTasks DailyTask[]
+
+  // Batalhas em que o usuário participou
+  battlesAsPlayer1   Battle[] @relation("BattlePlayer1")
+  battlesAsPlayer2   Battle[] @relation("BattlePlayer2")
+  battlesWon         Battle[] @relation("BattleWinner")
+  pveBattles         PveBattle[]
+  refreshTokens      RefreshToken[]
+  coopParticipations CoopBattleParticipant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// REFRESH TOKEN — Tokens de refresh persistidos (rotação segura)
+// ============================================================
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  family    String
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// CHARACTER — Atributos do personagem (1-1 com User)
+// ============================================================
+
+model Character {
+  id          String @id @default(cuid())
+  userId      String @unique
+  physicalAtk Int    @default(10) // Ataque Físico
+  physicalDef Int    @default(10) // Defesa Física
+  magicAtk    Int    @default(10) // Ataque Mágico
+  magicDef    Int    @default(10) // Defesa Mágica
+  hp          Int    @default(100) // Pontos de Vida máximos
+  speed       Int    @default(10)  // Velocidade (ordem de turno)
+  level       Int    @default(1)
+  currentExp  Int    @default(0)
+  freePoints  Int    @default(0)
+  bossEssence Int    @default(0)
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characterSkills CharacterSkill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// HABIT — Definição de um hábito (seed: lista base por categoria)
+// ============================================================
+
+model Habit {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String        @default("")
+  category    HabitCategory
+
+  logs       HabitLog[]
+  users      UserHabit[]
+  dailyTasks DailyTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// USER HABIT — Hábitos selecionados pelo usuário no cadastro (N-N)
+// ============================================================
+
+model UserHabit {
+  id      String @id @default(cuid())
+  userId  String
+  habitId String
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id])
+
+  @@unique([userId, habitId])
+
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// HABIT LOG — Registro diário de hábito cumprido
+// ============================================================
+
+model HabitLog {
+  id      String @id @default(cuid())
+  userId  String
+  habitId String
+
+  // Snapshot dos atributos concedidos no momento do registro
+  // (o Habit.attributeGrants pode mudar; este é o valor histórico real)
+  attributesGranted Json
+
+  completedAt DateTime @default(now())
+
+  // Meia-noite UTC do dia da conclusão — usado na constraint unique
+  date DateTime @db.Date
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id])
+
+  // Um usuário não pode registrar o mesmo hábito mais de uma vez por dia
+  @@unique([userId, habitId, date])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// SKILL — Habilidade desbloqueável
+// ============================================================
+
+model Skill {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String
+  tier        Int
+  cooldown    Int    @default(0) // 0 = sem cooldown, 1 = 1 turno, 2 = 2 turnos
+  target      String
+  damageType  String
+  basePower   Int
+  hits        Int    @default(1)
+  accuracy    Int    @default(100)
+  effects     Json   @default("[]")
+  mastery     Json   @default("{}")
+
+  characterSkills CharacterSkill[]
+  mobSkills       MobSkill[]
+  bossSkills      BossSkill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// CHARACTER SKILL — Relação N-N entre Character e Skill
+// ============================================================
+
+model CharacterSkill {
+  id          String  @id @default(cuid())
+  characterId String
+  skillId     String
+  equipped    Boolean @default(false) // máximo 4 equipadas por personagem
+  slotIndex   Int?    // 0–3 quando equipped = true
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([characterId, skillId])
+  @@unique([characterId, slotIndex]) // dois skills não podem ocupar o mesmo slot
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// DAILY TASK — Tarefa diária gerada a partir de um hábito
+// ============================================================
+
+model DailyTask {
+  id              String    @id @default(cuid())
+  userId          String
+  habitId         String
+  description     String    // ex: "Faça 3 séries de flexões"
+  tag             String?
+  attributeGrants Json      // { physicalAttack?: number, physicalDefense?: number, magicAttack?: number, magicDefense?: number, hp?: number, speed?: number }
+  dueDate         DateTime  // dia para o qual a tarefa foi gerada
+  completed       Boolean   @default(false)
+  completedAt     DateTime? // null até ser completada
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id])
+
+  @@unique([userId, description, dueDate])
+  @@index([userId, dueDate])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// BATTLE — Registro de uma batalha
+// ============================================================
+
+model Battle {
+  id        String      @id @default(cuid())
+  player1Id String
+  player2Id String
+  winnerId  String?
+  status    BattleStatus @default(WAITING)
+
+  // Array de objetos descrevendo cada turno:
+  // [{ turn: 1, actorId: "...", skillId: "...", damage: 45, targetHpAfter: 55 }, ...]
+  log Json @default("[]")
+
+  player1 User  @relation("BattlePlayer1", fields: [player1Id], references: [id])
+  player2 User  @relation("BattlePlayer2", fields: [player2Id], references: [id])
+  winner  User? @relation("BattleWinner", fields: [winnerId], references: [id])
+
+  @@index([player1Id])
+  @@index([player2Id])
+  @@index([status])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// MOB — Inimigo PvE controlado por IA
+// ============================================================
+
+model Mob {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String
+  tier        Int
+  aiProfile   String
+
+  physicalAtk Int
+  physicalDef Int
+  magicAtk    Int
+  magicDef    Int
+  hp          Int
+  speed       Int
+
+  skills MobSkill[]
+  pveBattles PveBattle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// MOB SKILL — Relacao N-N entre Mob e Skill (4 skills por mob)
+// ============================================================
+
+model MobSkill {
+  id        String @id @default(cuid())
+  mobId     String
+  skillId   String
+  slotIndex Int
+
+  mob   Mob   @relation(fields: [mobId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@unique([mobId, skillId])
+  @@unique([mobId, slotIndex])
+}
+
+// ============================================================
+// PVE BATTLE — Registro de uma batalha PvE contra mob
+// ============================================================
+
+model PveBattle {
+  id        String  @id @default(cuid())
+  userId    String
+  mobId     String
+  result    String?
+  expGained Int     @default(0)
+  turns     Int     @default(0)
+  log       Json    @default("[]")
+
+  user User @relation(fields: [userId], references: [id])
+  mob  Mob  @relation(fields: [mobId], references: [id])
+
+  @@index([userId, createdAt])
+
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// BOSS — Chefe cooperativo por categoria de hábito
+// ============================================================
+
+model Boss {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String
+  lore        String
+  category    HabitCategory
+  tier        Int
+  aiProfile   String
+
+  physicalAtk Int
+  physicalDef Int
+  magicAtk    Int
+  magicDef    Int
+  hp          Int
+  speed       Int
+
+  skills       BossSkill[]
+  coopBattles  CoopBattle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// BOSS SKILL — Relacao N-N entre Boss e Skill (4 skills por boss)
+// ============================================================
+
+model BossSkill {
+  id        String @id @default(cuid())
+  bossId    String
+  skillId   String
+  slotIndex Int
+
+  boss  Boss  @relation(fields: [bossId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@unique([bossId, skillId])
+  @@unique([bossId, slotIndex])
+}
+
+// ============================================================
+// COOP BATTLE — Registro de uma batalha cooperativa contra boss
+// ============================================================
+
+model CoopBattle {
+  id        String   @id @default(cuid())
+  bossId    String
+  date      DateTime @db.Date
+  status    String   @default("MATCHING")
+  result    String?
+  turns     Int      @default(0)
+  expGained Int      @default(0)
+  log       Json     @default("[]")
+
+  boss         Boss                    @relation(fields: [bossId], references: [id])
+  participants CoopBattleParticipant[]
+
+  @@index([date, status])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// COOP BATTLE PARTICIPANT — Jogador participante de uma batalha coop
+// ============================================================
+
+model CoopBattleParticipant {
+  id               String        @id @default(cuid())
+  coopBattleId     String
+  userId           String
+  dominantCategory HabitCategory
+
+  coopBattle CoopBattle @relation(fields: [coopBattleId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([coopBattleId, userId])
+  @@index([userId])
+
+  createdAt DateTime @default(now())
+}

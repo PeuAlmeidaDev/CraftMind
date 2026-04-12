@@ -1,0 +1,554 @@
+// lib/battle/turn.ts — Orquestrador principal de resolucao de turno
+
+import type {
+  BattleState,
+  TurnAction,
+  TurnResult,
+  TurnLogEntry,
+  PlayerState,
+  Skill,
+  ActiveBuff,
+  ActiveStatusEffect,
+  StageStat,
+  BuffSource,
+  CounterTriggerPayload,
+} from "./types";
+import { deepClone, getPlayer, getOpponent, generateId, clampStage } from "./utils";
+import { getEffectiveStat } from "./damage";
+import { calculateDamage } from "./damage";
+import { getComboModifier, putOnCooldown, tickCooldowns } from "./skills";
+import { isIncapacitated, applyStatusDamage, tickEndOfTurn } from "./status";
+import { applyEffects } from "./effects";
+import { MAX_TURNS, STAGE_MULTIPLIERS } from "./constants";
+
+// ---------------------------------------------------------------------------
+// Helper para aplicar counter trigger effects (subconjunto de efeitos)
+// ---------------------------------------------------------------------------
+
+function isStageStat(stat: string): stat is StageStat {
+  return ["physicalAtk", "physicalDef", "magicAtk", "magicDef", "speed", "accuracy"].includes(stat);
+}
+
+function applyCounterTriggerEffects(
+  triggers: CounterTriggerPayload[],
+  counterer: PlayerState,
+  attacker: PlayerState,
+  turnNumber: number,
+  events: TurnLogEntry[],
+  randomFn?: () => number
+): void {
+  for (const trigger of triggers) {
+    // Resolver target: o "caster" do counter e o defensor
+    let targets: PlayerState[];
+    switch (trigger.target) {
+      case "SELF":
+      case "SINGLE_ALLY":
+      case "ALL_ALLIES":
+        targets = [counterer];
+        break;
+      case "SINGLE_ENEMY":
+      case "ALL_ENEMIES":
+        targets = [attacker];
+        break;
+      case "ALL":
+        targets = [counterer, attacker];
+        break;
+      default:
+        targets = [attacker];
+    }
+
+    for (const target of targets) {
+      switch (trigger.type) {
+        case "BUFF": {
+          if (trigger.chance !== undefined && (randomFn ?? Math.random)() * 100 >= trigger.chance) break;
+          const buff: ActiveBuff = {
+            id: generateId(),
+            source: "BUFF" as BuffSource,
+            stat: trigger.stat as StageStat | "priority",
+            value: trigger.value,
+            remainingTurns: trigger.duration + 1,
+          };
+          if (isStageStat(trigger.stat)) {
+            target.stages[trigger.stat] = clampStage(target.stages[trigger.stat] + trigger.value);
+          }
+          target.buffs.push(buff);
+          events.push({
+            turn: turnNumber,
+            phase: "COUNTER_TRIGGER",
+            targetId: target.playerId,
+            buffApplied: { stat: trigger.stat, value: trigger.value, duration: trigger.duration },
+            message: `Contra-ataque: ${target.playerId} recebe buff de ${trigger.stat} +${trigger.value}`,
+          });
+          break;
+        }
+        case "DEBUFF": {
+          if (trigger.chance !== undefined && (randomFn ?? Math.random)() * 100 >= trigger.chance) break;
+          const debuff: ActiveBuff = {
+            id: generateId(),
+            source: "DEBUFF" as BuffSource,
+            stat: trigger.stat as StageStat | "priority",
+            value: trigger.value,
+            remainingTurns: trigger.duration + 1,
+          };
+          if (isStageStat(trigger.stat)) {
+            target.stages[trigger.stat] = clampStage(target.stages[trigger.stat] - trigger.value);
+          }
+          target.buffs.push(debuff);
+          events.push({
+            turn: turnNumber,
+            phase: "COUNTER_TRIGGER",
+            targetId: target.playerId,
+            debuffApplied: { stat: trigger.stat, value: trigger.value, duration: trigger.duration },
+            message: `Contra-ataque: ${target.playerId} recebe debuff de ${trigger.stat} -${trigger.value}`,
+          });
+          break;
+        }
+        case "STATUS": {
+          if ((randomFn ?? Math.random)() * 100 >= trigger.chance) break;
+          const existing = target.statusEffects.find((s) => s.status === trigger.status);
+          if (existing) {
+            existing.remainingTurns = trigger.duration + 1;
+            existing.turnsElapsed = 0;
+          } else {
+            const newStatus: ActiveStatusEffect = {
+              status: trigger.status,
+              remainingTurns: trigger.duration + 1,
+              turnsElapsed: 0,
+            };
+            target.statusEffects.push(newStatus);
+            if (trigger.status === "SLOW") {
+              target.stages.speed = clampStage(target.stages.speed - 2);
+            }
+            if (trigger.status === "BURN") {
+              target.stages.physicalAtk = clampStage(target.stages.physicalAtk - 1);
+            }
+          }
+          events.push({
+            turn: turnNumber,
+            phase: "COUNTER_TRIGGER",
+            targetId: target.playerId,
+            statusApplied: trigger.status,
+            message: `Contra-ataque: ${target.playerId} recebe status ${trigger.status}`,
+          });
+          break;
+        }
+        case "VULNERABILITY": {
+          if (trigger.chance !== undefined && (randomFn ?? Math.random)() * 100 >= trigger.chance) break;
+          target.vulnerabilities.push({
+            id: generateId(),
+            damageType: trigger.damageType,
+            percent: trigger.percent,
+            remainingTurns: trigger.duration + 1,
+          });
+          events.push({
+            turn: turnNumber,
+            phase: "COUNTER_TRIGGER",
+            targetId: target.playerId,
+            message: `Contra-ataque: ${target.playerId} fica vulneravel a ${trigger.damageType} (+${trigger.percent}%)`,
+          });
+          break;
+        }
+        case "HEAL": {
+          const healAmount = Math.floor(target.baseStats.hp * (trigger.percent / 100));
+          target.currentHp = Math.min(target.baseStats.hp, target.currentHp + healAmount);
+          events.push({
+            turn: turnNumber,
+            phase: "COUNTER_TRIGGER",
+            targetId: target.playerId,
+            healing: healAmount,
+            message: `Contra-ataque: ${target.playerId} recupera ${healAmount} HP`,
+          });
+          break;
+        }
+        case "SELF_DEBUFF": {
+          // Sempre aplica no counterer (quem tem o counter)
+          const selfDebuff: ActiveBuff = {
+            id: generateId(),
+            source: "DEBUFF" as BuffSource,
+            stat: trigger.stat as StageStat | "priority",
+            value: trigger.value,
+            remainingTurns: trigger.duration + 1,
+          };
+          if (isStageStat(trigger.stat)) {
+            counterer.stages[trigger.stat] = clampStage(counterer.stages[trigger.stat] - trigger.value);
+          }
+          counterer.buffs.push(selfDebuff);
+          events.push({
+            turn: turnNumber,
+            phase: "COUNTER_TRIGGER",
+            targetId: counterer.playerId,
+            debuffApplied: { stat: trigger.stat, value: trigger.value, duration: trigger.duration },
+            message: `Contra-ataque: ${counterer.playerId} sofre auto-debuff de ${trigger.stat} -${trigger.value}`,
+          });
+          break;
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Resolucao principal do turno
+// ---------------------------------------------------------------------------
+
+export function resolveTurn(
+  state: BattleState,
+  actions: [TurnAction, TurnAction],
+  randomFn?: () => number
+): TurnResult {
+  // 0. Guard: batalha ja finalizada
+  if (state.status === "FINISHED") {
+    return { state, events: [] };
+  }
+
+  // 1. Deep clone
+  const clonedState = deepClone(state);
+  const events: TurnLogEntry[] = [];
+
+  // 1b. Validar que os playerIds das acoes pertencem a batalha
+  const validPlayerIds = new Set(clonedState.players.map((p) => p.playerId));
+  if (
+    !validPlayerIds.has(actions[0].playerId) ||
+    !validPlayerIds.has(actions[1].playerId) ||
+    actions[0].playerId === actions[1].playerId
+  ) {
+    throw new Error(
+      `Acoes invalidas: playerIds [${actions[0].playerId}, ${actions[1].playerId}] nao correspondem aos jogadores da batalha [${[...validPlayerIds].join(", ")}]`
+    );
+  }
+
+  // 2. Determinar ordem de acao
+  type ActionWithPriority = {
+    action: TurnAction;
+    effectiveSpeed: number;
+    prioritySum: number;
+  };
+
+  const actionPriorities: ActionWithPriority[] = actions.map((action) => {
+    const player = getPlayer(clonedState, action.playerId);
+    const effectiveSpeed = getEffectiveStat(
+      player.baseStats.speed,
+      player.stages.speed
+    );
+    const prioritySum = player.buffs
+      .filter((b) => b.stat === "priority")
+      .reduce((sum, b) => sum + b.value, 0);
+
+    return { action, effectiveSpeed, prioritySum };
+  });
+
+  // Ordenar: maior prioridade primeiro, empate por speed, empate total por random
+  const tiebreaker = (randomFn ?? Math.random)() > 0.5 ? -1 : 1;
+
+  actionPriorities.sort((a, b) => {
+    if (a.prioritySum !== b.prioritySum) {
+      return b.prioritySum - a.prioritySum;
+    }
+    if (a.effectiveSpeed !== b.effectiveSpeed) {
+      return b.effectiveSpeed - a.effectiveSpeed;
+    }
+    return tiebreaker;
+  });
+
+  const orderedActions = actionPriorities.map((ap) => ap.action);
+
+  // 3. Resolver cada acao na ordem
+  for (const action of orderedActions) {
+    const playerState = getPlayer(clonedState, action.playerId);
+    const opponentState = getOpponent(clonedState, action.playerId);
+
+    // b. Se batalha ja acabou: skip
+    if (clonedState.status === "FINISHED") continue;
+
+    // c. Checar incapacitacao
+    const incap = isIncapacitated(playerState);
+    if (incap.incapacitated) {
+      playerState.combo = { skillId: null, stacks: 0 };
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "INCAPACITATED",
+        actorId: playerState.playerId,
+        message: `${playerState.playerId} esta incapacitado por ${incap.reason}`,
+      });
+      continue;
+    }
+
+    // d. Aplicar dano de status no ator
+    const statusEntries = applyStatusDamage(
+      playerState,
+      clonedState.turnNumber
+    );
+    events.push(...statusEntries);
+
+    if (playerState.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      clonedState.winnerId = opponentState.playerId;
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "DEATH",
+        targetId: playerState.playerId,
+        message: `${playerState.playerId} foi derrotado por dano de status`,
+      });
+      continue;
+    }
+
+    // e. Validar skill
+    if (action.skillId === null) {
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "SKIP",
+        actorId: playerState.playerId,
+        message: `${playerState.playerId} pulou o turno`,
+      });
+      continue;
+    }
+
+    const equipped = playerState.equippedSkills.find(
+      (es) => es.skillId === action.skillId
+    );
+    if (!equipped) {
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "INVALID",
+        actorId: playerState.playerId,
+        skillId: action.skillId,
+        message: `${playerState.playerId} tentou usar skill invalida`,
+      });
+      continue;
+    }
+
+    if (
+      playerState.cooldowns[action.skillId] &&
+      playerState.cooldowns[action.skillId] > 0
+    ) {
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "COOLDOWN",
+        actorId: playerState.playerId,
+        skillId: action.skillId,
+        skillName: equipped.skill.name,
+        message: `${playerState.playerId} tentou usar ${equipped.skill.name} mas esta em cooldown`,
+      });
+      continue;
+    }
+
+    const skill: Skill = equipped.skill;
+
+    // f. Resolver combo
+    let comboOverride: { basePower: number; hits: number } | undefined;
+    const comboResult = getComboModifier(playerState, skill);
+    if (comboResult !== null) {
+      playerState.combo = comboResult.newCombo;
+      comboOverride = {
+        basePower: comboResult.basePower,
+        hits: comboResult.hits,
+      };
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "COMBO",
+        actorId: playerState.playerId,
+        skillId: skill.id,
+        skillName: skill.name,
+        comboStack: comboResult.newCombo.stacks,
+        message: `${playerState.playerId} usa ${skill.name} em combo (stack ${comboResult.newCombo.stacks})`,
+      });
+    } else {
+      playerState.combo = { skillId: action.skillId, stacks: 0 };
+    }
+
+    // f2. Check de accuracy
+    const isSupportSelf =
+      skill.damageType === "NONE" &&
+      skill.basePower === 0 &&
+      skill.target === "SELF";
+
+    if (!isSupportSelf) {
+      const stageMultiplier = STAGE_MULTIPLIERS[clampStage(playerState.stages.accuracy)];
+      const hitChance = Math.min(100, Math.max(10, skill.accuracy * stageMultiplier));
+      const hit = (randomFn ?? Math.random)() * 100 < hitChance;
+
+      if (!hit) {
+        events.push({
+          turn: clonedState.turnNumber,
+          phase: "MISS",
+          actorId: playerState.playerId,
+          targetId: opponentState.playerId,
+          skillId: skill.id,
+          skillName: skill.name,
+          missed: true,
+          message: `${playerState.playerId} usou ${skill.name} mas errou!`,
+        });
+
+        // Cooldown e reset de combo ainda acontecem no miss
+        putOnCooldown(playerState, skill.id);
+        playerState.combo = { skillId: null, stacks: 0 };
+        continue;
+      }
+    }
+
+    // g. Calcular dano
+    const dmgResult = calculateDamage({
+      skill,
+      attacker: playerState,
+      defender: opponentState,
+      comboOverride,
+      randomFn,
+    });
+
+    if (dmgResult.totalDamage > 0) {
+      opponentState.currentHp = Math.max(
+        0,
+        opponentState.currentHp - dmgResult.totalDamage
+      );
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "DAMAGE",
+        actorId: playerState.playerId,
+        targetId: opponentState.playerId,
+        skillId: skill.id,
+        skillName: skill.name,
+        damage: dmgResult.totalDamage,
+        message: `${playerState.playerId} usa ${skill.name} e causa ${dmgResult.totalDamage} de dano (${dmgResult.hits} hit${dmgResult.hits > 1 ? "s" : ""})`,
+      });
+    } else {
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "ACTION",
+        actorId: playerState.playerId,
+        targetId: opponentState.playerId,
+        skillId: skill.id,
+        skillName: skill.name,
+        message: `${playerState.playerId} usa ${skill.name}`,
+      });
+    }
+
+    // h. Checar counter no defensor
+    const countersCopy = [...opponentState.counters];
+    for (const counter of countersCopy) {
+      if (counter.remainingTurns > 0 && dmgResult.totalDamage > 0) {
+        const counterDamage = Math.max(
+          1,
+          Math.floor(dmgResult.totalDamage * counter.powerMultiplier)
+        );
+        playerState.currentHp = Math.max(
+          0,
+          playerState.currentHp - counterDamage
+        );
+        events.push({
+          turn: clonedState.turnNumber,
+          phase: "COUNTER",
+          actorId: opponentState.playerId,
+          targetId: playerState.playerId,
+          damage: counterDamage,
+          counterTriggered: true,
+          message: `${opponentState.playerId} contra-ataca ${playerState.playerId} por ${counterDamage} de dano`,
+        });
+
+        if (counter.onTrigger) {
+          applyCounterTriggerEffects(
+            counter.onTrigger,
+            opponentState,
+            playerState,
+            clonedState.turnNumber,
+            events,
+            randomFn
+          );
+        }
+
+        // Apenas o primeiro counter ativo
+        break;
+      }
+    }
+
+    // i. Aplicar efeitos
+    const effectEntries = applyEffects({
+      skill,
+      casterId: playerState.playerId,
+      state: clonedState,
+      totalDamage: dmgResult.totalDamage,
+      turnNumber: clonedState.turnNumber,
+      randomFn,
+    });
+    events.push(...effectEntries);
+
+    // j. Colocar skill em cooldown
+    putOnCooldown(playerState, skill.id);
+
+    // k. Checar fim de batalha
+    if (opponentState.currentHp <= 0 && playerState.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      // Quem agiu sobrevive (tem a vantagem de ter agido)
+      clonedState.winnerId = playerState.playerId;
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "DEATH",
+        targetId: opponentState.playerId,
+        message: `${opponentState.playerId} foi derrotado`,
+      });
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "DEATH",
+        targetId: playerState.playerId,
+        message: `${playerState.playerId} tambem caiu, mas vence por ter agido primeiro`,
+      });
+    } else if (opponentState.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      clonedState.winnerId = playerState.playerId;
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "DEATH",
+        targetId: opponentState.playerId,
+        message: `${opponentState.playerId} foi derrotado`,
+      });
+    } else if (playerState.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      clonedState.winnerId = opponentState.playerId;
+      events.push({
+        turn: clonedState.turnNumber,
+        phase: "DEATH",
+        targetId: playerState.playerId,
+        message: `${playerState.playerId} foi derrotado`,
+      });
+    }
+  }
+
+  // 4. Apos ambos jogadores agirem
+  tickEndOfTurn(clonedState, events);
+  tickCooldowns(clonedState.players[0]);
+  tickCooldowns(clonedState.players[1]);
+
+  // Checar fim de batalha novamente (ON_EXPIRE pode ter matado alguem)
+  if (clonedState.status !== "FINISHED") {
+    const p1 = clonedState.players[0];
+    const p2 = clonedState.players[1];
+
+    if (p1.currentHp <= 0 && p2.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      clonedState.winnerId = p2.playerId; // segundo jogador sobrevive por convencao
+    } else if (p1.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      clonedState.winnerId = p2.playerId;
+    } else if (p2.currentHp <= 0) {
+      clonedState.status = "FINISHED";
+      clonedState.winnerId = p1.playerId;
+    }
+  }
+
+  if (clonedState.status === "IN_PROGRESS") {
+    clonedState.turnNumber += 1;
+  }
+
+  if (clonedState.status === "IN_PROGRESS" && clonedState.turnNumber > MAX_TURNS) {
+    clonedState.status = "FINISHED";
+    clonedState.winnerId = null;
+    events.push({
+      turn: clonedState.turnNumber,
+      phase: "DRAW",
+      message: `Batalha terminou em empate apos ${MAX_TURNS} turnos`,
+    });
+  }
+
+  // 5. Consolidar log e retornar
+  clonedState.turnLog = [...clonedState.turnLog, ...events];
+  return { state: clonedState, events };
+}

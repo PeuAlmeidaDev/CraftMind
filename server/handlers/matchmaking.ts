@@ -1,0 +1,352 @@
+// server/handlers/matchmaking.ts — Fila e emparelhamento PvP
+
+import crypto from "node:crypto";
+import type { Server, Socket } from "socket.io";
+import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
+import type { Skill, SkillTarget, DamageType, SkillMastery } from "../../types/skill";
+import { initBattle } from "../../lib/battle/init";
+import {
+  addToQueue,
+  removeFromQueue,
+  findMatch,
+  isInQueue,
+} from "../stores/queue-store";
+import { prisma } from "../lib/prisma";
+import { setPvpBattle, getPlayerBattle } from "../stores/pvp-store";
+import type { PvpBattleSession } from "../stores/pvp-store";
+import { startTurnTimer } from "./battle";
+
+type JoinPayload = {
+  characterId: string;
+  stats: BaseStats;
+  skills: EquippedSkill[];
+};
+
+function isValidStats(stats: unknown): stats is BaseStats {
+  if (typeof stats !== "object" || stats === null) return false;
+  const s = stats as Record<string, unknown>;
+  return (
+    typeof s.physicalAtk === "number" &&
+    typeof s.physicalDef === "number" &&
+    typeof s.magicAtk === "number" &&
+    typeof s.magicDef === "number" &&
+    typeof s.hp === "number" &&
+    typeof s.speed === "number"
+  );
+}
+
+function isValidSkills(skills: unknown): skills is EquippedSkill[] {
+  if (!Array.isArray(skills)) return false;
+  if (skills.length < 1 || skills.length > 4) return false;
+  return skills.every(
+    (s: unknown) =>
+      typeof s === "object" &&
+      s !== null &&
+      typeof (s as Record<string, unknown>).skillId === "string" &&
+      typeof (s as Record<string, unknown>).slotIndex === "number" &&
+      typeof (s as Record<string, unknown>).skill === "object"
+  );
+}
+
+function isValidJoinPayload(payload: unknown): payload is JoinPayload {
+  if (typeof payload !== "object" || payload === null) return false;
+  const p = payload as Record<string, unknown>;
+  return (
+    typeof p.characterId === "string" &&
+    isValidStats(p.stats) &&
+    isValidSkills(p.skills)
+  );
+}
+
+export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
+  const userId = socket.data.userId;
+
+  socket.on("matchmaking:join", async (payload: unknown) => {
+    if (!isValidJoinPayload(payload)) {
+      socket.emit("matchmaking:error", {
+        message: "Payload invalido para matchmaking:join",
+      });
+      return;
+    }
+
+    if (isInQueue(userId)) {
+      socket.emit("matchmaking:error", {
+        message: "Voce ja esta na fila de matchmaking",
+      });
+      return;
+    }
+
+    if (getPlayerBattle(userId)) {
+      socket.emit("matchmaking:error", {
+        message: "Voce ja esta em uma batalha ativa",
+      });
+      return;
+    }
+
+    // Buscar character real do banco (ignora stats/skills do payload do client)
+    const character = await prisma.character.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        physicalAtk: true,
+        physicalDef: true,
+        magicAtk: true,
+        magicDef: true,
+        hp: true,
+        speed: true,
+        characterSkills: {
+          where: { equipped: true },
+          orderBy: { slotIndex: "asc" },
+          select: {
+            slotIndex: true,
+            skill: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                tier: true,
+                cooldown: true,
+                target: true,
+                damageType: true,
+                basePower: true,
+                hits: true,
+                accuracy: true,
+                effects: true,
+                mastery: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!character || character.characterSkills.length === 0) {
+      socket.emit("matchmaking:error", {
+        message: "Personagem nao encontrado ou sem skills equipadas",
+      });
+      return;
+    }
+
+    const verifiedStats: BaseStats = {
+      physicalAtk: character.physicalAtk,
+      physicalDef: character.physicalDef,
+      magicAtk: character.magicAtk,
+      magicDef: character.magicDef,
+      hp: character.hp,
+      speed: character.speed,
+    };
+
+    const verifiedSkills: EquippedSkill[] = character.characterSkills.map((cs) => ({
+      skillId: cs.skill.id,
+      slotIndex: cs.slotIndex as number,
+      skill: {
+        id: cs.skill.id,
+        name: cs.skill.name,
+        description: cs.skill.description,
+        tier: cs.skill.tier,
+        cooldown: cs.skill.cooldown,
+        target: cs.skill.target as SkillTarget,
+        damageType: cs.skill.damageType as DamageType,
+        basePower: cs.skill.basePower,
+        hits: cs.skill.hits,
+        accuracy: cs.skill.accuracy,
+        effects: cs.skill.effects as Skill["effects"],
+        mastery: cs.skill.mastery as SkillMastery,
+      },
+    }));
+
+    const match = findMatch(userId);
+
+    if (match) {
+      // Correção 1: verificar se o socket do oponente ainda existe
+      const matchSocket = io.sockets.sockets.get(match.socketId);
+
+      if (!matchSocket) {
+        console.log(
+          `[Socket.io] Oponente ${match.userId} desconectou enquanto esperava na fila, colocando ${userId} na fila`
+        );
+
+        addToQueue({
+          userId,
+          socketId: socket.id,
+          characterId: character.id,
+          stats: verifiedStats,
+          skills: verifiedSkills,
+          joinedAt: Date.now(),
+        });
+
+        socket.emit("matchmaking:waiting", {
+          message: "Aguardando oponente...",
+        });
+
+        return;
+      }
+
+      // Correção 2: rebuscar stats/skills atualizados do oponente (A) do banco
+      const matchCharacter = await prisma.character.findUnique({
+        where: { userId: match.userId },
+        select: {
+          id: true,
+          physicalAtk: true,
+          physicalDef: true,
+          magicAtk: true,
+          magicDef: true,
+          hp: true,
+          speed: true,
+          characterSkills: {
+            where: { equipped: true },
+            orderBy: { slotIndex: "asc" },
+            select: {
+              slotIndex: true,
+              skill: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  tier: true,
+                  cooldown: true,
+                  target: true,
+                  damageType: true,
+                  basePower: true,
+                  hits: true,
+                  accuracy: true,
+                  effects: true,
+                  mastery: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!matchCharacter || matchCharacter.characterSkills.length === 0) {
+        console.log(
+          `[Socket.io] Oponente ${match.userId} sem personagem/skills validos, colocando ${userId} na fila`
+        );
+
+        addToQueue({
+          userId,
+          socketId: socket.id,
+          characterId: character.id,
+          stats: verifiedStats,
+          skills: verifiedSkills,
+          joinedAt: Date.now(),
+        });
+
+        socket.emit("matchmaking:waiting", {
+          message: "Aguardando oponente...",
+        });
+
+        return;
+      }
+
+      const freshMatchStats: BaseStats = {
+        physicalAtk: matchCharacter.physicalAtk,
+        physicalDef: matchCharacter.physicalDef,
+        magicAtk: matchCharacter.magicAtk,
+        magicDef: matchCharacter.magicDef,
+        hp: matchCharacter.hp,
+        speed: matchCharacter.speed,
+      };
+
+      const freshMatchSkills: EquippedSkill[] = matchCharacter.characterSkills.map((cs) => ({
+        skillId: cs.skill.id,
+        slotIndex: cs.slotIndex as number,
+        skill: {
+          id: cs.skill.id,
+          name: cs.skill.name,
+          description: cs.skill.description,
+          tier: cs.skill.tier,
+          cooldown: cs.skill.cooldown,
+          target: cs.skill.target as SkillTarget,
+          damageType: cs.skill.damageType as DamageType,
+          basePower: cs.skill.basePower,
+          hits: cs.skill.hits,
+          accuracy: cs.skill.accuracy,
+          effects: cs.skill.effects as Skill["effects"],
+          mastery: cs.skill.mastery as SkillMastery,
+        },
+      }));
+
+      const battleId = crypto.randomUUID();
+
+      const state = initBattle({
+        battleId,
+        player1: {
+          userId: match.userId,
+          characterId: matchCharacter.id,
+          stats: freshMatchStats,
+          skills: freshMatchSkills,
+        },
+        player2: {
+          userId,
+          characterId: character.id,
+          stats: verifiedStats,
+          skills: verifiedSkills,
+        },
+      });
+
+      const session: PvpBattleSession = {
+        state,
+        player1SocketId: match.socketId,
+        player2SocketId: socket.id,
+        pendingActions: new Map(),
+        turnTimer: null,
+        disconnectedPlayer: null,
+      };
+
+      setPvpBattle(battleId, session);
+
+      prisma.battle.create({
+        data: {
+          id: battleId,
+          player1Id: match.userId,
+          player2Id: userId,
+          status: "IN_PROGRESS",
+        },
+      }).catch((err) => {
+        console.log(
+          `[Socket.io] Erro ao criar registro de batalha ${battleId}: ${String(err)}`
+        );
+      });
+
+      matchSocket.join(battleId);
+      socket.join(battleId);
+
+      io.to(battleId).emit("matchmaking:found", { battleId });
+
+      console.log(
+        `[Socket.io] Match encontrado: ${match.userId} vs ${userId} -> batalha ${battleId}`
+      );
+
+      startTurnTimer(io, battleId, session);
+    } else {
+      addToQueue({
+        userId,
+        socketId: socket.id,
+        characterId: character.id,
+        stats: verifiedStats,
+        skills: verifiedSkills,
+        joinedAt: Date.now(),
+      });
+
+      socket.emit("matchmaking:waiting", {
+        message: "Aguardando oponente...",
+      });
+
+      console.log(`[Socket.io] ${userId} entrou na fila de matchmaking`);
+    }
+  });
+
+  socket.on("matchmaking:cancel", () => {
+    removeFromQueue(userId);
+    socket.emit("matchmaking:cancelled", {
+      message: "Saiu da fila de matchmaking",
+    });
+    console.log(`[Socket.io] ${userId} saiu da fila de matchmaking`);
+  });
+
+  socket.on("disconnect", () => {
+    removeFromQueue(userId);
+  });
+}

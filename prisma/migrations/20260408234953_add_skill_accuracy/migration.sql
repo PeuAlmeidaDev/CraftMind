@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Skill" ADD COLUMN     "accuracy" INTEGER NOT NULL DEFAULT 100;
