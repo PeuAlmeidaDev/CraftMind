@@ -386,19 +386,31 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
 
     const playerSockets = new Map<string, string>();
     const playerCategories = new Map<string, HabitCategory>();
+    const playerNames = new Map<string, string>();
     for (const entry of matched) {
       playerSockets.set(entry.userId, entry.socketId);
       playerCategories.set(entry.userId, entry.dominantCategory);
     }
 
+    // Buscar nomes dos players no banco
+    const users = await prisma.user.findMany({
+      where: { id: { in: matched.map((m) => m.userId) } },
+      select: { id: true, name: true },
+    });
+    for (const u of users) {
+      playerNames.set(u.id, u.name);
+    }
+
     const session: BossBattleSession = {
       battleId,
       bossId: selectedBoss.id,
+      bossName: selectedBoss.name,
       bossTier: selectedBoss.tier,
       bossAiProfile: selectedBoss.aiProfile,
       state,
       playerSockets,
       playerCategories,
+      playerNames,
       pendingActions: new Map(),
       turnTimer: null,
       matchAccepted: new Set(),
@@ -567,34 +579,17 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
           );
         });
 
-      // Emitir boss:battle:start com estado sanitizado
-      // Team ve tudo dos aliados, boss tem dados limitados
-      const sanitizedBoss = {
-        playerId: session.state.boss.playerId,
-        baseStats: { ...session.state.boss.baseStats },
-        currentHp: session.state.boss.currentHp,
-        statusEffects: [...session.state.boss.statusEffects],
-      };
-
-      const teamState = session.state.team.map((p) => ({ ...p }));
-
+      // Emitir boss:battle:start — o frontend usa boss:battle:request-state
+      // para obter o estado completo, mas enviamos info basica para o redirect
       io.to(roomName).emit("boss:battle:start", {
         battleId,
-        state: {
-          battleId: session.state.battleId,
-          turnNumber: session.state.turnNumber,
-          team: teamState,
-          boss: sanitizedBoss,
-          turnLog: session.state.turnLog,
-          status: session.state.status,
-          winnerId: session.state.winnerId,
-        },
+        bossName: session.bossName,
       });
 
-      // Iniciar turn timer
-      startBossTurnTimer(io, battleId, session);
+      // Turn timer sera iniciado quando os players carregarem a pagina
+      // (via boss:battle:request-state no boss-battle handler)
 
-      console.log(`[Socket.io] Boss battle ${battleId} iniciada`);
+      console.log(`[Socket.io] Boss battle ${battleId} iniciada (aguardando players carregarem)`);
     } else {
       // Notificar contagem
       io.to(Array.from(session.playerSockets.values())).emit(

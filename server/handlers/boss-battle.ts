@@ -18,6 +18,9 @@ import { prisma } from "../lib/prisma";
 const TURN_TIMEOUT_MS = 30_000;
 const RECONNECT_GRACE_MS = 30_000;
 
+// Track which players have loaded the boss-fight page per battle
+const readyPlayers = new Map<string, Set<string>>();
+
 // ---------------------------------------------------------------------------
 // Tipo auxiliar para estado sanitizado do boss (esconder internos)
 // ---------------------------------------------------------------------------
@@ -35,13 +38,19 @@ type SanitizedCoopState = {
   turnLog: CoopBattleState["turnLog"];
   status: CoopBattleState["status"];
   winnerId: CoopBattleState["winnerId"];
+  bossName: string;
+  playerNames: Record<string, string>; // playerId -> name
 };
 
 // ---------------------------------------------------------------------------
 // Sanitizar estado para o time (boss com dados limitados)
 // ---------------------------------------------------------------------------
 
-function sanitizeCoopStateForTeam(state: CoopBattleState): SanitizedCoopState {
+function sanitizeCoopStateForTeam(
+  state: CoopBattleState,
+  bossName: string,
+  playerNames: Record<string, string>,
+): SanitizedCoopState {
   const sanitizedBoss: SanitizedBossState = {
     playerId: state.boss.playerId,
     baseStats: { ...state.boss.baseStats },
@@ -57,6 +66,8 @@ function sanitizeCoopStateForTeam(state: CoopBattleState): SanitizedCoopState {
     turnLog: [...state.turnLog],
     status: state.status,
     winnerId: state.winnerId,
+    bossName,
+    playerNames,
   };
 }
 
@@ -172,7 +183,7 @@ function processBossTurn(
 
   if (result.state.status === "FINISHED") {
     io.to(roomName).emit("boss:battle:state", {
-      state: sanitizeCoopStateForTeam(result.state),
+      state: sanitizeCoopStateForTeam(result.state, session.bossName, Object.fromEntries(session.playerNames)),
       events: result.events,
     });
 
@@ -194,7 +205,7 @@ function processBossTurn(
     );
   } else {
     io.to(roomName).emit("boss:battle:state", {
-      state: sanitizeCoopStateForTeam(result.state),
+      state: sanitizeCoopStateForTeam(result.state, session.bossName, Object.fromEntries(session.playerNames)),
       events: result.events,
     });
 
@@ -244,13 +255,36 @@ export function registerBossBattleHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const { session } = result;
-    const sanitized = sanitizeCoopStateForTeam(session.state);
+    const { battleId, session } = result;
+    const sanitized = sanitizeCoopStateForTeam(
+      session.state,
+      session.bossName,
+      Object.fromEntries(session.playerNames),
+    );
 
     socket.emit("boss:battle:state", {
       state: sanitized,
       events: [],
     });
+
+    // Track which players have loaded the page
+    if (!readyPlayers.has(battleId)) {
+      readyPlayers.set(battleId, new Set());
+    }
+    readyPlayers.get(battleId)!.add(userId);
+
+    // Start turn timer only when ALL alive players have loaded
+    if (session.state.status === "IN_PROGRESS" && !session.turnTimer) {
+      const alivePlayers = session.state.team.filter((p) => p.currentHp > 0);
+      const allReady = alivePlayers.every((p) => readyPlayers.get(battleId)!.has(p.playerId));
+      if (allReady) {
+        readyPlayers.delete(battleId);
+        startBossTurnTimer(io, battleId, session);
+        console.log(`[Socket.io] Todos os players carregaram — turn timer iniciado para batalha ${battleId}`);
+      } else {
+        console.log(`[Socket.io] Player ${userId} carregou batalha ${battleId} (${readyPlayers.get(battleId)!.size}/${alivePlayers.length})`);
+      }
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -499,7 +533,11 @@ export function handleBossReconnection(
 
   // Enviar estado atual para o jogador reconectado
   socket.emit("boss:battle:state", {
-    state: sanitizeCoopStateForTeam(session.state),
+    state: sanitizeCoopStateForTeam(
+      session.state,
+      session.bossName,
+      Object.fromEntries(session.playerNames),
+    ),
     events: [],
   });
 

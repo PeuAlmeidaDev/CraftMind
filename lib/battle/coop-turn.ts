@@ -431,16 +431,40 @@ function findEntity(state: CoopBattleState, playerId: string): PlayerState | und
 // Helper: criar BattleState fake para adaptar funcoes existentes
 // ---------------------------------------------------------------------------
 
+// Dummy opponent used when caster === target (SELF skills) to satisfy
+// getOpponent() which requires two distinct playerIds in the BattleState tuple.
+const DUMMY_PLAYER_ID = "__coop_dummy__";
+
+function makeDummyPlayer(): PlayerState {
+  return {
+    playerId: DUMMY_PLAYER_ID,
+    characterId: DUMMY_PLAYER_ID,
+    baseStats: { physicalAtk: 1, physicalDef: 1, magicAtk: 1, magicDef: 1, hp: 1, speed: 1 },
+    currentHp: 1,
+    stages: { physicalAtk: 0, physicalDef: 0, magicAtk: 0, magicDef: 0, speed: 0, accuracy: 0 },
+    statusEffects: [],
+    buffs: [],
+    vulnerabilities: [],
+    counters: [],
+    cooldowns: {},
+    combo: { skillId: null, stacks: 0 },
+    equippedSkills: [],
+  };
+}
+
 function makeFakeBattleState(
   entity1: PlayerState,
   entity2: PlayerState,
   battleId: string,
   turnNumber: number
 ): BattleState {
+  // If both entities are the same (SELF target), use a dummy as opponent
+  // so that getPlayer/getOpponent don't fail on duplicate IDs
+  const player2 = entity1.playerId === entity2.playerId ? makeDummyPlayer() : entity2;
   return {
     battleId,
     turnNumber,
-    players: [entity1, entity2] as [PlayerState, PlayerState],
+    players: [entity1, player2] as [PlayerState, PlayerState],
     turnLog: [],
     status: "IN_PROGRESS",
     winnerId: null,

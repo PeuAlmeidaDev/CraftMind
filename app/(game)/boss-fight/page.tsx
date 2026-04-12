@@ -29,6 +29,8 @@ type SanitizedCoopState = {
   turnLog: TurnLogEntry[];
   status: "IN_PROGRESS" | "FINISHED";
   winnerId: string | null;
+  bossName: string;
+  playerNames: Record<string, string>;
 };
 
 type BattlePhase = "LOADING" | "BATTLE" | "RESULT";
@@ -60,7 +62,8 @@ export default function BossFightPage() {
 
   // Battle state
   const [boss, setBoss] = useState<SanitizedBossState | null>(null);
-  const [bossName] = useState(bossNameParam ?? "Boss");
+  const [bossName, setBossName] = useState(bossNameParam ?? "Boss");
+  const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [team, setTeam] = useState<PlayerState[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string>("");
   const [turnNumber, setTurnNumber] = useState(1);
@@ -113,6 +116,18 @@ export default function BossFightPage() {
         // Network error — continue without profile
       });
   }, []);
+
+  // -------------------------------------------------------------------------
+  // Re-evaluate canAct when currentPlayerId is set (profile loads after state)
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!currentPlayerId || team.length === 0) return;
+    const me = team.find((p) => p.playerId === currentPlayerId);
+    if (me && me.currentHp > 0 && phase === "BATTLE") {
+      setCanAct(true);
+    }
+  }, [currentPlayerId, team, phase]);
 
   // -------------------------------------------------------------------------
   // Turn timer
@@ -185,26 +200,14 @@ export default function BossFightPage() {
 
     socketRef.current = socket;
 
-    // --- boss:battle:start — initial state (may have already fired, check) ---
-
-    const handleBattleStart = (data: { battleId: string; state: SanitizedCoopState }) => {
-      const { state } = data;
-      setBoss(state.boss);
-      setTeam(state.team);
-      setTurnNumber(state.turnNumber);
-      setEvents(state.turnLog);
-      setActedPlayers(new Set());
-      setPhase("BATTLE");
-      setCanAct(true);
-      startTurnTimer();
-    };
-
-    // --- boss:battle:state — turn result (after each turn) ---
+    // --- boss:battle:state — turn result / initial state (via request-state) ---
 
     const handleBattleState = (data: { state: SanitizedCoopState; events: TurnLogEntry[] }) => {
       const { state, events: turnEvents } = data;
       setBoss(state.boss);
       setTeam(state.team);
+      if (state.bossName) setBossName(state.bossName);
+      if (state.playerNames) setPlayerNames(state.playerNames);
       setTurnNumber(state.turnNumber);
       setEvents((prev) => [...prev, ...turnEvents]);
       setActedPlayers(new Set());
@@ -253,7 +256,6 @@ export default function BossFightPage() {
       console.error("[BossFight] Error:", data.message);
     };
 
-    socket.on("boss:battle:start", handleBattleStart);
     socket.on("boss:battle:state", handleBattleState);
     socket.on("boss:action:received", handleActionReceived);
     socket.on("boss:battle:end", handleBattleEnd);
@@ -265,7 +267,6 @@ export default function BossFightPage() {
     return () => {
       stopTurnTimer();
       // Remove only battle-specific listeners, don't disconnect (queue hook owns the socket)
-      socket.off("boss:battle:start", handleBattleStart);
       socket.off("boss:battle:state", handleBattleState);
       socket.off("boss:action:received", handleActionReceived);
       socket.off("boss:battle:end", handleBattleEnd);
@@ -312,7 +313,7 @@ export default function BossFightPage() {
 
   const teamPlayerInfo: TeamPlayerInfo[] = team.map((p, idx) => ({
     playerId: p.playerId,
-    name: p.playerId === currentPlayerId ? playerName : `Jogador ${idx + 1}`,
+    name: p.playerId === currentPlayerId ? playerName : (playerNames[p.playerId] ?? `Jogador ${idx + 1}`),
     currentHp: p.currentHp,
     maxHp: p.baseStats.hp,
     statusEffects: p.statusEffects.map((se) => ({

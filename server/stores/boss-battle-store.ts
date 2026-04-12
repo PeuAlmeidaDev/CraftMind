@@ -6,11 +6,13 @@ import type { CoopBattleState, CoopTurnAction } from "../../lib/battle/coop-type
 export type BossBattleSession = {
   battleId: string;
   bossId: string;
+  bossName: string;
   bossTier: number;
   bossAiProfile: string;
   state: CoopBattleState;
   playerSockets: Map<string, string>; // userId -> socketId
   playerCategories: Map<string, HabitCategory>; // userId -> dominantCategory
+  playerNames: Map<string, string>; // userId -> display name
   pendingActions: Map<string, CoopTurnAction>;
   turnTimer: ReturnType<typeof setTimeout> | null;
   matchAccepted: Set<string>;
