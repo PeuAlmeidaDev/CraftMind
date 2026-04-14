@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getToken, authFetchOptions } from "@/lib/client-auth";
 import type { Character } from "@/types/character";
 
 type Props = {
@@ -62,12 +63,14 @@ export default function AttributePanel({ character, onDistribute }: Props) {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("access_token");
+      const token = getToken();
+      const opts = authFetchOptions(token ?? "");
       const res = await fetch("/api/character/distribute-points", {
+        ...opts,
         method: "POST",
         headers: {
+          ...(opts.headers as Record<string, string>),
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ distribution }),
       });

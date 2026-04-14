@@ -3,7 +3,6 @@
 import crypto from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
-import type { Skill, SkillTarget, DamageType, SkillMastery } from "../../types/skill";
 import { initBattle } from "../../lib/battle/init";
 import {
   addToQueue,
@@ -15,6 +14,11 @@ import { prisma } from "../lib/prisma";
 import { setPvpBattle, getPlayerBattle } from "../stores/pvp-store";
 import type { PvpBattleSession } from "../stores/pvp-store";
 import { startTurnTimer } from "./battle";
+import {
+  convertToEquippedSkills,
+  extractBaseStats,
+  CHARACTER_SKILLS_SELECT,
+} from "../lib/convert-skills";
 
 type JoinPayload = {
   characterId: string;
@@ -58,6 +62,23 @@ function isValidJoinPayload(payload: unknown): payload is JoinPayload {
   );
 }
 
+/** Busca character com stats e skills equipadas do banco */
+async function fetchCharacterForBattle(userId: string) {
+  return prisma.character.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      physicalAtk: true,
+      physicalDef: true,
+      magicAtk: true,
+      magicDef: true,
+      hp: true,
+      speed: true,
+      characterSkills: CHARACTER_SKILLS_SELECT,
+    },
+  });
+}
+
 export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
   const userId = socket.data.userId;
 
@@ -84,41 +105,7 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
     }
 
     // Buscar character real do banco (ignora stats/skills do payload do client)
-    const character = await prisma.character.findUnique({
-      where: { userId },
-      select: {
-        id: true,
-        physicalAtk: true,
-        physicalDef: true,
-        magicAtk: true,
-        magicDef: true,
-        hp: true,
-        speed: true,
-        characterSkills: {
-          where: { equipped: true },
-          orderBy: { slotIndex: "asc" },
-          select: {
-            slotIndex: true,
-            skill: {
-              select: {
-                id: true,
-                name: true,
-                description: true,
-                tier: true,
-                cooldown: true,
-                target: true,
-                damageType: true,
-                basePower: true,
-                hits: true,
-                accuracy: true,
-                effects: true,
-                mastery: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const character = await fetchCharacterForBattle(userId);
 
     if (!character || character.characterSkills.length === 0) {
       socket.emit("matchmaking:error", {
@@ -127,38 +114,13 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const verifiedStats: BaseStats = {
-      physicalAtk: character.physicalAtk,
-      physicalDef: character.physicalDef,
-      magicAtk: character.magicAtk,
-      magicDef: character.magicDef,
-      hp: character.hp,
-      speed: character.speed,
-    };
-
-    const verifiedSkills: EquippedSkill[] = character.characterSkills.map((cs) => ({
-      skillId: cs.skill.id,
-      slotIndex: cs.slotIndex as number,
-      skill: {
-        id: cs.skill.id,
-        name: cs.skill.name,
-        description: cs.skill.description,
-        tier: cs.skill.tier,
-        cooldown: cs.skill.cooldown,
-        target: cs.skill.target as SkillTarget,
-        damageType: cs.skill.damageType as DamageType,
-        basePower: cs.skill.basePower,
-        hits: cs.skill.hits,
-        accuracy: cs.skill.accuracy,
-        effects: cs.skill.effects as Skill["effects"],
-        mastery: cs.skill.mastery as SkillMastery,
-      },
-    }));
+    const verifiedStats = extractBaseStats(character);
+    const verifiedSkills = convertToEquippedSkills(character.characterSkills);
 
     const match = findMatch(userId);
 
     if (match) {
-      // Correção 1: verificar se o socket do oponente ainda existe
+      // Verificar se o socket do oponente ainda existe
       const matchSocket = io.sockets.sockets.get(match.socketId);
 
       if (!matchSocket) {
@@ -182,47 +144,26 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
         return;
       }
 
-      // Correção 2: rebuscar stats/skills atualizados do oponente (A) do banco
-      const matchCharacter = await prisma.character.findUnique({
-        where: { userId: match.userId },
-        select: {
-          id: true,
-          physicalAtk: true,
-          physicalDef: true,
-          magicAtk: true,
-          magicDef: true,
-          hp: true,
-          speed: true,
-          characterSkills: {
-            where: { equipped: true },
-            orderBy: { slotIndex: "asc" },
-            select: {
-              slotIndex: true,
-              skill: {
-                select: {
-                  id: true,
-                  name: true,
-                  description: true,
-                  tier: true,
-                  cooldown: true,
-                  target: true,
-                  damageType: true,
-                  basePower: true,
-                  hits: true,
-                  accuracy: true,
-                  effects: true,
-                  mastery: true,
-                },
-              },
-            },
-          },
-        },
-      });
+      // Rebuscar stats/skills atualizados do oponente do banco
+      const matchCharacter = await fetchCharacterForBattle(match.userId);
 
       if (!matchCharacter || matchCharacter.characterSkills.length === 0) {
         console.log(
           `[Socket.io] Oponente ${match.userId} sem personagem/skills validos, colocando ${userId} na fila`
         );
+
+        // Re-adicionar oponente na fila para nao ficar no limbo
+        // (findMatch ja o removeu)
+        if (matchSocket) {
+          addToQueue({
+            userId: match.userId,
+            socketId: match.socketId,
+            characterId: match.characterId,
+            stats: match.stats,
+            skills: match.skills,
+            joinedAt: match.joinedAt,
+          });
+        }
 
         addToQueue({
           userId,
@@ -240,33 +181,8 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
         return;
       }
 
-      const freshMatchStats: BaseStats = {
-        physicalAtk: matchCharacter.physicalAtk,
-        physicalDef: matchCharacter.physicalDef,
-        magicAtk: matchCharacter.magicAtk,
-        magicDef: matchCharacter.magicDef,
-        hp: matchCharacter.hp,
-        speed: matchCharacter.speed,
-      };
-
-      const freshMatchSkills: EquippedSkill[] = matchCharacter.characterSkills.map((cs) => ({
-        skillId: cs.skill.id,
-        slotIndex: cs.slotIndex as number,
-        skill: {
-          id: cs.skill.id,
-          name: cs.skill.name,
-          description: cs.skill.description,
-          tier: cs.skill.tier,
-          cooldown: cs.skill.cooldown,
-          target: cs.skill.target as SkillTarget,
-          damageType: cs.skill.damageType as DamageType,
-          basePower: cs.skill.basePower,
-          hits: cs.skill.hits,
-          accuracy: cs.skill.accuracy,
-          effects: cs.skill.effects as Skill["effects"],
-          mastery: cs.skill.mastery as SkillMastery,
-        },
-      }));
+      const freshMatchStats = extractBaseStats(matchCharacter);
+      const freshMatchSkills = convertToEquippedSkills(matchCharacter.characterSkills);
 
       const battleId = crypto.randomUUID();
 
@@ -297,18 +213,22 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
 
       setPvpBattle(battleId, session);
 
-      prisma.battle.create({
-        data: {
-          id: battleId,
-          player1Id: match.userId,
-          player2Id: userId,
-          status: "IN_PROGRESS",
-        },
-      }).catch((err) => {
-        console.log(
+      try {
+        await prisma.battle.create({
+          data: {
+            id: battleId,
+            player1Id: match.userId,
+            player2Id: userId,
+            status: "IN_PROGRESS",
+          },
+        });
+      } catch (err) {
+        console.error(
           `[Socket.io] Erro ao criar registro de batalha ${battleId}: ${String(err)}`
         );
-      });
+        // Batalha in-memory ja existe, persistencia final pode falhar
+        // mas nao impede o jogo de funcionar
+      }
 
       matchSocket.join(battleId);
       socket.join(battleId);

@@ -15,47 +15,7 @@ import type {
   OnExpirePayload,
 } from "./types";
 import { clampStage, getPlayer, getOpponent, generateId } from "./utils";
-
-// ---------------------------------------------------------------------------
-// Helpers para resolver target
-// ---------------------------------------------------------------------------
-
-function resolveTargets(
-  effectTarget: string,
-  caster: PlayerState,
-  opponent: PlayerState
-): PlayerState[] {
-  switch (effectTarget) {
-    case "SELF":
-    case "SINGLE_ALLY":
-    case "ALL_ALLIES":
-      return [caster];
-    case "SINGLE_ENEMY":
-    case "ALL_ENEMIES":
-      return [opponent];
-    case "ALL":
-      return [caster, opponent];
-    default:
-      return [opponent];
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers para verificar se stat e um StageStat
-// ---------------------------------------------------------------------------
-
-const STAGE_STATS = new Set<string>([
-  "physicalAtk",
-  "physicalDef",
-  "magicAtk",
-  "magicDef",
-  "speed",
-  "accuracy",
-]);
-
-function isStageStat(stat: string): stat is StageStat {
-  return STAGE_STATS.has(stat);
-}
+import { isStageStat, resolveTargetsPvP } from "./shared-helpers";
 
 // ---------------------------------------------------------------------------
 // Aplicacao de efeitos individuais
@@ -325,10 +285,10 @@ function applyRecoil(
   totalDamage: number,
   turnNumber: number
 ): TurnLogEntry {
-  const recoilDamage = Math.max(
-    1,
-    Math.floor(totalDamage * (effect.percentOfDamage / 100))
-  );
+  // Sem dano causado = sem recuo (evita dano fantasma de 1 HP)
+  const recoilDamage = totalDamage > 0
+    ? Math.max(1, Math.floor(totalDamage * (effect.percentOfDamage / 100)))
+    : 0;
   caster.currentHp = Math.max(0, caster.currentHp - recoilDamage);
 
   return {
@@ -351,7 +311,8 @@ function applySelfDebuff(
     source: "DEBUFF" as BuffSource,
     stat: effect.stat as StageStat | "priority",
     value: effect.value,
-    remainingTurns: effect.duration,
+    // +1 para compensar o tickEndOfTurn que decrementa no fim do mesmo turno
+    remainingTurns: effect.duration + 1,
   };
 
   if (isStageStat(effect.stat)) {
@@ -415,7 +376,7 @@ export function applyEffects(params: {
 
     switch (effect.type) {
       case "BUFF": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           const entry = applyBuff(effect, target, turnNumber, undefined, randomFn);
           if (entry) entries.push(entry);
@@ -424,7 +385,7 @@ export function applyEffects(params: {
       }
 
       case "DEBUFF": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           const entry = applyDebuff(effect, target, turnNumber, undefined, randomFn);
           if (entry) entries.push(entry);
@@ -433,7 +394,7 @@ export function applyEffects(params: {
       }
 
       case "STATUS": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           const entry = applyStatus(effect, target, turnNumber, randomFn);
           if (entry) entries.push(entry);
@@ -442,7 +403,7 @@ export function applyEffects(params: {
       }
 
       case "VULNERABILITY": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           const entry = applyVulnerability(effect, target, turnNumber, randomFn);
           if (entry) entries.push(entry);
@@ -451,7 +412,7 @@ export function applyEffects(params: {
       }
 
       case "PRIORITY_SHIFT": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           entries.push(applyPriorityShift(effect, target, turnNumber));
         }
@@ -459,7 +420,7 @@ export function applyEffects(params: {
       }
 
       case "COUNTER": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           entries.push(applyCounter(effect, target, turnNumber));
         }
@@ -467,7 +428,7 @@ export function applyEffects(params: {
       }
 
       case "HEAL": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           entries.push(applyHeal(effect, target, turnNumber));
         }
@@ -475,7 +436,7 @@ export function applyEffects(params: {
       }
 
       case "CLEANSE": {
-        const targets = resolveTargets(effect.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.target, caster, opponent);
         for (const target of targets) {
           entries.push(applyCleanse(effect, target, turnNumber));
         }
@@ -493,7 +454,7 @@ export function applyEffects(params: {
       }
 
       case "ON_EXPIRE": {
-        const targets = resolveTargets(effect.trigger.target, caster, opponent);
+        const targets = resolveTargetsPvP(effect.trigger.target, caster, opponent);
         for (const target of targets) {
           const entry = applyOnExpire(effect, target, turnNumber, randomFn);
           if (entry) entries.push(entry);

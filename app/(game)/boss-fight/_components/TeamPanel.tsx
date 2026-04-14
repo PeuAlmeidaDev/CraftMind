@@ -1,5 +1,9 @@
 "use client";
 
+import Image from "next/image";
+import { getHouseAssets } from "@/lib/houses/house-assets";
+import type { HouseName } from "@/types/house";
+
 type PlayerStatusEffect = {
   status: string;
   remainingTurns: number;
@@ -12,6 +16,8 @@ export type TeamPlayerInfo = {
   maxHp: number;
   statusEffects: PlayerStatusEffect[];
   isAlive: boolean;
+  avatarUrl?: string | null;
+  houseName?: string;
 };
 
 type TeamPanelProps = {
@@ -57,67 +63,105 @@ export default function TeamPanel({
               background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
             }}
           >
-            {/* Name + badges */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-semibold text-white truncate">
-                {displayName}
-              </span>
-
-              {!player.isAlive && (
-                <span className="text-[10px] rounded-full px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 font-semibold shrink-0">
-                  Morto
-                </span>
-              )}
-
-              {player.isAlive && hasActed && (
-                <span className="text-[10px] rounded-full px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">
-                  Agiu
-                </span>
-              )}
-
-              {player.isAlive && !hasActed && (
-                <span className="text-[10px] rounded-full px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold shrink-0">
-                  Pensando...
-                </span>
-              )}
-            </div>
-
-            {/* HP bar */}
-            <div>
-              <div className="w-full h-2.5 rounded-full bg-emerald-950/30 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${hpPercent}%`,
-                    background: "linear-gradient(to right, #059669, #10b981)",
-                  }}
+            <div className="flex items-start gap-3">
+              {/* Avatar */}
+              {player.avatarUrl ? (
+                <Image
+                  src={player.avatarUrl}
+                  alt={displayName}
+                  width={32}
+                  height={32}
+                  className="rounded-full object-cover border border-[var(--border-subtle)] shrink-0"
                 />
-              </div>
-              <p className="text-[10px] text-gray-500 mt-0.5">
-                HP: {player.currentHp} / {player.maxHp}
-              </p>
-            </div>
+              ) : (
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 border border-[var(--border-subtle)]"
+                  style={{ backgroundColor: "var(--accent-primary)" }}
+                >
+                  {(displayName[0] ?? "?").toUpperCase()}
+                </div>
+              )}
 
-            {/* Status effects */}
-            {player.statusEffects.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {player.statusEffects.map((effect) => {
-                  const config = STATUS_CONFIG[effect.status];
-                  const label = config?.label ?? effect.status;
-                  const color =
-                    config?.color ?? "bg-gray-500/20 text-gray-400 border-gray-500/30";
+              {/* Conteudo (nome, HP, status) */}
+              <div className="flex-1 min-w-0">
+                {/* Name + house badge + status badges */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-semibold text-white truncate">
+                    {displayName}
+                  </span>
 
-                  return (
-                    <span
-                      key={effect.status}
-                      className={`text-[9px] rounded-full px-1.5 py-0.5 border animate-pulse ${color}`}
-                    >
-                      {label} ({effect.remainingTurns})
+                  {/* Mini brasao/bandeira da casa */}
+                  {player.houseName && (() => {
+                    const assets = getHouseAssets(player.houseName as HouseName);
+                    const src = assets.brasao ?? assets.bandeira;
+                    return (
+                      <Image
+                        src={src}
+                        alt={player.houseName}
+                        width={20}
+                        height={20}
+                        className="object-contain shrink-0"
+                      />
+                    );
+                  })()}
+
+                  {!player.isAlive && (
+                    <span className="text-[10px] rounded-full px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 font-semibold shrink-0">
+                      Morto
                     </span>
-                  );
-                })}
+                  )}
+
+                  {player.isAlive && hasActed && (
+                    <span className="text-[10px] rounded-full px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">
+                      Agiu
+                    </span>
+                  )}
+
+                  {player.isAlive && !hasActed && (
+                    <span className="text-[10px] rounded-full px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold shrink-0">
+                      Pensando...
+                    </span>
+                  )}
+                </div>
+
+                {/* HP bar */}
+                <div>
+                  <div className="w-full h-2.5 rounded-full bg-emerald-950/30 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${hpPercent}%`,
+                        background: "linear-gradient(to right, #059669, #10b981)",
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    HP: {player.currentHp} / {player.maxHp}
+                  </p>
+                </div>
+
+                {/* Status effects */}
+                {player.statusEffects.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {player.statusEffects.map((effect) => {
+                      const config = STATUS_CONFIG[effect.status];
+                      const label = config?.label ?? effect.status;
+                      const color =
+                        config?.color ?? "bg-gray-500/20 text-gray-400 border-gray-500/30";
+
+                      return (
+                        <span
+                          key={effect.status}
+                          className={`text-[9px] rounded-full px-1.5 py-0.5 border animate-pulse ${color}`}
+                        >
+                          {label} ({effect.remainingTurns})
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         );
       })}

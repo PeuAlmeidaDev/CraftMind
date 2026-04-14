@@ -26,8 +26,13 @@ export function setPvpBattle(battleId: string, session: PvpBattleSession): void 
 
 export function removePvpBattle(battleId: string): void {
   const session = battles.get(battleId);
-  if (session?.turnTimer) {
+  if (!session) return;
+
+  if (session.turnTimer) {
     clearTimeout(session.turnTimer);
+  }
+  if (session.disconnectedPlayer) {
+    clearTimeout(session.disconnectedPlayer.disconnectTimer);
   }
   battles.delete(battleId);
 }

@@ -6,7 +6,8 @@ import Link from "next/link";
 import type { House, HouseName } from "@/types/house";
 import type { Character } from "@/types/character";
 import { applyHouseTheme } from "@/lib/theme";
-import { useMusicPlayer, type MusicControls } from "./_hooks/useMusicPlayer";
+import { clearAuthAndRedirect } from "@/lib/client-auth";
+import { useMusicPlayer } from "./_hooks/useMusicPlayer";
 import { BossQueueProvider } from "./_hooks/useBossQueue";
 import BossQueueBar from "./_components/BossQueueBar";
 import BossMatchModal from "./_components/BossMatchModal";
@@ -32,13 +33,6 @@ const HOUSE_DISPLAY: Record<string, string> = {
   NEREID: "Nereid",
 };
 
-function clearAuthAndRedirect(router: ReturnType<typeof useRouter>) {
-  localStorage.removeItem("access_token");
-  document.cookie =
-    "access_token=; path=/; max-age=0; samesite=strict";
-  router.push("/login");
-}
-
 export default function GameLayout({
   children,
 }: {
@@ -53,44 +47,56 @@ export default function GameLayout({
   const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight")) ? "battle" : "ambient";
   const music = useMusicPlayer(musicContext);
 
-  const fetchProfile = useCallback(async () => {
-    const token = localStorage.getItem("access_token");
+  const fetchProfile = useCallback(
+    async (signal?: AbortSignal) => {
+      const token = localStorage.getItem("access_token");
 
-    if (!token) {
-      clearAuthAndRedirect(router);
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/user/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.status === 401) {
+      if (!token) {
         clearAuthAndRedirect(router);
         return;
       }
 
-      if (!res.ok) {
-        setLoading(false);
-        return;
-      }
+      try {
+        const res = await fetch("/api/user/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+          signal,
+        });
 
-      const json = (await res.json()) as { data: UserProfile };
-      setUser(json.data);
+        if (signal?.aborted) return;
 
-      if (json.data.house?.name) {
-        applyHouseTheme(json.data.house.name as HouseName);
+        if (res.status === 401) {
+          clearAuthAndRedirect(router);
+          return;
+        }
+
+        if (!res.ok) {
+          setLoading(false);
+          return;
+        }
+
+        const json = (await res.json()) as { data: UserProfile };
+        if (signal?.aborted) return;
+
+        setUser(json.data);
+
+        if (json.data.house?.name) {
+          applyHouseTheme(json.data.house.name as HouseName);
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Erro de rede -- manter na pagina mas sem dados
+      } finally {
+        if (!signal?.aborted) setLoading(false);
       }
-    } catch {
-      // Erro de rede -- manter na pagina mas sem dados
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
-    fetchProfile();
+    const controller = new AbortController();
+    fetchProfile(controller.signal);
+    return () => controller.abort();
   }, [fetchProfile]);
 
   function handleLogout() {

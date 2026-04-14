@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Habit, HabitCategory, ApiSuccess, House, HabitSummary } from "@/types";
+import { PasswordRequirements } from "./_components/PasswordRequirements";
+import { StepIndicator } from "./_components/StepIndicator";
+import { HabitCard } from "./_components/HabitCard";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -111,131 +114,6 @@ function validateStep1(
   if (password !== confirmPassword) errors.confirmPassword = "As senhas nao coincidem";
   if (!confirmPassword) errors.confirmPassword = "Confirme sua senha";
   return errors;
-}
-
-// ── Password requirement indicator ─────────────────────────────────────────
-
-function PasswordRequirements({ password }: { password: string }) {
-  const requirements = [
-    { label: "8+ caracteres", met: password.length >= 8 },
-    { label: "1 letra maiuscula", met: /[A-Z]/.test(password) },
-    { label: "1 numero", met: /[0-9]/.test(password) },
-  ];
-
-  return (
-    <div className="mt-2 flex flex-wrap gap-3">
-      {requirements.map((req) => (
-        <span
-          key={req.label}
-          className={`text-xs transition-colors duration-200 ${
-            req.met ? "text-emerald-400" : "text-gray-500"
-          }`}
-        >
-          <span className="mr-1">{req.met ? "\u2713" : "\u2022"}</span>
-          {req.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── Step indicator ─────────────────────────────────────────────────────────
-
-function StepIndicator({ current }: { current: Step }) {
-  const steps = [1, 2, 3] as const;
-  const labels = ["Dados", "Habitos", "Resultado"];
-
-  return (
-    <div className="mb-8 flex items-center justify-center">
-      {steps.map((step, i) => (
-        <div key={step} className="flex items-center">
-          <div className="flex flex-col items-center">
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-all duration-300 ${
-                step < current
-                  ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white"
-                  : step === current
-                    ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/20 text-[var(--accent-primary)]"
-                    : "border-[var(--border-subtle)] bg-transparent text-gray-500"
-              }`}
-            >
-              {step < current ? "\u2713" : step}
-            </div>
-            <span
-              className={`mt-1.5 text-[11px] font-medium transition-colors duration-300 ${
-                step <= current ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              {labels[i]}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div
-              className={`mx-2 mb-5 h-0.5 w-12 rounded transition-colors duration-300 sm:w-16 ${
-                step < current ? "bg-[var(--accent-primary)]" : "bg-[var(--border-subtle)]"
-              }`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Habit card ─────────────────────────────────────────────────────────────
-
-function HabitCard({
-  habit,
-  selected,
-  onToggle,
-}: {
-  habit: Habit;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const dotColor = CATEGORY_BG[habit.category];
-
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`group relative w-full rounded-lg border p-3 text-left transition-all duration-200 ${
-        selected
-          ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-[0_0_12px_rgba(124,58,237,0.25)]"
-          : "border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-gray-600 hover:brightness-110"
-      }`}
-    >
-      <div className="flex items-start gap-2.5">
-        <div
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-all duration-200 ${
-            selected
-              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]"
-              : "border-gray-600 bg-transparent"
-          }`}
-        >
-          {selected && (
-            <svg
-              className="h-3 w-3 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={3}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-gray-200">{habit.name}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{habit.description}</p>
-        </div>
-      </div>
-      <div
-        className={`absolute right-2 top-2 h-2 w-2 rounded-full ${dotColor}`}
-        aria-hidden="true"
-      />
-    </button>
-  );
 }
 
 // ── Main page component ────────────────────────────────────────────────────
@@ -358,12 +236,13 @@ export default function RegisterPage() {
 
       const data = (json as ApiSuccess<RegisterResult>).data;
 
-      // Salvar token no localStorage
+      // O backend ja seta o cookie httpOnly access_token via Set-Cookie.
+      // Mantemos localStorage apenas porque as paginas (game)/ ainda leem
+      // daqui para montar o header Authorization.
       localStorage.setItem("access_token", data.accessToken);
 
-      // Salvar token em cookie para o middleware
-      document.cookie = `access_token=${data.accessToken}; path=/; max-age=${60 * 15}; SameSite=Strict`;
-
+      setPassword("");
+      setConfirmPassword("");
       setResult(data);
       goToStep(3);
     } catch {

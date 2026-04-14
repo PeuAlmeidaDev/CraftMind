@@ -40,7 +40,7 @@ export default function SkillLoadout({ equipped, onSlotClick, onUnequip }: Props
                 role="button"
                 tabIndex={0}
                 onClick={() => onSlotClick(idx)}
-                onKeyDown={(e) => { if (e.key === "Enter") onSlotClick(idx); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSlotClick(idx); } }}
                 className="relative min-h-[80px] cursor-pointer rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3 text-left hover:brightness-110"
               >
                 <button

@@ -10,11 +10,11 @@ Componentes Client-side (`"use client"`) usados exclusivamente pela pagina `/bat
 | `BattleArena.tsx` | Layout responsivo de batalha: desktop (cards com imagem) e mobile (barras compactas). Renderiza mob, player, HP, status effects, BattleLog e SkillBar inline. Shake animation via styled-jsx. Usa MobPlaceholder para retrato do mob e bandeira da casa via next/image. |
 | `SkillBar.tsx` | Grid 2x2 com 4 slots de skill + botao pular turno |
 | `BattleLog.tsx` | Feed de eventos do turno com scroll automatico |
-| `BattleResult.tsx` | Tela de resultado (vitoria/derrota/empate) com EXP, level up e SFX |
-| `AttackEffect.tsx` | Efeito visual de slash SVG sobre o mob ao receber dano do jogador. Extensivel via `SKILL_EFFECTS` por skillId. z-20 (abaixo dos floating numbers z-30). |
+| `BattleResult.tsx` | **NAO USADO** — resultado agora e inline em `page.tsx`. Mantido como referencia para possivel extracao futura. |
+| `AttackEffect.tsx` | **NAO IMPORTADO** — efeito visual de slash. Mantido para uso futuro. |
 | `MobPlaceholder.tsx` | Placeholder visual para retrato do mob — gradiente por tier + inicial do nome |
 | `StatusParticles.tsx` | Particulas visuais por status effect (BURN, FROZEN, POISON, STUN, SLOW). Renderizado apenas no desktop, dentro da area de imagem dos cards. Sem libs externas, posicoes fixas (sem Math.random). |
-| `DefeatSequence.tsx` | Sequencia de derrota do mob: grayscale -> cracks SVG -> crumble fragments. Renderizado dentro dos cards do mob (desktop e mobile). Dispara callback `onComplete` apos 1.5s. BattleArena envolve com flash de vitoria (amber, z-50, 0.4s). |
+| `DefeatSequence.tsx` | **NAO IMPORTADO** — sequencia de derrota do mob. Mantido para uso futuro. |
 
 ## Convencoes
 

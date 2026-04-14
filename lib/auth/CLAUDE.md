@@ -7,7 +7,8 @@
 | `password.ts` | Hash e verificacao de senhas com bcryptjs (12 rounds) |
 | `jwt.ts` | Assinatura e verificacao de JWT (access + refresh) via jose (Edge-compatible) |
 | `verify-session.ts` | Helper centralizado para extrair e verificar token de uma Request. Busca primeiro no header `Authorization: Bearer`, depois no cookie `access_token`. Lanca `AuthenticationError` com `code` e `statusCode` tipados |
-| `refresh-token.ts` | Persistencia e rotacao segura de refresh tokens no banco. Exporta `createPersistedRefreshToken()`, `rotateRefreshToken()` e `revokeRefreshTokenByValue()`. Usa hash SHA-256 do token (nunca armazena o JWT raw). Implementa rotacao por familia — reuso de token revogado invalida toda a familia (deteccao de roubo) |
+| `refresh-token.ts` | Persistencia e rotacao segura de refresh tokens no banco. Exporta `createPersistedRefreshToken()`, `rotateRefreshToken()` e `revokeRefreshTokenByValue()`. Usa hash SHA-256 do token (nunca armazena o JWT raw). Implementa rotacao por familia — reuso de token revogado invalida toda a familia (deteccao de roubo). Rotacao usa `updateMany` atomico com `revoked: false` para evitar race condition |
+| `set-auth-cookies.ts` | Helper centralizado para definir/limpar cookies de autenticacao. Exporta `setAccessTokenCookie()`, `setRefreshTokenCookie()` e `clearAuthCookies()`. Garante atributos consistentes (httpOnly, secure em prod, sameSite strict) em todas as rotas de auth |
 
 ## Decisoes de design
 

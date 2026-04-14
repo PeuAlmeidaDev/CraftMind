@@ -4,15 +4,12 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { expToNextLevel } from "@/lib/exp/formulas";
 import { getHouseAssets } from "@/lib/houses/house-assets";
+import { getToken } from "@/lib/client-auth";
 import type { Character } from "@/types/character";
 import type { HouseName } from "@/types/house";
 
-const HOUSE_EMOJI: Record<string, string> = {
-  ARION: "\u{1F981}",
-  LYCUS: "\u{1F43A}",
-  NOCTIS: "\u{1F989}",
-  NEREID: "\u{1F9DC}",
-};
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 
 const HOUSE_DISPLAY: Record<string, string> = {
   ARION: "Arion",
@@ -56,17 +53,29 @@ export default function CharacterHeader({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!ALLOWED_TYPES.has(file.type)) {
+      setUploadError("Formato invalido. Use JPEG, PNG ou WebP.");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError("Imagem muito grande. Maximo 2 MB.");
+      return;
+    }
+
     setUploading(true);
+    setUploadError(null);
 
     try {
+      const token = getToken() ?? "";
+
       const formData = new FormData();
       formData.append("file", file);
-
-      const token = localStorage.getItem("access_token") ?? "";
 
       const res = await fetch("/api/user/avatar", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
         body: formData,
       });
 
@@ -77,7 +86,6 @@ export default function CharacterHeader({
 
       const json = (await res.json()) as { data: { avatarUrl: string } };
       onAvatarChange(json.data.avatarUrl);
-      setUploadError(null);
     } catch {
       setUploadError("Erro de conexao. Tente novamente.");
     } finally {

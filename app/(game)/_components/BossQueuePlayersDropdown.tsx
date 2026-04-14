@@ -64,8 +64,14 @@ export default function BossQueuePlayersDropdown({
 
   const lastFetchRef = useRef<number>(0);
   const lastCategoryRef = useRef<string>("");
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchPlayers = useCallback(async () => {
+    // Cancel any in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const token = getToken();
     if (!token) return;
 
@@ -75,7 +81,11 @@ export default function BossQueuePlayersDropdown({
     try {
       const res = await fetch(
         `/api/battle/coop/category-players?category=${encodeURIComponent(category)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+          signal: controller.signal,
+        },
       );
 
       if (!res.ok) {
@@ -88,10 +98,11 @@ export default function BossQueuePlayersDropdown({
       setTotalCount(json.data.totalCount);
       lastFetchRef.current = Date.now();
       lastCategoryRef.current = category;
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setError("Erro de conexao");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [category]);
 
@@ -104,6 +115,10 @@ export default function BossQueuePlayersDropdown({
     if (isStale || categoryChanged) {
       fetchPlayers();
     }
+
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [isOpen, category, fetchPlayers]);
 
   if (!isOpen) return null;

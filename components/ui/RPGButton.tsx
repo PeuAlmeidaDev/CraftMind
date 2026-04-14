@@ -1,6 +1,6 @@
 "use client";
 
-interface RPGButtonProps {
+type RPGButtonProps = {
   children: React.ReactNode;
   type?: "button" | "submit";
   onClick?: () => void;
@@ -9,7 +9,7 @@ interface RPGButtonProps {
   variant?: "primary" | "secondary";
   fullWidth?: boolean;
   className?: string;
-}
+};
 
 export default function RPGButton({
   children,

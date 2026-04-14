@@ -4,8 +4,8 @@ import crypto from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import type { HabitCategory } from "@prisma/client";
 import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
-import type { Skill, SkillTarget, DamageType, SkillMastery } from "../../types/skill";
 import type { CoopBattlePlayerConfig } from "../../lib/battle/coop-types";
+import { convertToEquippedSkills, extractBaseStats } from "../lib/convert-skills";
 import { initCoopBattle } from "../../lib/battle/coop-turn";
 import { isInQueue } from "../stores/queue-store";
 import { getPlayerBattle } from "../stores/pvp-store";
@@ -211,33 +211,8 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
       return;
     }
 
-    const verifiedStats: BaseStats = {
-      physicalAtk: character.physicalAtk,
-      physicalDef: character.physicalDef,
-      magicAtk: character.magicAtk,
-      magicDef: character.magicDef,
-      hp: character.hp,
-      speed: character.speed,
-    };
-
-    const verifiedSkills: EquippedSkill[] = character.characterSkills.map((cs) => ({
-      skillId: cs.skill.id,
-      slotIndex: cs.slotIndex as number,
-      skill: {
-        id: cs.skill.id,
-        name: cs.skill.name,
-        description: cs.skill.description,
-        tier: cs.skill.tier,
-        cooldown: cs.skill.cooldown,
-        target: cs.skill.target as SkillTarget,
-        damageType: cs.skill.damageType as DamageType,
-        basePower: cs.skill.basePower,
-        hits: cs.skill.hits,
-        accuracy: cs.skill.accuracy,
-        effects: cs.skill.effects as Skill["effects"],
-        mastery: cs.skill.mastery as SkillMastery,
-      },
-    }));
+    const verifiedStats: BaseStats = extractBaseStats(character);
+    const verifiedSkills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
 
     // Adicionar na fila
     const added = addToBossQueue({
@@ -334,33 +309,8 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
 
     const selectedBoss = bosses[Math.floor(Math.random() * bosses.length)];
 
-    const bossStats: BaseStats = {
-      physicalAtk: selectedBoss.physicalAtk,
-      physicalDef: selectedBoss.physicalDef,
-      magicAtk: selectedBoss.magicAtk,
-      magicDef: selectedBoss.magicDef,
-      hp: selectedBoss.hp,
-      speed: selectedBoss.speed,
-    };
-
-    const bossSkills: EquippedSkill[] = selectedBoss.skills.map((bs) => ({
-      skillId: bs.skill.id,
-      slotIndex: bs.slotIndex,
-      skill: {
-        id: bs.skill.id,
-        name: bs.skill.name,
-        description: bs.skill.description,
-        tier: bs.skill.tier,
-        cooldown: bs.skill.cooldown,
-        target: bs.skill.target as SkillTarget,
-        damageType: bs.skill.damageType as DamageType,
-        basePower: bs.skill.basePower,
-        hits: bs.skill.hits,
-        accuracy: bs.skill.accuracy,
-        effects: bs.skill.effects as Skill["effects"],
-        mastery: bs.skill.mastery as SkillMastery,
-      },
-    }));
+    const bossStats: BaseStats = extractBaseStats(selectedBoss);
+    const bossSkills: EquippedSkill[] = convertToEquippedSkills(selectedBoss.skills);
 
     const battleId = crypto.randomUUID();
 
@@ -395,10 +345,17 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
     // Buscar nomes dos players no banco
     const users = await prisma.user.findMany({
       where: { id: { in: matched.map((m) => m.userId) } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, avatarUrl: true, house: { select: { name: true } } },
     });
     for (const u of users) {
       playerNames.set(u.id, u.name);
+    }
+
+    const playerAvatars = new Map<string, string | null>();
+    const playerHouses = new Map<string, string>();
+    for (const u of users) {
+      playerAvatars.set(u.id, u.avatarUrl);
+      playerHouses.set(u.id, u.house?.name ?? "NOCTIS");
     }
 
     const session: BossBattleSession = {
@@ -411,6 +368,8 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
       playerSockets,
       playerCategories,
       playerNames,
+      playerAvatars,
+      playerHouses,
       pendingActions: new Map(),
       turnTimer: null,
       matchAccepted: new Set(),
@@ -531,6 +490,13 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
     if (!session.playerSockets.has(userId)) {
       socket.emit("boss:queue:error", {
         message: "Voce nao pertence a esta sessao",
+      });
+      return;
+    }
+
+    if (session.matchAccepted.has(userId)) {
+      socket.emit("boss:queue:error", {
+        message: "Voce ja aceitou esta boss fight",
       });
       return;
     }

@@ -1,11 +1,11 @@
 "use client";
 
-interface AlertBannerProps {
+type AlertBannerProps = {
   message: string;
   variant: "error" | "success" | "warning";
   onDismiss?: () => void;
   className?: string;
-}
+};
 
 const variantConfig = {
   error: {

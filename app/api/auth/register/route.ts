@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { signAccessToken } from "@/lib/auth/jwt";
 import { createPersistedRefreshToken } from "@/lib/auth/refresh-token";
+import { setRefreshTokenCookie, setAccessTokenCookie } from "@/lib/auth/set-auth-cookies";
 import { authRateLimit } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validations/auth";
 import { determineHouse } from "@/lib/helpers/determine-house";
@@ -194,13 +195,8 @@ export async function POST(request: NextRequest) {
       201
     );
 
-    response.cookies.set("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/auth",
-      maxAge: 60 * 60 * 24 * 7, // 7 dias
-    });
+    setAccessTokenCookie(response, accessToken);
+    setRefreshTokenCookie(response, refreshToken);
 
     return response;
   } catch (error) {

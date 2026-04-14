@@ -13,7 +13,12 @@ export async function PUT(request: NextRequest) {
       return apiError("Nao e possivel alterar loadout durante uma batalha ativa", "BATTLE_IN_PROGRESS", 409);
     }
 
-    const body: unknown = await request.json();
+    const body: unknown = await request.json().catch(() => null);
+
+    if (!body) {
+      return apiError("Body da requisicao invalido", "INVALID_BODY", 400);
+    }
+
     const parsed = unequipSkillSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -53,12 +58,10 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      return tx.characterSkill.update({
-        where: { id: characterSkill.id },
-        data: { equipped: false, slotIndex: null },
-        include: { skill: true },
-      });
+    const result = await prisma.characterSkill.update({
+      where: { id: characterSkill.id },
+      data: { equipped: false, slotIndex: null },
+      include: { skill: true },
     });
 
     return apiSuccess(result);

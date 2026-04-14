@@ -7,6 +7,14 @@
 | `login/page.tsx` | `/login` | Formulário de login |
 | `register/page.tsx` | `/register` | Cadastro + seleção de hábitos + alocação de casa |
 
+## Componentes extraidos
+
+| Arquivo | Descrição |
+|---|---|
+| `register/_components/StepIndicator.tsx` | Indicador de progresso de 3 etapas do cadastro |
+| `register/_components/HabitCard.tsx` | Card de habito com checkbox visual para selecao |
+| `register/_components/PasswordRequirements.tsx` | Indicador visual dos requisitos de senha |
+
 ## Padrões obrigatórios
 
 - Formulários são Client Components (`"use client"`) — chamam API Routes via fetch.
@@ -28,3 +36,11 @@
 - Rate limiting em `/api/auth/register` e `/api/auth/login` via @upstash/ratelimit.
 - Cookies: `httpOnly: true`, `secure: true` (produção), `sameSite: "strict"`.
 - Retornar mensagens de erro genéricas ao cliente (não vazar se e-mail existe ou não).
+
+## Gestao de tokens pos-login
+
+O backend seta cookies httpOnly (`access_token`, `refresh_token`) via `Set-Cookie` na resposta.
+O frontend tambem salva o `accessToken` em `localStorage` porque as paginas `(game)/` ainda
+leem dele para montar o header `Authorization: Bearer`. **Nunca** setar `document.cookie`
+manualmente no frontend — isso criaria um cookie duplicado sem `httpOnly`, anulando a protecao.
+Quando todas as paginas `(game)/` migrarem para cookie-only, remover o `localStorage`.

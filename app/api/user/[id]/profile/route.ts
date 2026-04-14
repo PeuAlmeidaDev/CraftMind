@@ -2,6 +2,11 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { z } from "zod";
+
+const profileParamsSchema = z.object({
+  id: z.string().cuid("ID do usuario deve ser um CUID valido"),
+});
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +15,14 @@ export async function GET(
   try {
     await verifySession(request);
 
-    const { id: targetUserId } = await params;
+    const resolvedParams = await params;
+    const parsed = profileParamsSchema.safeParse(resolvedParams);
+
+    if (!parsed.success) {
+      return apiError("ID de usuario invalido", "VALIDATION_ERROR", 422);
+    }
+
+    const targetUserId = parsed.data.id;
 
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },

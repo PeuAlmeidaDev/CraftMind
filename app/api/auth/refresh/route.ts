@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/jwt";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { rotateRefreshToken } from "@/lib/auth/refresh-token";
+import { setRefreshTokenCookie, setAccessTokenCookie } from "@/lib/auth/set-auth-cookies";
 import { authRateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 
@@ -54,21 +55,8 @@ export async function POST(request: NextRequest) {
       accessToken: newAccessToken,
     });
 
-    response.cookies.set("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 60 * 15, // 15 minutos
-    });
-
-    response.cookies.set("refresh_token", rotation.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/auth",
-      maxAge: 60 * 60 * 24 * 7, // 7 dias
-    });
+    setAccessTokenCookie(response, newAccessToken);
+    setRefreshTokenCookie(response, rotation.token);
 
     return response;
   } catch (error) {

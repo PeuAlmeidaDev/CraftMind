@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth/password";
 import { signAccessToken } from "@/lib/auth/jwt";
 import { createPersistedRefreshToken } from "@/lib/auth/refresh-token";
+import { setRefreshTokenCookie, setAccessTokenCookie } from "@/lib/auth/set-auth-cookies";
 import { authRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -52,8 +53,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Mensagem generica para prevenir enumeracao de email
+    // Dummy hash para prevenir timing-based email enumeration
     if (!userAuth) {
+      await verifyPassword(password, "$2a$12$000000000000000000000uGHEGLhR4kp3n0PMnxrCZuuMOYmMYjLu");
       return apiError("Credenciais invalidas", "INVALID_CREDENTIALS", 401);
     }
 
@@ -130,13 +132,8 @@ export async function POST(request: NextRequest) {
       accessToken,
     });
 
-    response.cookies.set("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/auth",
-      maxAge: 60 * 60 * 24 * 7, // 7 dias
-    });
+    setAccessTokenCookie(response, accessToken);
+    setRefreshTokenCookie(response, refreshToken);
 
     return response;
   } catch (error) {

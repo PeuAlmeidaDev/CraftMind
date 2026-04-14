@@ -60,6 +60,7 @@ export function getHouseTheme(houseName: HouseName): HouseTheme {
 }
 
 export function applyHouseTheme(houseName: HouseName): void {
+  if (typeof document === "undefined") return;
   const theme = getHouseTheme(houseName);
   const root = document.documentElement.style;
 

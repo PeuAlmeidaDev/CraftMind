@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getToken,
+  clearAuthAndRedirect,
+  authFetchOptions,
+} from "@/lib/client-auth";
 import type { Character } from "@/types/character";
 import type { CharacterSkillSlot } from "@/types/skill";
 import CharacterHeader from "./_components/CharacterHeader";
@@ -22,20 +27,6 @@ type UserProfile = {
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getToken(): string | null {
-  return localStorage.getItem("access_token");
-}
-
-function clearAuthAndRedirect(router: ReturnType<typeof useRouter>) {
-  localStorage.removeItem("access_token");
-  document.cookie = "access_token=; path=/; max-age=0; samesite=strict";
-  router.push("/login");
-}
-
-// ---------------------------------------------------------------------------
 // Pagina do personagem
 // ---------------------------------------------------------------------------
 
@@ -49,7 +40,12 @@ export default function CharacterPage() {
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
 
+  /** Guarda se uma acao de equip/unequip esta em andamento */
+  const skillActionRef = useRef(false);
+
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchData() {
       const token = getToken();
       if (!token) {
@@ -57,13 +53,13 @@ export default function CharacterPage() {
         return;
       }
 
-      const headers = { Authorization: `Bearer ${token}` };
+      const opts = authFetchOptions(token, controller.signal);
 
       try {
         const [profileRes, characterRes, skillsRes] = await Promise.all([
-          fetch("/api/user/profile", { headers }),
-          fetch("/api/character", { headers }),
-          fetch("/api/character/skills", { headers }),
+          fetch("/api/user/profile", opts),
+          fetch("/api/character", opts),
+          fetch("/api/character/skills", opts),
         ]);
 
         if (
@@ -96,14 +92,16 @@ export default function CharacterPage() {
           setEquippedSkills(skillsJson.data.equipped);
           setUnequippedSkills(skillsJson.data.unequipped);
         }
-      } catch {
-        // Erro de rede silencioso
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
       } finally {
         setLoading(false);
       }
     }
 
     fetchData();
+
+    return () => controller.abort();
   }, [router]);
 
   function handleAvatarChange(newUrl: string) {
@@ -118,43 +116,61 @@ export default function CharacterPage() {
     setSelectedSlot(slotIndex);
   }
 
-  async function handleUnequip(slotIndex: number) {
+  const refetchSkills = useCallback(async () => {
     const token = getToken();
     if (!token) return;
-    const res = await fetch("/api/character/skills/unequip", {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ slotIndex }),
-    });
-    if (res.ok) await refetchSkills();
-  }
-
-  async function handleEquip(skillId: string, slotIndex: number) {
-    const token = getToken();
-    if (!token) return;
-    const res = await fetch("/api/character/skills/equip", {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ skillId, slotIndex }),
-    });
-    if (res.ok) {
-      await refetchSkills();
-      setSelectedSlot(null);
-    }
-  }
-
-  async function refetchSkills() {
-    const token = getToken();
-    if (!token) return;
-    const res = await fetch("/api/character/skills", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch("/api/character/skills", authFetchOptions(token));
     if (res.ok) {
       const json = (await res.json()) as {
         data: { equipped: CharacterSkillSlot[]; unequipped: CharacterSkillSlot[] };
       };
       setEquippedSkills(json.data.equipped);
       setUnequippedSkills(json.data.unequipped);
+    }
+  }, []);
+
+  async function handleUnequip(slotIndex: number) {
+    if (skillActionRef.current) return;
+    const token = getToken();
+    if (!token) return;
+    skillActionRef.current = true;
+    try {
+      const res = await fetch("/api/character/skills/unequip", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ slotIndex }),
+      });
+      if (res.ok) await refetchSkills();
+    } finally {
+      skillActionRef.current = false;
+    }
+  }
+
+  async function handleEquip(skillId: string, slotIndex: number) {
+    if (skillActionRef.current) return;
+    const token = getToken();
+    if (!token) return;
+    skillActionRef.current = true;
+    try {
+      const res = await fetch("/api/character/skills/equip", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ skillId, slotIndex }),
+      });
+      if (res.ok) {
+        await refetchSkills();
+        setSelectedSlot(null);
+      }
+    } finally {
+      skillActionRef.current = false;
     }
   }
 

@@ -1,66 +1,22 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { expToNextLevel } from "@/lib/exp/formulas";
+import { getToken, clearAuthAndRedirect, authFetchOptions } from "@/lib/client-auth";
 import type { DailyTask, CompleteTaskResponse } from "@/types/task";
 import type { Character } from "@/types/character";
 import type { HabitCategory } from "@/types/habit";
 import type { CharacterSkillSlot } from "@/types/skill";
 import type { CalendarDay } from "@/types/task";
 import { useBossQueue } from "../_hooks/useBossQueue";
+import { ATTRIBUTE_META, CATEGORY_COLORS, CATEGORY_LABEL } from "./_components/constants";
+import ActivityCalendar from "./_components/ActivityCalendar";
+import EquippedSkillsPreview from "./_components/EquippedSkillsPreview";
 
 // ---------------------------------------------------------------------------
-// Constantes visuais
-// ---------------------------------------------------------------------------
-
-const CATEGORY_COLORS: Record<HabitCategory, string> = {
-  PHYSICAL: "bg-red-500/15 text-red-400 border-red-500/30",
-  INTELLECTUAL: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  MENTAL: "bg-violet-500/15 text-violet-400 border-violet-500/30",
-  SOCIAL: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  SPIRITUAL: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-};
-
-const CATEGORY_LABEL: Record<HabitCategory, string> = {
-  PHYSICAL: "Fisico",
-  INTELLECTUAL: "Intelectual",
-  MENTAL: "Mental",
-  SOCIAL: "Social",
-  SPIRITUAL: "Espiritual",
-};
-
-const ATTRIBUTE_META: {
-  key: keyof Character;
-  grantKey: string;
-  label: string;
-  icon: string;
-}[] = [
-  { key: "physicalAtk", grantKey: "physicalAttack", label: "Ataque Fisico", icon: "\u2694\uFE0F" },
-  { key: "physicalDef", grantKey: "physicalDefense", label: "Defesa Fisica", icon: "\u{1F6E1}\uFE0F" },
-  { key: "magicAtk", grantKey: "magicAttack", label: "Ataque Magico", icon: "\u2728" },
-  { key: "magicDef", grantKey: "magicDefense", label: "Defesa Magica", icon: "\u{1F52E}" },
-  { key: "hp", grantKey: "hp", label: "Vida", icon: "\u2764\uFE0F" },
-  { key: "speed", grantKey: "speed", label: "Velocidade", icon: "\u{1F4A8}" },
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getToken(): string | null {
-  return localStorage.getItem("access_token");
-}
-
-function clearAuthAndRedirect(router: ReturnType<typeof useRouter>) {
-  localStorage.removeItem("access_token");
-  document.cookie = "access_token=; path=/; max-age=0; samesite=strict";
-  router.push("/login");
-}
-
-// ---------------------------------------------------------------------------
-// Componentes internos
+// Componentes internos (pequenos, acoplados ao dashboard)
 // ---------------------------------------------------------------------------
 
 function ProgressBar({ completed, total }: { completed: number; total: number }) {
@@ -241,30 +197,6 @@ function TaskListSkeleton() {
   );
 }
 
-const MONTH_ABBR = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
-];
-
-const MONTH_NAMES = [
-  "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
-function buildMonthGrid(year: number, month: number): (string | null)[] {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (string | null)[] = [];
-
-  for (let i = 0; i < firstDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    cells.push(date);
-  }
-
-  return cells;
-}
-
 function LevelExpBar({ character }: { character: Character | null }) {
   if (character === null) {
     return (
@@ -315,88 +247,6 @@ function LevelExpBar({ character }: { character: Character | null }) {
           </Link>
         )}
       </div>
-    </div>
-  );
-}
-
-function EquippedSkillsPreview({
-  skills,
-  loading,
-}: {
-  skills: CharacterSkillSlot[];
-  loading: boolean;
-}) {
-  const TIER_COLORS: Record<number, string> = {
-    1: "text-gray-400 bg-gray-500/15",
-    2: "text-blue-400 bg-blue-500/15",
-    3: "text-purple-400 bg-purple-500/15",
-  };
-
-  return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
-        Habilidades
-      </h2>
-
-      {loading ? (
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-16 animate-pulse rounded-lg bg-[var(--border-subtle)]"
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, idx) => {
-            const slot = skills.find((s) => s.slotIndex === idx);
-
-            if (!slot) {
-              return (
-                <div
-                  key={idx}
-                  className="flex h-16 items-center justify-center rounded-lg border border-dashed border-[var(--border-subtle)]"
-                >
-                  <span className="text-xs text-gray-600">Vazio</span>
-                </div>
-              );
-            }
-
-            const tierColor = TIER_COLORS[slot.skill.tier] ?? TIER_COLORS[1];
-
-            return (
-              <div
-                key={idx}
-                className="flex flex-col justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-2 py-2"
-              >
-                <span className="truncate text-xs font-medium text-gray-200">
-                  {slot.skill.name}
-                </span>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <span
-                    className={`rounded px-1 py-0.5 text-[10px] font-semibold ${tierColor}`}
-                  >
-                    T{slot.skill.tier}
-                  </span>
-                  {slot.skill.cooldown > 0 && (
-                    <span className="text-[10px] text-gray-500">
-                      CD: {slot.skill.cooldown}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <Link
-        href="/character"
-        className="mt-3 block text-center text-xs text-gray-400 transition-colors hover:text-[var(--accent-primary)]"
-      >
-        Gerenciar
-      </Link>
     </div>
   );
 }
@@ -471,171 +321,6 @@ function BossFightCard({
   );
 }
 
-function ActivityCalendar({
-  days,
-  loading,
-  onMonthChange,
-}: {
-  days: CalendarDay[];
-  loading: boolean;
-  onMonthChange: (year: number, month: number) => void;
-}) {
-  const now = new Date();
-  const [viewYear, setViewYear] = useState(now.getFullYear());
-  const [viewMonth, setViewMonth] = useState(now.getMonth());
-
-  const grid = buildMonthGrid(viewYear, viewMonth);
-  const DAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
-
-  const isCurrentMonth =
-    viewYear === now.getFullYear() && viewMonth === now.getMonth();
-
-  function goToPrevMonth() {
-    let newMonth = viewMonth - 1;
-    let newYear = viewYear;
-    if (newMonth < 0) {
-      newMonth = 11;
-      newYear -= 1;
-    }
-    setViewMonth(newMonth);
-    setViewYear(newYear);
-    onMonthChange(newYear, newMonth);
-  }
-
-  function goToNextMonth() {
-    if (isCurrentMonth) return;
-    let newMonth = viewMonth + 1;
-    let newYear = viewYear;
-    if (newMonth > 11) {
-      newMonth = 0;
-      newYear += 1;
-    }
-    setViewMonth(newMonth);
-    setViewYear(newYear);
-    onMonthChange(newYear, newMonth);
-  }
-
-  function getCellColor(dateStr: string): string {
-    const day = days.find((d) => d.date === dateStr);
-    if (!day || day.total === 0 || day.completed === 0)
-      return "bg-[var(--border-subtle)]";
-    const ratio = day.completed / day.total;
-    if (ratio < 0.4) return "bg-emerald-900/60";
-    if (ratio < 0.8) return "bg-emerald-600/70";
-    return "bg-emerald-400";
-  }
-
-  function getCellTitle(dateStr: string): string {
-    const day = days.find((d) => d.date === dateStr);
-    const dayNum = parseInt(dateStr.slice(8, 10), 10);
-    const monthIdx = parseInt(dateStr.slice(5, 7), 10) - 1;
-    const label = `${dayNum} ${MONTH_ABBR[monthIdx]}`;
-    if (!day || day.total === 0) return `${label}: sem tarefas`;
-    return `${label}: ${day.completed}/${day.total} tarefas`;
-  }
-
-  const todayStr = now.toISOString().slice(0, 10);
-
-  // Rows needed: ceil cells to fill complete weeks
-  const totalRows = Math.ceil(grid.length / 7);
-
-  return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      {/* Cabecalho de navegacao */}
-      <div className="mb-4 flex items-center justify-between">
-        <button
-          onClick={goToPrevMonth}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm text-gray-400 transition-colors hover:bg-[var(--bg-secondary)] hover:text-white"
-        >
-          {"\u2039"}
-        </button>
-        <span className="text-sm font-medium text-gray-200">
-          {MONTH_NAMES[viewMonth]} {viewYear}
-        </span>
-        <button
-          onClick={goToNextMonth}
-          disabled={isCurrentMonth}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm text-gray-400 transition-colors hover:bg-[var(--bg-secondary)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          {"\u203A"}
-        </button>
-      </div>
-
-      {/* Labels dos dias da semana */}
-      <div className="mb-1.5 grid grid-cols-7 gap-1.5">
-        {DAY_LABELS.map((label, i) => (
-          <span key={i} className="text-center text-[11px] font-medium text-zinc-500">
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-7 gap-1.5">
-          {Array.from({ length: 35 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-square animate-pulse rounded-lg bg-[var(--border-subtle)]"
-            />
-          ))}
-        </div>
-      ) : (
-        <>
-          {/* Grid do calendario */}
-          <div className="grid grid-cols-7 gap-1.5">
-            {Array.from({ length: totalRows * 7 }).map((_, i) => {
-              const dateStr = grid[i] ?? null;
-
-              if (!dateStr) {
-                return <div key={i} />;
-              }
-
-              const dayNum = parseInt(dateStr.slice(8, 10), 10);
-              const isToday = dateStr === todayStr;
-
-              return (
-                <div
-                  key={i}
-                  className={`group relative flex aspect-square cursor-pointer items-center justify-center rounded-lg text-xs transition-colors hover:brightness-125 ${getCellColor(dateStr)} ${
-                    isToday
-                      ? "ring-2 ring-[var(--accent-primary)]"
-                      : ""
-                  }`}
-                >
-                  <span
-                    className={
-                      isToday
-                        ? "font-bold text-white"
-                        : "text-gray-400"
-                    }
-                  >
-                    {dayNum}
-                  </span>
-                  {/* Tooltip */}
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-3 py-1.5 text-xs text-gray-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 whitespace-nowrap">
-                    {getCellTitle(dateStr)}
-                    <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[var(--bg-secondary)]" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Legenda */}
-          <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-gray-500">
-            <span>Menos</span>
-            <div className="h-3 w-3 rounded-sm bg-[var(--border-subtle)]" />
-            <div className="h-3 w-3 rounded-sm bg-emerald-900/60" />
-            <div className="h-3 w-3 rounded-sm bg-emerald-600/70" />
-            <div className="h-3 w-3 rounded-sm bg-emerald-400" />
-            <span>Mais</span>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Pagina principal
 // ---------------------------------------------------------------------------
@@ -655,10 +340,12 @@ export default function DashboardPage() {
   const [bossDominantCategory, setBossDominantCategory] = useState<string | null>(null);
   const [bossAlreadyParticipated, setBossAlreadyParticipated] = useState(false);
 
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { joinQueue, inQueue } = useBossQueue();
 
-  // Buscar calendario por mes
-  const fetchCalendar = useCallback(async (year: number, month: number) => {
+  // Buscar calendario por mes (com AbortSignal)
+  const fetchCalendar = useCallback(async (year: number, month: number, signal?: AbortSignal) => {
     const token = getToken();
     if (!token) return;
 
@@ -669,36 +356,40 @@ export default function DashboardPage() {
 
     try {
       const res = await fetch(`/api/tasks/calendar?from=${from}&to=${to}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        ...authFetchOptions(token, signal),
       });
+      if (signal?.aborted) return;
       if (res.ok) {
         const json = (await res.json()) as { data: { days: CalendarDay[] } };
+        if (signal?.aborted) return;
         setCalendarDays(json.data.days);
       }
-    } catch {
-      // silencioso
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     } finally {
-      setLoadingCalendar(false);
+      if (!signal?.aborted) setLoadingCalendar(false);
     }
   }, []);
 
   // Buscar tarefas diarias, perfil e character
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal: AbortSignal) => {
     const token = getToken();
     if (!token) {
       clearAuthAndRedirect(router);
       return;
     }
 
-    const headers = { Authorization: `Bearer ${token}` };
+    const opts = authFetchOptions(token, signal);
 
     try {
       const [tasksRes, profileRes, characterRes] =
         await Promise.all([
-          fetch("/api/tasks/daily", { headers }),
-          fetch("/api/user/profile", { headers }),
-          fetch("/api/character", { headers }),
+          fetch("/api/tasks/daily", opts),
+          fetch("/api/user/profile", opts),
+          fetch("/api/character", opts),
         ]);
+
+      if (signal.aborted) return;
 
       if (
         tasksRes.status === 401 ||
@@ -714,17 +405,22 @@ export default function DashboardPage() {
           data: { tasks: DailyTask[]; summary: { total: number; completed: number } };
         };
 
+        if (signal.aborted) return;
+
         if (tasksJson.data.tasks.length === 0) {
           const genRes = await fetch("/api/tasks/generate", {
             method: "POST",
-            headers,
+            ...authFetchOptions(token, signal),
           });
+          if (signal.aborted) return;
           if (genRes.ok || genRes.status === 409) {
-            const retryRes = await fetch("/api/tasks/daily", { headers });
+            const retryRes = await fetch("/api/tasks/daily", authFetchOptions(token, signal));
+            if (signal.aborted) return;
             if (retryRes.ok) {
               const retryJson = (await retryRes.json()) as {
                 data: { tasks: DailyTask[]; summary: { total: number; completed: number } };
               };
+              if (signal.aborted) return;
               setTasks(retryJson.data.tasks);
             }
           }
@@ -733,28 +429,33 @@ export default function DashboardPage() {
         }
       }
 
+      if (signal.aborted) return;
+
       if (characterRes.ok) {
         const charData = (await characterRes.json()) as {
           data: { character: Character; skills: CharacterSkillSlot[] };
         };
+        if (signal.aborted) return;
         setCharacter(charData.data.character);
         setSkills(charData.data.skills);
       } else if (profileRes.ok) {
         const profileJson = (await profileRes.json()) as {
           data: { character: Character | null };
         };
+        if (signal.aborted) return;
         setCharacter(profileJson.data.character);
       }
 
       // Non-blocking boss eligibility check
-      fetch("/api/battle/coop/eligible", { headers })
+      fetch("/api/battle/coop/eligible", authFetchOptions(token, signal))
         .then(async (eligibleRes) => {
-          if (!eligibleRes.ok) return;
+          if (signal.aborted || !eligibleRes.ok) return;
           const eligibleData = (await eligibleRes.json()) as {
             data:
               | { eligible: true; dominantCategory: string; categoryBreakdown: Record<string, number> }
               | { eligible: false; reason: string; completedCount?: number; totalCount?: number };
           };
+          if (signal.aborted) return;
           if (eligibleData.data.eligible) {
             setBossEligible(true);
             setBossDominantCategory(eligibleData.data.dominantCategory);
@@ -765,24 +466,37 @@ export default function DashboardPage() {
             setBossAlreadyParticipated(true);
           }
         })
-        .catch(() => {
-          // Boss eligibility check failed silently
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === "AbortError") return;
         });
-    } catch {
-      // Erro de rede silencioso
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     } finally {
-      setLoadingTasks(false);
+      if (!signal.aborted) setLoadingTasks(false);
     }
   }, [router]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+
     const now = new Date();
-    fetchCalendar(now.getFullYear(), now.getMonth());
+    fetchCalendar(now.getFullYear(), now.getMonth(), controller.signal);
+
+    return () => {
+      controller.abort();
+      // Limpar timer do highlight ao desmontar
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
   }, [fetchData, fetchCalendar]);
 
   // Completar tarefa
   async function handleComplete(taskId: string) {
+    // Guard contra double-submit: se ja esta completando algo, ignora
+    if (completingId !== null) return;
+
     const token = getToken();
     if (!token) {
       clearAuthAndRedirect(router);
@@ -794,7 +508,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/tasks/${taskId}/complete`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        ...authFetchOptions(token),
       });
 
       if (res.status === 401) {
@@ -834,9 +548,15 @@ export default function DashboardPage() {
 
       setHighlightedKeys(gainedKeys);
 
+      // Limpar timer anterior se existir
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+
       // Remover highlight apos 1.5s
-      setTimeout(() => {
+      highlightTimerRef.current = setTimeout(() => {
         setHighlightedKeys(new Set());
+        highlightTimerRef.current = null;
       }, 1500);
     } catch {
       // Erro de rede silencioso
@@ -844,6 +564,14 @@ export default function DashboardPage() {
       setCompletingId(null);
     }
   }
+
+  // Callback do calendario com AbortSignal vindo do componente
+  const handleCalendarMonthChange = useCallback(
+    (year: number, month: number, signal: AbortSignal) => {
+      fetchCalendar(year, month, signal);
+    },
+    [fetchCalendar],
+  );
 
   const completedCount = tasks.filter((t) => t.completed).length;
 
@@ -885,7 +613,7 @@ export default function DashboardPage() {
           <ActivityCalendar
             days={calendarDays}
             loading={loadingCalendar}
-            onMonthChange={fetchCalendar}
+            onMonthChange={handleCalendarMonthChange}
           />
         </div>
 

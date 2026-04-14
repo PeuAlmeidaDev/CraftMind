@@ -1,6 +1,6 @@
 "use client";
 
-interface RPGInputProps {
+type RPGInputProps = {
   label: string;
   type: string;
   id: string;
@@ -11,7 +11,7 @@ interface RPGInputProps {
   disabled?: boolean;
   error?: string;
   autoComplete?: string;
-}
+};
 
 export default function RPGInput({
   label,
@@ -48,7 +48,7 @@ export default function RPGInput({
         autoComplete={autoComplete}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className="transition-all duration-200 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+        className="transition-all duration-200 outline-none disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-[#4a4a5a]"
         style={{
           backgroundColor: "var(--bg-primary)",
           border: `1px solid ${error ? "#ef4444" : "var(--border-subtle)"}`,
@@ -77,12 +77,6 @@ export default function RPGInput({
           {error}
         </p>
       )}
-
-      <style>{`
-        #${id}::placeholder {
-          color: #4a4a5a;
-        }
-      `}</style>
     </div>
   );
 }

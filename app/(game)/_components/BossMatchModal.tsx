@@ -10,6 +10,7 @@ export default function BossMatchModal() {
     matchFound,
     matchData,
     matchAcceptTimeRemaining,
+    matchAccepted,
     battleStarted,
     battleId,
     acceptMatch,
@@ -22,7 +23,7 @@ export default function BossMatchModal() {
       const bossNameParam = matchData?.boss.name ? `&bossName=${encodeURIComponent(matchData.boss.name)}` : "";
       router.push(`/boss-fight?battleId=${battleId}${bossNameParam}`);
     }
-  }, [battleStarted, battleId, router]);
+  }, [battleStarted, battleId, matchData?.boss.name, router]);
 
   if (!matchFound || !matchData) return null;
 
@@ -78,9 +79,14 @@ export default function BossMatchModal() {
           <button
             type="button"
             onClick={acceptMatch}
-            className="flex-1 cursor-pointer rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+            disabled={matchAccepted}
+            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white transition-colors ${
+              matchAccepted
+                ? "bg-emerald-600/50 cursor-not-allowed"
+                : "bg-emerald-600 cursor-pointer hover:bg-emerald-500"
+            }`}
           >
-            Aceitar
+            {matchAccepted ? "Aceito!" : "Aceitar"}
           </button>
           <button
             type="button"
@@ -91,14 +97,6 @@ export default function BossMatchModal() {
           </button>
         </div>
       </div>
-
-      {/* Glow animation */}
-      <style>{`
-        @keyframes matchGlow {
-          0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
-          50% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.4); }
-        }
-      `}</style>
     </div>
   );
 }

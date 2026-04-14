@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { getToken, clearAuthAndRedirect, authFetchOptions } from "@/lib/client-auth";
 import BattleIdle from "./_components/BattleIdle";
 import BattleArena from "./_components/BattleArena";
-import BattleResult from "./_components/BattleResult";
 
 // ---------------------------------------------------------------------------
 // Types (exported for child components)
@@ -55,7 +55,7 @@ export type MobInfo = {
   aiProfile: string;
 };
 
-export type BattleResult = {
+export type PveBattleResult = {
   result: "VICTORY" | "DEFEAT" | "DRAW";
   expGained: number;
   levelsGained: number;
@@ -69,25 +69,12 @@ export type PlayerProfile = {
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getToken(): string | null {
-  return localStorage.getItem("access_token");
-}
-
-function clearAuthAndRedirect(router: ReturnType<typeof useRouter>) {
-  localStorage.removeItem("access_token");
-  document.cookie = "access_token=; path=/; max-age=0; samesite=strict";
-  router.push("/login");
-}
-
-// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 export default function BattlePage() {
   const router = useRouter();
+  const abortRef = useRef<AbortController | null>(null);
 
   const [phase, setPhase] = useState<"IDLE" | "BATTLE" | "RESULT">("IDLE");
   const [battleId, setBattleId] = useState<string | null>(null);
@@ -99,7 +86,7 @@ export default function BattlePage() {
   const [playerMaxHp, setPlayerMaxHp] = useState(0);
   const [mobMaxHp, setMobMaxHp] = useState(0);
   const [events, setEvents] = useState<TurnLogEntry[]>([]);
-  const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const [battleResult, setBattleResult] = useState<PveBattleResult | null>(null);
   const [availableSkills, setAvailableSkills] = useState<AvailableSkill[]>([]);
   const [playerStatusEffects, setPlayerStatusEffects] = useState<ActiveStatusEffect[]>([]);
   const [mobStatusEffects, setMobStatusEffects] = useState<ActiveStatusEffect[]>([]);
@@ -108,44 +95,56 @@ export default function BattlePage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
 
   // -----------------------------------------------------------------------
+  // Abort in-flight fetches on unmount
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // -----------------------------------------------------------------------
   // Fetch player profile on mount
   // -----------------------------------------------------------------------
 
-  const fetchProfile = useCallback(async () => {
+  useEffect(() => {
     const token = getToken();
     if (!token) {
       clearAuthAndRedirect(router);
       return;
     }
 
-    try {
-      const res = await fetch("/api/user/profile", {
-        headers: { Authorization: `Bearer ${token}` },
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    fetch("/api/user/profile", authFetchOptions(token, ac.signal))
+      .then((res) => {
+        if (res.status === 401) {
+          clearAuthAndRedirect(router);
+          return null;
+        }
+        if (!res.ok) return null;
+        return res.json() as Promise<{
+          data: { name: string; avatarUrl: string | null; house: { name: string } | null };
+        }>;
+      })
+      .then((json) => {
+        if (json) {
+          setProfile({
+            name: json.data.name,
+            avatarUrl: json.data.avatarUrl,
+            house: json.data.house ?? null,
+          });
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Network error — keep page without profile data
       });
 
-      if (res.status === 401) {
-        clearAuthAndRedirect(router);
-        return;
-      }
-
-      if (!res.ok) return;
-
-      const json = (await res.json()) as {
-        data: { name: string; avatarUrl: string | null; house: { name: string } | null };
-      };
-      setProfile({
-        name: json.data.name,
-        avatarUrl: json.data.avatarUrl,
-        house: json.data.house ?? null,
-      });
-    } catch {
-      // Network error — keep page without profile data
-    }
+    return () => ac.abort();
   }, [router]);
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
 
   // -----------------------------------------------------------------------
   // Start PvE battle
@@ -159,12 +158,14 @@ export default function BattlePage() {
     }
 
     setLoading(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
 
     try {
       // 1. Start battle
       const startRes = await fetch("/api/battle/pve/start", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        ...authFetchOptions(token, ac.signal),
       });
 
       if (startRes.status === 401) {
@@ -208,7 +209,7 @@ export default function BattlePage() {
       // 2. Fetch initial battle state (skills, status effects)
       const stateRes = await fetch(
         `/api/battle/pve/state?battleId=${encodeURIComponent(data.battleId)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        authFetchOptions(token, ac.signal),
       );
 
       if (stateRes.status === 401) {
@@ -233,7 +234,8 @@ export default function BattlePage() {
         setPlayerStatusEffects(stateJson.data.player.statusEffects);
         setMobStatusEffects(stateJson.data.mob.statusEffects);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       alert("Erro de conexao. Tente novamente.");
       setPhase("IDLE");
     } finally {
@@ -262,6 +264,7 @@ export default function BattlePage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          credentials: "include",
           body: JSON.stringify({ battleId, skillId }),
         });
 
@@ -300,7 +303,7 @@ export default function BattlePage() {
         // Re-fetch battle state for updated skills and status effects
         const stateRes = await fetch(
           `/api/battle/pve/state?battleId=${encodeURIComponent(battleId!)}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          authFetchOptions(token),
         );
 
         if (stateRes.status === 401) {
@@ -327,13 +330,13 @@ export default function BattlePage() {
         }
 
         if (data.battleOver) {
-          const res: BattleResult = {
+          const r: PveBattleResult = {
             result: data.result!,
             expGained: data.expGained!,
             levelsGained: data.levelsGained!,
             newLevel: data.newLevel!,
           };
-          setBattleResult(res);
+          setBattleResult(r);
         }
       } catch {
         alert("Erro de conexao. Tente novamente.");

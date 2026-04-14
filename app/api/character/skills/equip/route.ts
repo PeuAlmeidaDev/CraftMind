@@ -13,7 +13,12 @@ export async function PUT(request: NextRequest) {
       return apiError("Nao e possivel alterar loadout durante uma batalha ativa", "BATTLE_IN_PROGRESS", 409);
     }
 
-    const body: unknown = await request.json();
+    const body: unknown = await request.json().catch(() => null);
+
+    if (!body) {
+      return apiError("Body da requisicao invalido", "INVALID_BODY", 400);
+    }
+
     const parsed = equipSkillSchema.safeParse(body);
 
     if (!parsed.success) {

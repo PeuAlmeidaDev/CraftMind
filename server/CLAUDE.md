@@ -35,6 +35,13 @@ io.use((socket, next) => {
 | `handlers/boss-matchmaking.ts` | Fila e emparelhamento para Boss Fight 3v1 por HabitCategory |
 | `handlers/boss-battle.ts` | Acoes de boss battle, timer de turno, reconexao, persistencia coop |
 
+## Lib (helpers do servidor)
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `lib/prisma.ts` | Singleton do Prisma Client para o servidor Socket.io |
+| `lib/convert-skills.ts` | `convertToEquippedSkills()`, `extractBaseStats()`, `CHARACTER_SKILLS_SELECT` — conversao de resultados Prisma para tipos da engine de batalha. Usado por `boss-matchmaking.ts` |
+
 ## Stores
 
 | Arquivo | Responsabilidade |

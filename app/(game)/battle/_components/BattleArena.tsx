@@ -165,18 +165,36 @@ export default function BattleArena({
   const [playerFloats, setPlayerFloats] = useState<FloatingNumber[]>([]);
   const [mobFloats, setMobFloats] = useState<FloatingNumber[]>([]);
   const floatCounter = useRef(0);
+  const floatTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const prevEventsLength = useRef(events.length);
+
+  // Cleanup all floating number timers on unmount
+  useEffect(() => {
+    const timers = floatTimers.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
 
   const addPlayerFloat = useCallback((value: number, type: "damage" | "heal") => {
     const id = ++floatCounter.current;
     setPlayerFloats((prev) => [...prev, { id, value, type }]);
-    setTimeout(() => setPlayerFloats((prev) => prev.filter((f) => f.id !== id)), 1400);
+    const timer = setTimeout(() => {
+      setPlayerFloats((prev) => prev.filter((f) => f.id !== id));
+      floatTimers.current.delete(timer);
+    }, 1400);
+    floatTimers.current.add(timer);
   }, []);
 
   const addMobFloat = useCallback((value: number, type: "damage" | "heal") => {
     const id = ++floatCounter.current;
     setMobFloats((prev) => [...prev, { id, value, type }]);
-    setTimeout(() => setMobFloats((prev) => prev.filter((f) => f.id !== id)), 1400);
+    const timer = setTimeout(() => {
+      setMobFloats((prev) => prev.filter((f) => f.id !== id));
+      floatTimers.current.delete(timer);
+    }, 1400);
+    floatTimers.current.add(timer);
   }, []);
 
   const houseAssets = profile.house

@@ -36,28 +36,42 @@ export async function rotateRefreshToken(
 ): Promise<{ token: string; accessDenied: boolean }> {
   const currentHash = hashToken(currentToken);
 
+  // Atomicamente revogar o token apenas se ainda nao estiver revogado.
+  // updateMany retorna count=0 se ja estava revogado ou nao existia,
+  // eliminando a race condition de dois refreshes simultaneos.
+  const revokeResult = await prisma.refreshToken.updateMany({
+    where: { tokenHash: currentHash, revoked: false },
+    data: { revoked: true },
+  });
+
+  // Se nenhuma linha foi atualizada, o token nao existe ou ja foi revogado
+  if (revokeResult.count === 0) {
+    // Verificar se o token existe (revogado) para invalidar toda a familia
+    const stored = await prisma.refreshToken.findUnique({
+      where: { tokenHash: currentHash },
+      select: { family: true, revoked: true },
+    });
+
+    if (stored?.revoked) {
+      // Token reutilizado (ja revogado) — revogar TODA a familia (possivel roubo)
+      await prisma.refreshToken.updateMany({
+        where: { family: stored.family },
+        data: { revoked: true },
+      });
+    }
+
+    return { token: "", accessDenied: true };
+  }
+
+  // Buscar a familia do token recem-revogado para emitir o novo na mesma familia
   const stored = await prisma.refreshToken.findUnique({
     where: { tokenHash: currentHash },
+    select: { family: true },
   });
 
   if (!stored) {
     return { token: "", accessDenied: true };
   }
-
-  // Token reutilizado (ja revogado) — revogar TODA a familia (possivel roubo)
-  if (stored.revoked) {
-    await prisma.refreshToken.updateMany({
-      where: { family: stored.family },
-      data: { revoked: true },
-    });
-    return { token: "", accessDenied: true };
-  }
-
-  // Revogar o token atual
-  await prisma.refreshToken.update({
-    where: { id: stored.id },
-    data: { revoked: true },
-  });
 
   // Emitir novo token na mesma familia
   const { token } = await createPersistedRefreshToken(payload, stored.family);

@@ -26,7 +26,7 @@ O estado original nunca e mutado. `resolveTurn` faz deep clone no topo e todas a
 | `coop-types.ts` | Tipos para batalha cooperativa (Boss Fight 3v1): `CoopBattleState`, `CoopTurnAction`, `CoopTurnResult`, `CoopBossBattleConfig` |
 | `coop-target.ts` | Resolucao de alvos coop: `resolveCoopTargets` (adapta targets para 3v1), `chooseBossTarget` (prioridade: menor HP% > menos buffs defensivos > random) |
 | `coop-turn.ts` | `initCoopBattle()` e `resolveCoopTurn()` — orquestrador completo do turno cooperativo. Usa adapters (BattleState fake) para reutilizar `applyEffects` e `chooseAction` existentes |
-| `coop-store.ts` | Store em memoria (Map) para batalhas coop ativas. Exporta `getCoopBattle`, `setCoopBattle`, `removeCoopBattle`, `hasActiveCoopBattle`, `getCoopBattleByPlayerId`. TTL 30min, cleanup 5min |
+| ~~`coop-store.ts`~~ | **REMOVIDO** — store duplicado de `server/stores/boss-battle-store.ts`. O store autoritativo para batalhas coop fica em `server/stores/boss-battle-store.ts` |
 | `index.ts` | Barrel export |
 
 ## Fluxo do resolveTurn

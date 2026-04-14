@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiSuccess } from "@/lib/api-response";
 import { revokeRefreshTokenByValue } from "@/lib/auth/refresh-token";
+import { clearAuthCookies } from "@/lib/auth/set-auth-cookies";
 
 export async function POST(request: NextRequest) {
   const refreshToken = request.cookies.get("refresh_token")?.value;
@@ -14,22 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = apiSuccess(null);
-
-  response.cookies.set("access_token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-    maxAge: 0,
-  });
-
-  response.cookies.set("refresh_token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/api/auth",
-    maxAge: 0,
-  });
+  clearAuthCookies(response);
 
   return response;
 }

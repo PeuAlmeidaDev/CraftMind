@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { LoginResponse } from "@/types/auth";
-import type { ApiSuccess } from "@/types/api";
-import type { ApiError } from "@/types/api";
+import type { ApiSuccess, ApiError } from "@/types/api";
 import RPGInput from "@/components/ui/RPGInput";
 import RPGButton from "@/components/ui/RPGButton";
 import AlertBanner from "@/components/ui/AlertBanner";
@@ -63,10 +62,13 @@ export default function LoginPage() {
 
       const { data } = (await res.json()) as ApiSuccess<LoginResponse>;
 
+      // O backend ja seta o cookie httpOnly access_token via Set-Cookie.
+      // Mantemos localStorage apenas porque as paginas (game)/ ainda leem
+      // daqui para montar o header Authorization. Quando todas migrarem
+      // para cookie-only, remover esta linha.
       localStorage.setItem("access_token", data.accessToken);
 
-      document.cookie = `access_token=${data.accessToken}; path=/; max-age=900; samesite=strict`;
-
+      setPassword("");
       router.push("/dashboard");
     } catch {
       setError("Erro de conexao. Verifique sua internet e tente novamente.");

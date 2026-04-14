@@ -42,15 +42,16 @@ export function calculateDamage(params: {
     defStatKey = "physicalDef";
   }
 
-  const effectiveAtk = getEffectiveStat(
+  const effectiveAtk = Math.max(0, getEffectiveStat(
     attacker.baseStats[atkStatKey],
     attacker.stages[atkStatKey]
-  );
+  ));
   const effectiveDef = getEffectiveStat(
     defender.baseStats[defStatKey],
     defender.stages[defStatKey]
   );
 
+  // Garante que defesa nunca e zero/negativa (evita divisao por zero e dano negativo)
   const safeEffectiveDef = Math.max(1, effectiveDef);
 
   // Calcular multiplicador de vulnerabilidade

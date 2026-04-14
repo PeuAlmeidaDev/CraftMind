@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
     const fromDate = new Date(from);
     const toDate = new Date(to);
 
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return apiError(
+        "Parametros 'from' e 'to' devem ser datas validas (ISO 8601)",
+        "INVALID_DATE",
+        400,
+      );
+    }
+
     if (fromDate > toDate) {
       return apiError(
         "'from' deve ser anterior ou igual a 'to'",
@@ -48,6 +56,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // SQL raw justificado: Prisma nao suporta GROUP BY com FILTER.
+    // Parametros escapados via Prisma.sql (sem risco de SQL injection).
     const rows = await prisma.$queryRaw<CalendarRow[]>(
       Prisma.sql`
         SELECT
@@ -74,6 +84,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof AuthenticationError) {
       return apiError(error.message, error.code, error.statusCode);
     }
+    console.error("[GET /api/tasks/calendar]", error);
     return apiError("Erro interno do servidor", "INTERNAL_ERROR", 500);
   }
 }

@@ -13,6 +13,7 @@ export type {
   UnlockedSkillInfo,
   CompleteTaskResult,
   CompleteTaskResponse,
+  CalendarDay,
 } from "./task";
 export type { AuthResponse, RegisterResponse, LoginResponse } from "./auth";
 export type {

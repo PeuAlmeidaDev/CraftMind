@@ -13,6 +13,8 @@ export type BossBattleSession = {
   playerSockets: Map<string, string>; // userId -> socketId
   playerCategories: Map<string, HabitCategory>; // userId -> dominantCategory
   playerNames: Map<string, string>; // userId -> display name
+  playerAvatars: Map<string, string | null>; // userId -> avatarUrl
+  playerHouses: Map<string, string>; // userId -> HouseName (ex: "LYCUS")
   pendingActions: Map<string, CoopTurnAction>;
   turnTimer: ReturnType<typeof setTimeout> | null;
   matchAccepted: Set<string>;

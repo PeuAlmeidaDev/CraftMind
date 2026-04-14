@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Socket } from "socket.io-client";
+import { getToken, authFetchOptions } from "@/lib/client-auth";
 import { useBossQueue } from "../_hooks/useBossQueue";
 import CoopBattleArena from "./_components/CoopBattleArena";
 import CoopBattleResult from "./_components/CoopBattleResult";
@@ -31,17 +32,11 @@ type SanitizedCoopState = {
   winnerId: string | null;
   bossName: string;
   playerNames: Record<string, string>;
+  playerAvatars: Record<string, string | null>;
+  playerHouses: Record<string, string>;
 };
 
 type BattlePhase = "LOADING" | "BATTLE" | "RESULT";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getToken(): string | null {
-  return typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -77,6 +72,10 @@ export default function BossFightPage() {
   const [levelsGained, setLevelsGained] = useState(0);
   const [bossIsHit, setBossIsHit] = useState(false);
   const [playerName, setPlayerName] = useState("Voce");
+  const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
+  const [playerHouses, setPlayerHouses] = useState<Record<string, string>>({});
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
+  const [localHouseName, setLocalHouseName] = useState<string>("NOCTIS");
 
   // Track previous events length for hit detection
   const prevEventsLengthRef = useRef(0);
@@ -99,35 +98,46 @@ export default function BossFightPage() {
     const token = getToken();
     if (!token) return;
 
-    fetch("/api/user/profile", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const ac = new AbortController();
+
+    fetch("/api/user/profile", authFetchOptions(token, ac.signal))
       .then((res) => {
         if (!res.ok) return null;
-        return res.json() as Promise<{ data: { id: string; name: string } }>;
+        return res.json() as Promise<{
+          data: { id: string; name: string; avatarUrl: string | null; house: { name: string } | null };
+        }>;
       })
       .then((json) => {
         if (json) {
           setCurrentPlayerId(json.data.id);
           setPlayerName(json.data.name);
+          setLocalAvatarUrl(json.data.avatarUrl);
+          setLocalHouseName(json.data.house?.name ?? "NOCTIS");
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         // Network error — continue without profile
       });
+
+    return () => ac.abort();
   }, []);
 
   // -------------------------------------------------------------------------
-  // Re-evaluate canAct when currentPlayerId is set (profile loads after state)
+  // Re-evaluate canAct whenever relevant state changes
+  // (profile loads after state, new turn arrives, acted set resets, etc.)
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!currentPlayerId || team.length === 0) return;
+    if (!currentPlayerId || team.length === 0 || phase !== "BATTLE") return;
     const me = team.find((p) => p.playerId === currentPlayerId);
-    if (me && me.currentHp > 0 && phase === "BATTLE") {
-      setCanAct(true);
+    if (!me || me.currentHp <= 0) {
+      setCanAct(false);
+      return;
     }
-  }, [currentPlayerId, team, phase]);
+    const alreadyActed = actedPlayers.has(currentPlayerId);
+    setCanAct(!alreadyActed);
+  }, [currentPlayerId, team, phase, actedPlayers]);
 
   // -------------------------------------------------------------------------
   // Turn timer
@@ -208,16 +218,13 @@ export default function BossFightPage() {
       setTeam(state.team);
       if (state.bossName) setBossName(state.bossName);
       if (state.playerNames) setPlayerNames(state.playerNames);
+      if (state.playerAvatars) setPlayerAvatars(state.playerAvatars);
+      if (state.playerHouses) setPlayerHouses(state.playerHouses);
       setTurnNumber(state.turnNumber);
       setEvents((prev) => [...prev, ...turnEvents]);
       setActedPlayers(new Set());
 
       if (state.status === "IN_PROGRESS") {
-        setCurrentPlayerId((pid) => {
-          const me = state.team.find((p) => p.playerId === pid);
-          setCanAct(!!me && me.currentHp > 0);
-          return pid;
-        });
         startTurnTimer();
       }
 
@@ -321,6 +328,8 @@ export default function BossFightPage() {
       remainingTurns: se.remainingTurns,
     })),
     isAlive: p.currentHp > 0,
+    avatarUrl: p.playerId === currentPlayerId ? localAvatarUrl : (playerAvatars[p.playerId] ?? null),
+    houseName: p.playerId === currentPlayerId ? localHouseName : (playerHouses[p.playerId] ?? undefined),
   }));
 
   // -------------------------------------------------------------------------

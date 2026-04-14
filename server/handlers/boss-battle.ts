@@ -40,6 +40,8 @@ type SanitizedCoopState = {
   winnerId: CoopBattleState["winnerId"];
   bossName: string;
   playerNames: Record<string, string>; // playerId -> name
+  playerAvatars: Record<string, string | null>; // userId -> avatarUrl
+  playerHouses: Record<string, string>; // userId -> HouseName
 };
 
 // ---------------------------------------------------------------------------
@@ -50,6 +52,8 @@ function sanitizeCoopStateForTeam(
   state: CoopBattleState,
   bossName: string,
   playerNames: Record<string, string>,
+  playerAvatars: Record<string, string | null>,
+  playerHouses: Record<string, string>,
 ): SanitizedCoopState {
   const sanitizedBoss: SanitizedBossState = {
     playerId: state.boss.playerId,
@@ -68,6 +72,8 @@ function sanitizeCoopStateForTeam(
     winnerId: state.winnerId,
     bossName,
     playerNames,
+    playerAvatars,
+    playerHouses,
   };
 }
 
@@ -183,7 +189,13 @@ function processBossTurn(
 
   if (result.state.status === "FINISHED") {
     io.to(roomName).emit("boss:battle:state", {
-      state: sanitizeCoopStateForTeam(result.state, session.bossName, Object.fromEntries(session.playerNames)),
+      state: sanitizeCoopStateForTeam(
+        result.state,
+        session.bossName,
+        Object.fromEntries(session.playerNames),
+        Object.fromEntries(session.playerAvatars),
+        Object.fromEntries(session.playerHouses),
+      ),
       events: result.events,
     });
 
@@ -198,6 +210,7 @@ function processBossTurn(
       );
     });
 
+    readyPlayers.delete(battleId);
     removeBossBattle(battleId);
 
     console.log(
@@ -205,7 +218,13 @@ function processBossTurn(
     );
   } else {
     io.to(roomName).emit("boss:battle:state", {
-      state: sanitizeCoopStateForTeam(result.state, session.bossName, Object.fromEntries(session.playerNames)),
+      state: sanitizeCoopStateForTeam(
+        result.state,
+        session.bossName,
+        Object.fromEntries(session.playerNames),
+        Object.fromEntries(session.playerAvatars),
+        Object.fromEntries(session.playerHouses),
+      ),
       events: result.events,
     });
 
@@ -260,6 +279,8 @@ export function registerBossBattleHandlers(io: Server, socket: Socket): void {
       session.state,
       session.bossName,
       Object.fromEntries(session.playerNames),
+      Object.fromEntries(session.playerAvatars),
+      Object.fromEntries(session.playerHouses),
     );
 
     socket.emit("boss:battle:state", {
@@ -267,14 +288,14 @@ export function registerBossBattleHandlers(io: Server, socket: Socket): void {
       events: [],
     });
 
-    // Track which players have loaded the page
-    if (!readyPlayers.has(battleId)) {
-      readyPlayers.set(battleId, new Set());
-    }
-    readyPlayers.get(battleId)!.add(userId);
-
-    // Start turn timer only when ALL alive players have loaded
+    // Start turn timer only when ALL alive players have loaded the page.
+    // If the timer is already running (e.g., reconnection mid-battle), skip tracking.
     if (session.state.status === "IN_PROGRESS" && !session.turnTimer) {
+      if (!readyPlayers.has(battleId)) {
+        readyPlayers.set(battleId, new Set());
+      }
+      readyPlayers.get(battleId)!.add(userId);
+
       const alivePlayers = session.state.team.filter((p) => p.currentHp > 0);
       const allReady = alivePlayers.every((p) => readyPlayers.get(battleId)!.has(p.playerId));
       if (allReady) {
@@ -448,14 +469,21 @@ export function registerBossBattleHandlers(io: Server, socket: Socket): void {
       const currentSession = getBossBattle(battleId);
       if (!currentSession) return;
 
+      // Se o player reconectou durante o grace period, o timer de disconnect
+      // foi limpo pelo handleBossReconnection. Se chegamos aqui, ele nao reconectou.
+      // Mas fazemos a checagem de seguranca para evitar race condition.
+      if (!currentSession.disconnectedPlayers.has(userId)) {
+        // Player reconectou — nada a fazer
+        return;
+      }
+
       currentSession.disconnectedPlayers.delete(userId);
 
-      // Verificar se TODOS os players desconectaram
+      // Verificar se TODOS os players vivos estao desconectados
       const allDisconnected = currentSession.state.team.every(
         (pl) =>
           pl.currentHp <= 0 ||
-          currentSession.disconnectedPlayers.has(pl.playerId) ||
-          pl.playerId === userId
+          currentSession.disconnectedPlayers.has(pl.playerId)
       );
 
       if (allDisconnected) {
@@ -474,6 +502,7 @@ export function registerBossBattleHandlers(io: Server, socket: Socket): void {
           );
         });
 
+        readyPlayers.delete(battleId);
         removeBossBattle(battleId);
         console.log(
           `[Socket.io] Boss battle ${battleId} encerrada: todos desconectaram`
@@ -537,6 +566,8 @@ export function handleBossReconnection(
       session.state,
       session.bossName,
       Object.fromEntries(session.playerNames),
+      Object.fromEntries(session.playerAvatars),
+      Object.fromEntries(session.playerHouses),
     ),
     events: [],
   });

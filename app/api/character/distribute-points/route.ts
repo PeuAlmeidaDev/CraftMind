@@ -18,7 +18,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body: unknown = await request.json();
+    const body: unknown = await request.json().catch(() => null);
+
+    if (!body) {
+      return apiError("Body da requisicao invalido", "INVALID_BODY", 400);
+    }
+
     const parsed = distributePointsSchema.safeParse(body);
 
     if (!parsed.success) {

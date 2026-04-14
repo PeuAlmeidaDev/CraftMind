@@ -37,6 +37,7 @@ type BossQueueState = {
   matchFound: boolean;
   matchData: BossMatchData | null;
   matchAcceptTimeRemaining: number;
+  matchAccepted: boolean;
 
   // Battle redirect
   battleStarted: boolean;
@@ -92,10 +93,15 @@ export function BossQueueProvider({
   const [matchFound, setMatchFound] = useState(false);
   const [matchData, setMatchData] = useState<BossMatchData | null>(null);
   const [matchAcceptTimeRemaining, setMatchAcceptTimeRemaining] = useState(0);
+  const [matchAccepted, setMatchAccepted] = useState(false);
 
   // Battle
   const [battleStarted, setBattleStarted] = useState(false);
   const [battleId, setBattleId] = useState<string | null>(null);
+
+  // Refs to avoid stale closures in callbacks that read latest state
+  const matchFoundRef = useRef(false);
+  const battleStartedRef = useRef(false);
 
   // -------------------------------------------------------------------------
   // Timer helpers
@@ -164,8 +170,10 @@ export function BossQueueProvider({
 
   const resetMatchState = useCallback(() => {
     setMatchFound(false);
+    matchFoundRef.current = false;
     setMatchData(null);
     setMatchAcceptTimeRemaining(0);
+    setMatchAccepted(false);
     clearMatchTimer();
   }, [clearMatchTimer]);
 
@@ -216,6 +224,7 @@ export function BossQueueProvider({
     socket.on("boss:match:found", (data: BossMatchData) => {
       resetQueueState();
       setMatchFound(true);
+      matchFoundRef.current = true;
       setMatchData(data);
       setBattleId(data.battleId);
       startMatchTimer(data.acceptTimeoutMs);
@@ -245,8 +254,10 @@ export function BossQueueProvider({
         clearMatchTimer();
         setMatchAcceptTimeRemaining(0);
         setMatchFound(false);
+        matchFoundRef.current = false;
         setMatchData(null);
         setBattleStarted(true);
+        battleStartedRef.current = true;
         setBattleId(data.battleId);
       },
     );
@@ -289,19 +300,21 @@ export function BossQueueProvider({
     }
     resetQueueState();
 
-    // Disconnect if no active match/battle pending
-    if (!matchFound && !battleStarted) {
+    // Disconnect if no active match/battle pending (use refs to avoid stale closure)
+    if (!matchFoundRef.current && !battleStartedRef.current) {
       disconnectSocket();
     }
-  }, [resetQueueState, matchFound, battleStarted, disconnectSocket]);
+  }, [resetQueueState, disconnectSocket]);
 
   const acceptMatch = useCallback(() => {
+    if (matchAccepted) return;
     const socket = socketRef.current;
     const currentBattleId = matchData?.battleId;
     if (socket && currentBattleId) {
       socket.emit("boss:match:accept", { battleId: currentBattleId });
+      setMatchAccepted(true);
     }
-  }, [matchData]);
+  }, [matchData, matchAccepted]);
 
   const declineMatch = useCallback(() => {
     const socket = socketRef.current;
@@ -346,6 +359,7 @@ export function BossQueueProvider({
     matchFound,
     matchData,
     matchAcceptTimeRemaining,
+    matchAccepted,
     battleStarted,
     battleId,
     getSocket: getSocketRef,

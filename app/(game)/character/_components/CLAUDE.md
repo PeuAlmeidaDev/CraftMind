@@ -18,7 +18,13 @@ Componentes Client usados exclusivamente na pagina `/character`. Todos usam `"us
 
 - Props tipadas inline ou via `type Props` no mesmo arquivo.
 - Importar tipos de `@/types/character`.
-- Token JWT lido de `localStorage` para chamadas autenticadas.
+- Token JWT via `getToken()` de `@/lib/client-auth` (nunca `localStorage.getItem` inline).
+- Todos os fetches autenticados usam `authFetchOptions()` de `@/lib/client-auth` para garantir `credentials: "include"` e header `Authorization`.
 - export default function (um componente por arquivo).
 - Sem `any`.
 - CSS via Tailwind usando CSS variables do tema (`--bg-card`, `--border-subtle`, `--accent-primary`, `--bg-secondary`).
+
+## Acessibilidade
+
+- `SkillSelectModal` implementa focus trap, fecha com Escape, e usa `role="dialog"` + `aria-modal="true"`.
+- Botoes interativos (`SkillLoadout` slots) respondem a Enter e Space via `onKeyDown`.

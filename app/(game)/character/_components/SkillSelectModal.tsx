@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CharacterSkillSlot } from "@/types/skill";
 
 type Props = {
@@ -36,6 +36,57 @@ export default function SkillSelectModal({
   const [activeDamageTypes, setActiveDamageTypes] = useState<Set<string>>(
     () => new Set(["PHYSICAL", "MAGICAL", "NONE"])
   );
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap: captura Tab dentro do modal
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (e.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    },
+    [onClose]
+  );
+
+  // Bind/unbind keyboard listener when modal opens/closes
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener("keydown", handleKeyDown);
+
+    // Auto-focus the dialog on open
+    const timer = requestAnimationFrame(() => {
+      dialogRef.current?.focus();
+    });
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      cancelAnimationFrame(timer);
+    };
+  }, [open, handleKeyDown]);
 
   if (!open) return null;
 
@@ -80,7 +131,14 @@ export default function SkillSelectModal({
       />
 
       {/* Card */}
-      <div className="relative z-10 bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)] p-5 max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Escolher habilidade para slot ${slotIndex + 1}`}
+        tabIndex={-1}
+        className="relative z-10 bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)] p-5 max-w-lg w-full mx-4 max-h-[80vh] flex flex-col outline-none"
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">
@@ -89,6 +147,7 @@ export default function SkillSelectModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Fechar modal"
             className="cursor-pointer text-gray-400 hover:text-white transition-colors"
           >
             <svg

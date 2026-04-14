@@ -26,10 +26,8 @@ type SanitizedPlayerState = Pick<
   "playerId" | "characterId" | "baseStats" | "currentHp" | "statusEffects"
 >;
 
-type FullPlayerState = PlayerState;
-
 type SanitizedBattleState = Omit<BattleState, "players"> & {
-  players: [FullPlayerState | SanitizedPlayerState, FullPlayerState | SanitizedPlayerState];
+  players: [PlayerState | SanitizedPlayerState, PlayerState | SanitizedPlayerState];
 };
 
 // ---------------------------------------------------------------------------
@@ -54,7 +52,7 @@ function sanitizeStateForPlayer(
       statusEffects: [...player.statusEffects],
     };
     return sanitized;
-  }) as [FullPlayerState | SanitizedPlayerState, FullPlayerState | SanitizedPlayerState];
+  }) as [PlayerState | SanitizedPlayerState, PlayerState | SanitizedPlayerState];
 
   return {
     battleId: state.battleId,
@@ -220,7 +218,15 @@ export function startTurnTimer(
     clearTimeout(session.turnTimer);
   }
 
+  // Capturar turno atual para guard contra execucao duplicada
+  const turnWhenStarted = session.state.turnNumber;
+
   session.turnTimer = setTimeout(() => {
+    // Guard: se o turno ja avancou, o timer e stale — ignorar
+    if (session.state.turnNumber !== turnWhenStarted) {
+      return;
+    }
+
     // Inserir skip para jogadores que nao enviaram acao
     for (const player of session.state.players) {
       if (!session.pendingActions.has(player.playerId)) {
