@@ -365,14 +365,21 @@ model MobSkill {
 // PVE BATTLE — Registro de uma batalha PvE contra mob
 // ============================================================
 
+enum PveBattleMode {
+  SOLO
+  MULTI
+}
+
 model PveBattle {
-  id        String  @id @default(cuid())
+  id        String        @id @default(cuid())
   userId    String
   mobId     String
   result    String?
-  expGained Int     @default(0)
-  turns     Int     @default(0)
-  log       Json    @default("[]")
+  expGained Int           @default(0)
+  turns     Int           @default(0)
+  log       Json          @default("[]")
+  mode      PveBattleMode @default(SOLO)
+  mobIds    String[]      @default([])
 
   user User @relation(fields: [userId], references: [id])
   mob  Mob  @relation(fields: [mobId], references: [id])
