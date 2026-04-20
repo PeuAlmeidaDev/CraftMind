@@ -13,6 +13,7 @@ Funcoes puras e testaveis que encapsulam regras de negocio do jogo. Nao acessam 
 | `skill-unlock.ts` | Rola chance de desbloqueio de skill por tag da tarefa completada |
 | `date-utils.ts` | Calculo centralizado de inicio/fim do dia em BRT (UTC-3) |
 | `dominant-category.ts` | Calcula a categoria dominante (mais frequente) de um array de HabitCategory, com desempate aleatorio |
+| `public-profile.ts` | Busca perfil publico de um jogador por userId (dados + pvpStats). Acessa banco via Prisma — excecao a regra de funcoes puras |
 
 ## determine-house.ts
 
@@ -141,9 +142,33 @@ const dominant2 = getDominantCategory(["PHYSICAL", "MENTAL"], () => 0.99);
 // Sempre retorna o ultimo empatado
 ```
 
+## public-profile.ts
+
+Exporta `getPublicProfile(userId)` que busca o perfil publico de um jogador incluindo dados basicos, casa, character e estatisticas PvP. Retorna `null` se o usuario nao for encontrado.
+
+**Nota:** Este helper acessa o banco de dados via Prisma, sendo uma excecao a regra de funcoes puras desta pasta. Justificativa: centralizar a logica de perfil publico reutilizada por multiplas rotas (`/api/user/[id]/profile` e `/api/user/by-name/[name]/profile`).
+
+### Interface de retorno: `PublicProfileData`
+
+- `id`, `name`, `avatarUrl` — dados basicos do usuario
+- `house` — `{ name, animal }` ou `null`
+- `character` — `{ level, physicalAtk, physicalDef, magicAtk, magicDef, hp, speed }` ou `null`
+- `pvpStats` — `{ totalBattles, wins, losses, draws }` (calculado a partir de Battle counts)
+
+### Uso
+
+```ts
+import { getPublicProfile } from "@/lib/helpers/public-profile";
+
+const profile = await getPublicProfile(userId);
+if (!profile) {
+  // usuario nao encontrado
+}
+```
+
 ## Convencoes
 
-- Toda funcao nesta pasta deve ser pura (sem efeitos colaterais).
+- Toda funcao nesta pasta deve ser pura (sem efeitos colaterais), exceto `public-profile.ts` que acessa banco (documentado acima).
 - Tipos de entrada e saida sempre explicitos — sem `any`.
 - Usar tipos do Prisma (`HabitCategory`, `HouseName`) para manter consistencia com o schema.
 - Nomear arquivos pelo dominio da regra (ex: `determine-house.ts`, nao `house-utils.ts`).

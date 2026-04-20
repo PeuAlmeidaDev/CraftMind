@@ -51,6 +51,16 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password, habitIds } = parsed.data;
 
+    // Verificar se nome ja esta em uso
+    const existingName = await prisma.user.findUnique({
+      where: { name },
+      select: { id: true },
+    });
+
+    if (existingName) {
+      return apiError("Nome de usuario ja esta em uso", "NAME_ALREADY_EXISTS", 422);
+    }
+
     // Verificar se email ja existe
     const existingUser = await prisma.user.findUnique({
       where: { email },

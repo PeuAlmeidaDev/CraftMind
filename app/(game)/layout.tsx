@@ -7,10 +7,16 @@ import type { House, HouseName } from "@/types/house";
 import type { Character } from "@/types/character";
 import { applyHouseTheme } from "@/lib/theme";
 import { clearAuthAndRedirect } from "@/lib/client-auth";
+import { io, type Socket } from "socket.io-client";
 import { useMusicPlayer } from "./_hooks/useMusicPlayer";
+import { useFriends } from "./_hooks/useFriends";
 import { BossQueueProvider } from "./_hooks/useBossQueue";
 import BossQueueBar from "./_components/BossQueueBar";
 import BossMatchModal from "./_components/BossMatchModal";
+import PlayerSearchBar from "@/components/ui/PlayerSearchBar";
+import PlayerProfileCard from "@/components/ui/PlayerProfileCard";
+import FriendsList from "@/components/ui/FriendsList";
+import type { PlayerPublicProfile } from "@/components/ui/PlayerSearchBar";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -43,9 +49,26 @@ export default function GameLayout({
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [searchedPlayer, setSearchedPlayer] = useState<PlayerPublicProfile | null>(null);
 
   const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight")) ? "battle" : "ambient";
   const music = useMusicPlayer(musicContext);
+
+  const {
+    friends,
+    pendingRequests,
+    pendingCount,
+    loading: friendsLoading,
+    error: friendsError,
+    acceptRequest,
+    declineRequest,
+    removeFriend,
+    refresh: refreshFriends,
+    acceptingIds,
+    decliningIds,
+    removingIds,
+  } = useFriends();
 
   const fetchProfile = useCallback(
     async (signal?: AbortSignal) => {
@@ -98,6 +121,34 @@ export default function GameLayout({
     fetchProfile(controller.signal);
     return () => controller.abort();
   }, [fetchProfile]);
+
+  // Socket.io para eventos de amizade em tempo real
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    if (!socketUrl) return;
+
+    const socket: Socket = io(socketUrl, {
+      auth: { token },
+      autoConnect: false,
+    });
+
+    socket.on("friend:request-received", () => {
+      refreshFriends();
+    });
+
+    socket.on("friend:request-accepted", () => {
+      refreshFriends();
+    });
+
+    socket.connect();
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [refreshFriends]);
 
   function handleLogout() {
     clearAuthAndRedirect(router);
@@ -153,6 +204,40 @@ export default function GameLayout({
               </Link>
             ))}
           </nav>
+
+          {/* Player search (desktop) */}
+          <div className="hidden max-w-xs flex-1 lg:block">
+            <PlayerSearchBar onPlayerFound={setSearchedPlayer} />
+          </div>
+
+          {/* Friends button (desktop) */}
+          <button
+            type="button"
+            onClick={() => setFriendsOpen(true)}
+            className="relative hidden cursor-pointer rounded-lg p-2 text-gray-400 transition-colors hover:bg-[var(--bg-primary)] hover:text-white lg:block"
+            aria-label="Amigos"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            {pendingCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[0.6rem] font-bold text-white">
+                {pendingCount}
+              </span>
+            )}
+          </button>
 
           {/* User info + Logout (desktop) */}
           <div className="flex items-center gap-3">
@@ -266,7 +351,44 @@ export default function GameLayout({
               {link.label}
             </Link>
           ))}
+
+          {/* Friends button (mobile) */}
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setFriendsOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span>Amigos</span>
+            {pendingCount > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[0.6rem] font-bold text-white">
+                {pendingCount}
+              </span>
+            )}
+          </button>
         </nav>
+
+        {/* Player search (mobile) */}
+        <div className="px-3 pt-3">
+          <PlayerSearchBar onPlayerFound={(p) => { setSearchedPlayer(p); setMenuOpen(false); }} />
+        </div>
 
         {/* Menu user info + logout */}
         {user && (
@@ -326,6 +448,32 @@ export default function GameLayout({
         <BossQueueBar />
         <BossMatchModal />
       </BossQueueProvider>
+
+      {/* Player profile modal */}
+      {searchedPlayer && (
+        <PlayerProfileCard
+          player={searchedPlayer}
+          onClose={() => setSearchedPlayer(null)}
+        />
+      )}
+
+      {/* Friends drawer */}
+      <FriendsList
+        open={friendsOpen}
+        onClose={() => setFriendsOpen(false)}
+        friends={friends}
+        pendingRequests={pendingRequests}
+        pendingCount={pendingCount}
+        loading={friendsLoading}
+        error={friendsError}
+        acceptRequest={acceptRequest}
+        declineRequest={declineRequest}
+        removeFriend={removeFriend}
+        refresh={refreshFriends}
+        acceptingIds={acceptingIds}
+        decliningIds={decliningIds}
+        removingIds={removingIds}
+      />
     </div>
   );
 }

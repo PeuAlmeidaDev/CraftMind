@@ -19,10 +19,13 @@
 | `helpers/skill-unlock.ts` | Rola chance de desbloqueio de skill por tag da tarefa (`rollSkillUnlock`, `SKILL_UNLOCK_CHANCE`) |
 | `helpers/date-utils.ts` | Calculo centralizado de inicio/fim do dia em BRT (UTC-3). Exporta `getStartOfDayBRT()`, `getEndOfDayBRT()`, `getTodayDateBRT()`. Usado por todas as rotas de tarefas e logs |
 | `helpers/dominant-category.ts` | Calcula categoria dominante de um array de HabitCategory com desempate aleatorio. Funcao pura, apenas type import de @prisma/client. Exporta `getDominantCategory()` |
+| `helpers/public-profile.ts` | Busca perfil publico de um jogador por userId (user, house, character, pvpStats). Acessa Prisma. Exporta `getPublicProfile()` e interface `PublicProfileData` |
 | `theme.ts` | Mapa de temas visuais por casa (HouseTheme, HOUSE_THEMES, getHouseTheme, applyHouseTheme). Sem `"use client"` — chamado de Client Components |
+| `socket-emitter.ts` | Helper fire-and-forget para emitir eventos Socket.io a usuarios especificos via POST HTTP para o servidor Socket.io (`/internal/notify`). Requer `SOCKET_SERVER_URL` e `SOCKET_INTERNAL_SECRET`. Exporta `emitToUser()` |
 | `validations/auth.ts` | Schemas Zod para registro e login (reusaveis entre Route Handlers e Server Actions) |
 | `validations/battle.ts` | Schemas Zod para batalha PvE (`pveBattleActionSchema`, `distributePointsSchema`) e tipos inferidos |
 | `validations/tasks.ts` | Schema Zod para validacao de params ao completar tarefa |
+| `validations/friends.ts` | Schema Zod para pedido de amizade (`friendRequestSchema`: `{ targetUserId: string }`) |
 | `exp/` | Funcoes puras para EXP, level up, distribuicao de pontos e matchmaking PvE. Ver `exp/CLAUDE.md` |
 | `tasks/generate-daily.ts` | Gera exatamente 5 tarefas diarias (`DAILY_TASK_LIMIT`) para um usuario. Busca UserHabits, seleciona 5 habitos aleatorios (Fisher-Yates shuffle). Se o usuario tem < 5 habitos, repete habitos ciclicamente com templates (descricoes) diferentes. Cria DailyTasks via `createMany` com `skipDuplicates` (idempotente pela constraint `userId+description+dueDate`). Chamada pela rota POST `/api/tasks/generate`. Exporta `DAILY_TASK_LIMIT`. |
 

@@ -8,6 +8,14 @@ Servidor Node.js standalone (nao faz parte do Next.js). Roda na porta 3001. O Ne
 
 `server/index.ts` — inicializa o servidor HTTP + Socket.io, registra handlers de eventos.
 
+## Endpoint HTTP interno
+
+O httpServer expoe `POST /internal/notify` para que as API routes do Next.js possam emitir eventos Socket.io para usuarios especificos. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
+
+Payload: `{ targetUserId: string, event: string, payload: object }`
+
+Usado pelo helper `lib/socket-emitter.ts` no lado do Next.js.
+
 ## Autenticacao de conexao
 
 Toda conexao deve enviar o `access_token` no handshake:
@@ -46,6 +54,7 @@ io.use((socket, next) => {
 
 | Arquivo | Responsabilidade |
 |---|---|
+| `stores/user-store.ts` | Mapa userId -> Set<socketId> para roteamento de eventos a usuarios online. Registrado/removido automaticamente em connect/disconnect |
 | `stores/queue-store.ts` | Fila PvP in-memory (Map userId -> QueueEntry) |
 | `stores/pvp-store.ts` | Batalhas PvP ativas in-memory (Map battleId -> PvpBattleSession) |
 | `stores/boss-queue-store.ts` | Fila de boss fight in-memory por HabitCategory (Map category -> BossQueueEntry[]) |
@@ -102,6 +111,13 @@ io.use((socket, next) => {
 | `boss:action:received` | `{ playerId, total, expected }` | Acao recebida de um jogador |
 | `boss:battle:player-disconnected` | `{ playerId, gracePeriodMs }` | Jogador desconectou da boss battle |
 | `boss:battle:player-reconnected` | `{ playerId }` | Jogador reconectou na boss battle |
+
+### Amizade — Servidor -> Cliente (via /internal/notify)
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `friend:request-received` | `{ friendshipId, sender: { id, name, level } }` | Pedido de amizade recebido (emitido pela API route POST /api/friends/request) |
+| `friend:request-accepted` | `{ friendshipId, friend: { id, name, level } }` | Pedido de amizade aceito (emitido pela API route PUT /api/friends/request/[id]/accept) |
 
 ## Timers
 

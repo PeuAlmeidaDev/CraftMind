@@ -24,6 +24,13 @@ enum HabitCategory {
   SPIRITUAL    // Espirituais — a definir
 }
 
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  BLOCKED
+}
+
 enum BattleStatus {
   WAITING    // aguardando oponente
   IN_PROGRESS
@@ -61,7 +68,7 @@ model User {
   id           String  @id @default(cuid())
   email        String  @unique
   passwordHash String
-  name         String
+  name         String  @unique
   avatarUrl    String?
   houseId      String?
 
@@ -78,6 +85,30 @@ model User {
   pveBattles         PveBattle[]
   refreshTokens      RefreshToken[]
   coopParticipations CoopBattleParticipant[]
+
+  // Amizades
+  sentFriendRequests     Friendship[] @relation("FriendshipSender")
+  receivedFriendRequests Friendship[] @relation("FriendshipReceiver")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// FRIENDSHIP — Relação de amizade entre dois jogadores
+// ============================================================
+
+model Friendship {
+  id         String           @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     FriendshipStatus @default(PENDING)
+
+  sender   User @relation("FriendshipSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("FriendshipReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

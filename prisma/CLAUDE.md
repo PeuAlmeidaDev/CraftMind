@@ -22,12 +22,13 @@
 | `BossSkill` | Relacao N-N entre Boss e Skill: bossId, skillId, slotIndex (0-3). Constraints unique em `[bossId, skillId]` e `[bossId, slotIndex]` |
 | `CoopBattle` | Registro de batalha cooperativa: bossId, date (Date), status (MATCHING/etc), result, turns, expGained, log (JSON). Indice em `[date, status]` |
 | `CoopBattleParticipant` | Jogador em batalha coop: coopBattleId, userId, dominantCategory (HabitCategory). Constraint unique em `[coopBattleId, userId]` |
+| `Friendship` | Relacao de amizade: senderId, receiverId, status (FriendshipStatus enum: PENDING/ACCEPTED/DECLINED/BLOCKED). Constraint unique em `[senderId, receiverId]`. Indice em receiverId. onDelete Cascade em ambas as relacoes |
 
 ## Convenções de schema
 
 - Sempre usar `id String @id @default(cuid())` — nunca `Int @default(autoincrement())`.
 - Timestamps: `createdAt DateTime @default(now())` e `updatedAt DateTime @updatedAt` em todo model.
-- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`.
+- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`.
 - Dados variáveis por registro (atributos concedidos, log de batalha): usar `Json` com tipo TypeScript em `types/`.
 
 ## Comandos

@@ -16,6 +16,9 @@ api/
 │   ├── habits/route.ts   # GET (habitos do usuario logado — protegida)
 │   ├── profile/route.ts  # GET (perfil do usuario: nome, email, casa, avatarUrl, character — protegida)
 │   ├── avatar/route.ts   # POST (upload de avatar via Cloudinary — protegida, formData, max 5MB, JPEG/PNG/WebP)
+│   ├── by-name/
+│   │   └── [name]/
+│   │       └── profile/route.ts  # GET (perfil publico por nome — protegida, mesmos dados de [id]/profile)
 │   └── [id]/
 │       └── profile/route.ts  # GET (perfil publico de qualquer jogador: nome, casa, character, pvpStats — protegida, sem email/senha/exp)
 ├── tasks/
@@ -30,6 +33,20 @@ api/
 │       ├── route.ts      # GET (listar todas as skills do personagem: equipped + unequipped — protegida)
 │       ├── equip/route.ts   # PUT (equipar skill em slot 0-3, com swap/move — protegida)
 │       └── unequip/route.ts # PUT (desequipar skill de um slot — protegida)
+├── friends/
+│   ├── route.ts              # GET (listar amigos aceitos — protegida)
+│   ├── request/
+│   │   └── route.ts          # POST (enviar pedido de amizade — protegida, 5 req/60s)
+│   │   └── [id]/
+│   │       ├── accept/route.ts   # PUT (aceitar pedido — protegida, somente receiver)
+│   │       └── decline/route.ts  # PUT (recusar pedido — protegida, somente receiver)
+│   ├── requests/
+│   │   └── route.ts          # GET (listar pedidos pendentes recebidos — protegida)
+│   ├── status/
+│   │   └── [userId]/
+│   │       └── route.ts      # GET (status da relacao com outro usuario: NONE/PENDING/ACCEPTED/DECLINED/BLOCKED + direction — protegida, 10 req/60s)
+│   └── [id]/
+│       └── route.ts          # DELETE (remover amizade aceita — protegida, sender ou receiver)
 └── battle/
     ├── route.ts          # POST iniciar batalha
     ├── pve/

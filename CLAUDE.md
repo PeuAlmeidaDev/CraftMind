@@ -30,6 +30,7 @@ O servidor Socket.io sobe separado: `node server/index.js` (porta 3001 por padr√
 | `UPSTASH_REDIS_REST_URL` | URL REST do Upstash Redis (rate limiting) |
 | `UPSTASH_REDIS_REST_TOKEN` | Token do Upstash Redis |
 | `SOCKET_SERVER_URL` | URL do servidor Socket.io (ex: http://localhost:3001) |
+| `SOCKET_INTERNAL_SECRET` | Segredo compartilhado entre Next.js e Socket.io server para notificacoes internas (POST /internal/notify) |
 | `NEXT_PUBLIC_SOCKET_URL` | URL p√∫blica do Socket.io exposta ao browser |
 | `CLOUDINARY_CLOUD_NAME` | Nome do cloud Cloudinary (upload de avatar) |
 | `CLOUDINARY_API_KEY` | API key do Cloudinary |
