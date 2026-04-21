@@ -41,6 +41,9 @@ function getAccessSecret(): Uint8Array {
   if (!secret) {
     throw new Error("JWT_SECRET environment variable is not set");
   }
+  if (secret.length < 32) {
+    throw new Error("JWT_SECRET deve ter no minimo 32 caracteres");
+  }
   return new TextEncoder().encode(secret);
 }
 
@@ -48,6 +51,9 @@ function getRefreshSecret(): Uint8Array {
   const secret = process.env.JWT_REFRESH_SECRET;
   if (!secret) {
     throw new Error("JWT_REFRESH_SECRET environment variable is not set");
+  }
+  if (secret.length < 32) {
+    throw new Error("JWT_REFRESH_SECRET deve ter no minimo 32 caracteres");
   }
   return new TextEncoder().encode(secret);
 }
