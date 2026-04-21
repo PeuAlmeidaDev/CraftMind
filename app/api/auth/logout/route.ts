@@ -9,11 +9,14 @@ export async function POST(request: NextRequest) {
   const rateLimitResult = await authRateLimit(`logout:${ip}`);
 
   if (!rateLimitResult.success) {
-    return apiError(
+    const retryAfterSeconds = Math.ceil((rateLimitResult.reset - Date.now()) / 1000);
+    const response = apiError(
       "Muitas tentativas. Tente novamente mais tarde.",
       "RATE_LIMIT_EXCEEDED",
       429
     );
+    response.headers.set("Retry-After", String(retryAfterSeconds));
+    return response;
   }
 
   const refreshToken = request.cookies.get("refresh_token")?.value;

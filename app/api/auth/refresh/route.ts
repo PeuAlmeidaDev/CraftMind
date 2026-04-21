@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     if (!rateLimitResult.success) {
       const retryAfterSeconds = Math.ceil((rateLimitResult.reset - Date.now()) / 1000);
-      const response = apiError("Muitas tentativas. Tente novamente mais tarde.", "RATE_LIMITED", 429);
+      const response = apiError("Muitas tentativas. Tente novamente mais tarde.", "RATE_LIMIT_EXCEEDED", 429);
       response.headers.set("Retry-After", String(retryAfterSeconds));
       return response;
     }

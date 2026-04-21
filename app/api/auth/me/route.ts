@@ -15,11 +15,14 @@ export async function GET(request: NextRequest) {
     });
 
     if (!rateLimitResult.success) {
-      return apiError(
+      const retryAfterSeconds = Math.ceil((rateLimitResult.reset - Date.now()) / 1000);
+      const rateLimitResponse = apiError(
         "Muitas tentativas. Tente novamente mais tarde.",
         "RATE_LIMIT_EXCEEDED",
         429
       );
+      rateLimitResponse.headers.set("Retry-After", String(retryAfterSeconds));
+      return rateLimitResponse;
     }
 
     const user = await prisma.user.findUnique({
