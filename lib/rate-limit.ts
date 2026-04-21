@@ -57,7 +57,7 @@ const NOOP_RESULT: RateLimitResult = {
 const FAIL_CLOSED_RESULT: RateLimitResult = {
   success: false,
   remaining: 0,
-  reset: Date.now() + 60_000,
+  reset: 0,
 };
 
 const isDev = process.env.NODE_ENV === "development";
@@ -79,7 +79,7 @@ function failSafeResult(context: string, error?: unknown): RateLimitResult {
  * Verifica rate limit para um identificador (ex: IP, userId).
  * Usa sliding window do @upstash/ratelimit.
  *
- * Se Upstash nao estiver configurado, retorna sucesso (no-op).
+ * Se Upstash nao estiver configurado: em dev retorna sucesso (no-op), em producao bloqueia a request (fail-close).
  *
  * @param identifier - Chave unica do cliente (IP, user ID, etc.)
  * @param config - Configuracao opcional (padrao: 5 req / 60s)
