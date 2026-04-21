@@ -172,21 +172,21 @@ export const taskTemplates: TaskTemplate[] = [
     attributeGrants: { magicAttack: 3 },
   },
 
-  // Programacao
+  // Estudos de Tecnologia
   {
-    habitName: 'Programacao',
+    habitName: 'Estudos de Tecnologia',
     description: 'Resolva um desafio de logica ou algoritmo',
     tag: 'APPLY',
     attributeGrants: { magicAttack: 3 },
   },
   {
-    habitName: 'Programacao',
+    habitName: 'Estudos de Tecnologia',
     description: 'Code por 30 minutos em um projeto pessoal',
     tag: 'APPLY',
     attributeGrants: { magicAttack: 2 },
   },
   {
-    habitName: 'Programacao',
+    habitName: 'Estudos de Tecnologia',
     description: 'Estude um conceito novo de programacao por 20 minutos',
     tag: 'LEARN',
     attributeGrants: { magicAttack: 2 },
@@ -414,15 +414,15 @@ export const taskTemplates: TaskTemplate[] = [
 
   // ==================== SPIRITUAL (5 hábitos) ====================
 
-  // Oracao
+  // Pratica da Religiao
   {
-    habitName: 'Oracao',
+    habitName: 'Pratica da Religiao',
     description: 'Faca uma oracao de 10 minutos',
     tag: 'PRACTICE',
     attributeGrants: { magicDefense: 2, hp: 1 },
   },
   {
-    habitName: 'Oracao',
+    habitName: 'Pratica da Religiao',
     description: 'Reserve um momento de prece e conexao espiritual',
     tag: 'PRACTICE',
     attributeGrants: { magicDefense: 1, hp: 2 },

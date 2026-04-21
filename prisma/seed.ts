@@ -60,7 +60,7 @@ const habits: HabitData[] = [
   // ==================== INTELLECTUAL (6) ====================
   { name: 'Leitura', description: 'Expanda seu conhecimento atraves dos livros', category: 'INTELLECTUAL' },
   { name: 'Estudos Academicos', description: 'Dedique tempo ao aprendizado formal', category: 'INTELLECTUAL' },
-  { name: 'Programacao', description: 'Desenvolva logica e habilidades tecnicas', category: 'INTELLECTUAL' },
+  { name: 'Estudos de Tecnologia', description: 'Desenvolva logica e habilidades tecnicas', category: 'INTELLECTUAL' },
   { name: 'Idiomas', description: 'Aprenda ou pratique um novo idioma', category: 'INTELLECTUAL' },
   { name: 'Escrita Criativa', description: 'Crie textos, contos, poesia ou escrita livre', category: 'INTELLECTUAL' },
   { name: 'Xadrez e Puzzles', description: 'Exercite o raciocinio logico e estrategico', category: 'INTELLECTUAL' },
@@ -79,7 +79,7 @@ const habits: HabitData[] = [
   { name: 'Ensinar Algo', description: 'Compartilhe conhecimento com outra pessoa', category: 'SOCIAL' },
 
   // ==================== SPIRITUAL (5) ====================
-  { name: 'Oracao', description: 'Conexao espiritual atraves da prece', category: 'SPIRITUAL' },
+  { name: 'Pratica da Religiao', description: 'Conexao espiritual atraves da pratica religiosa', category: 'SPIRITUAL' },
   { name: 'Gratidao', description: 'Pratique o reconhecimento pelo que ha de bom na vida', category: 'SPIRITUAL' },
   { name: 'Contemplacao', description: 'Reflexao profunda e presenca no momento', category: 'SPIRITUAL' },
   { name: 'Leitura Filosofica', description: 'Textos reflexivos e de sabedoria', category: 'SPIRITUAL' },
