@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Validar que todos os habitIds existem no banco
     const habits = await prisma.habit.findMany({
       where: { id: { in: habitIds } },
-      select: { id: true, category: true },
+      select: { id: true, name: true },
     });
 
     if (habits.length !== habitIds.length) {

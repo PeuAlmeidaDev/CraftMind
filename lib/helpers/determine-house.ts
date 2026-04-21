@@ -1,66 +1,91 @@
-import type { HabitCategory, HouseName } from "@prisma/client";
+import type { HouseName } from "@prisma/client";
 
-interface HabitWithCategory {
-  category: HabitCategory;
+interface HabitWithName {
+  name: string;
 }
 
 /**
- * Ordem de prioridade para desempate entre categorias.
- * PHYSICAL > INTELLECTUAL > MENTAL > SOCIAL/SPIRITUAL
+ * Mapa de habitos para casas.
+ * Cada habito pontua +1 para cada casa listada.
+ * Habitos ausentes do mapa sao neutros (nao pontuam).
  */
-const CATEGORY_PRIORITY: readonly HabitCategory[] = [
-  "PHYSICAL",
-  "INTELLECTUAL",
-  "MENTAL",
-  "SOCIAL",
-  "SPIRITUAL",
-] as const;
+const HABIT_TO_HOUSES: Record<string, HouseName[]> = {
+  "Exercicio Fisico": ["LYCUS", "NOCTIS", "ARION"],
+  "Yoga": ["NEREID"],
+  "Artes Marciais": ["LYCUS", "ARION"],
+  "Alongamento": ["ARION", "NEREID"],
+  "Danca": ["NOCTIS"],
+  "Leitura": ["LYCUS", "NOCTIS", "NEREID"],
+  "Estudos Academicos": ["LYCUS", "NOCTIS", "ARION"],
+  "Estudos de Tecnologia": ["LYCUS"],
+  "Idiomas": ["LYCUS"],
+  "Escrita Criativa": ["NOCTIS"],
+  "Xadrez e Puzzles": ["NEREID"],
+  "Meditacao": ["LYCUS", "NEREID"],
+  "Respiracao": ["NEREID"],
+  "Digital Detox": ["LYCUS"],
+  "Planejamento do Dia": ["NOCTIS", "ARION"],
+  "Voluntariado": ["ARION", "NEREID"],
+  "Mentoria": ["NEREID"],
+  "Manter Contato": ["LYCUS", "ARION", "NEREID"],
+  "Ensinar Algo": ["NOCTIS", "ARION"],
+  "Pratica da Religiao": ["LYCUS", "NOCTIS", "ARION"],
+  "Gratidao": ["NOCTIS", "ARION"],
+  "Contemplacao": ["NOCTIS"],
+  "Leitura Filosofica": ["NEREID"],
+};
 
-/**
- * Mapeamento de categoria dominante para casa.
- * SOCIAL e SPIRITUAL ambos levam a NEREID.
- */
-const CATEGORY_TO_HOUSE: Record<HabitCategory, HouseName> = {
-  PHYSICAL: "ARION",
-  INTELLECTUAL: "LYCUS",
-  MENTAL: "NOCTIS",
-  SOCIAL: "NEREID",
-  SPIRITUAL: "NEREID",
-} as const;
+const ALL_HOUSES: HouseName[] = ["ARION", "LYCUS", "NOCTIS", "NEREID"];
 
 /**
  * Determina a casa do jogador com base nos habitos selecionados.
  *
  * Regras:
- * - Conta a frequencia de cada categoria nos habitos fornecidos.
- * - A categoria com maior contagem define a casa.
- * - Em caso de empate, a prioridade e: PHYSICAL > INTELLECTUAL > MENTAL > SOCIAL > SPIRITUAL.
- * - SOCIAL e SPIRITUAL ambos mapeiam para NEREID.
+ * - Cada habito da +1 ponto para cada casa listada no mapa.
+ * - Habitos nao listados (neutros) nao pontuam.
+ * - A casa com mais pontos e atribuida.
+ * - Empate: sorteio aleatorio entre as empatadas.
+ * - Nenhum ponto (todos neutros): sorteio entre as 4 casas.
  *
- * Funcao pura — nao acessa banco de dados.
+ * @param habits Array de objetos com { name: string }
+ * @param randomFn Funcao de random injetavel para testes (default: Math.random)
  */
-export function determineHouse(habits: HabitWithCategory[]): HouseName {
-  const counts: Record<HabitCategory, number> = {
-    PHYSICAL: 0,
-    INTELLECTUAL: 0,
-    MENTAL: 0,
-    SOCIAL: 0,
-    SPIRITUAL: 0,
+export function determineHouse(
+  habits: HabitWithName[],
+  randomFn: () => number = Math.random
+): HouseName {
+  const scores: Record<HouseName, number> = {
+    ARION: 0,
+    LYCUS: 0,
+    NOCTIS: 0,
+    NEREID: 0,
   };
 
   for (const habit of habits) {
-    counts[habit.category] += 1;
-  }
-
-  let dominantCategory: HabitCategory = "PHYSICAL";
-  let maxCount = 0;
-
-  for (const category of CATEGORY_PRIORITY) {
-    if (counts[category] > maxCount) {
-      maxCount = counts[category];
-      dominantCategory = category;
+    const houses = HABIT_TO_HOUSES[habit.name];
+    if (houses) {
+      for (const house of houses) {
+        scores[house] += 1;
+      }
     }
   }
 
-  return CATEGORY_TO_HOUSE[dominantCategory];
+  const maxScore = Math.max(...Object.values(scores));
+
+  // Se nenhum habito pontuou, sortear entre todas as casas
+  if (maxScore === 0) {
+    const index = Math.floor(randomFn() * ALL_HOUSES.length);
+    return ALL_HOUSES[index];
+  }
+
+  // Filtrar casas com pontuacao maxima
+  const topHouses = ALL_HOUSES.filter((house) => scores[house] === maxScore);
+
+  if (topHouses.length === 1) {
+    return topHouses[0];
+  }
+
+  // Empate: sorteio entre as empatadas
+  const index = Math.floor(randomFn() * topHouses.length);
+  return topHouses[index];
 }

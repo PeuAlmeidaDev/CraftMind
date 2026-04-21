@@ -17,18 +17,15 @@ Funcoes puras e testaveis que encapsulam regras de negocio do jogo. Nao acessam 
 
 ## determine-house.ts
 
-Exporta `determineHouse(habits)` que recebe um array de objetos com `{ category: HabitCategory }` e retorna o `HouseName` correspondente.
+Exporta `determineHouse(habits, randomFn?)` que recebe um array de objetos com `{ name: string }` e retorna o `HouseName` correspondente. A funcao usa um mapa interno `HABIT_TO_HOUSES` onde cada habito pontua +1 para cada casa listada. Habitos ausentes do mapa sao neutros (nao pontuam).
 
 ### Regras de alocacao
 
-- Conta a frequencia de cada categoria nos habitos fornecidos.
-- A categoria com maior contagem define a casa:
-  - `PHYSICAL` -> `ARION`
-  - `INTELLECTUAL` -> `LYCUS`
-  - `MENTAL` -> `NOCTIS`
-  - `SOCIAL` -> `NEREID`
-  - `SPIRITUAL` -> `NEREID`
-- Em caso de empate, a prioridade e: PHYSICAL > INTELLECTUAL > MENTAL > SOCIAL > SPIRITUAL.
+- Cada habito da +1 ponto para cada casa listada no mapa `HABIT_TO_HOUSES`.
+- Habitos nao listados (neutros) nao pontuam.
+- A casa com mais pontos e atribuida.
+- Empate: sorteio aleatorio entre as empatadas (via `randomFn`).
+- Nenhum ponto (todos neutros): sorteio entre as 4 casas.
 
 ### Uso
 
@@ -36,11 +33,15 @@ Exporta `determineHouse(habits)` que recebe um array de objetos com `{ category:
 import { determineHouse } from "@/lib/helpers/determine-house";
 
 const house = determineHouse([
-  { category: "PHYSICAL" },
-  { category: "PHYSICAL" },
-  { category: "INTELLECTUAL" },
+  { name: "Exercicio Fisico" },
+  { name: "Meditacao" },
+  { name: "Leitura" },
 ]);
-// house === "ARION"
+// Pontua LYCUS=3, NOCTIS=2, ARION=1, NEREID=2 -> house === "LYCUS"
+
+// Com randomFn para testes deterministicos
+const house2 = determineHouse([{ name: "Yoga" }], () => 0);
+// house2 === "NEREID"
 ```
 
 ## attribute-mapping.ts

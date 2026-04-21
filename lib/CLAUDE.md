@@ -14,7 +14,7 @@
 | `rate-limit.ts` | Rate limiting via @upstash/ratelimit (sliding window). Lazy init — se Upstash nao estiver configurado, opera como no-op com `console.warn`. Exporta `rateLimit()` generico, `authRateLimit()` pre-configurado para rotas de auth (5 req/60s) e `getClientIp(request)` que extrai IP real priorizando x-real-ip > x-forwarded-for > "unknown" |
 | `house.ts` | Lógica de alocação de casa com base nos hábitos selecionados |
 | `battle.ts` | Cálculo de dano, ordem de turno, resolução de habilidades |
-| `helpers/determine-house.ts` | Funcao pura que determina a casa do jogador pela categoria dominante dos habitos |
+| `helpers/determine-house.ts` | Funcao pura que determina a casa do jogador por combinacao de habitos (mapa habito->casas, pontuacao, desempate aleatorio) |
 | `helpers/attribute-mapping.ts` | Mapeia chaves JSON de attributeGrants para colunas do Character no Prisma |
 | `helpers/skill-unlock.ts` | Rola chance de desbloqueio de skill por tag da tarefa (`rollSkillUnlock`, `SKILL_UNLOCK_CHANCE`) |
 | `helpers/date-utils.ts` | Calculo centralizado de inicio/fim do dia em BRT (UTC-3). Exporta `getStartOfDayBRT()`, `getEndOfDayBRT()`, `getTodayDateBRT()`. Usado por todas as rotas de tarefas e logs |
