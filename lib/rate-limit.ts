@@ -1,5 +1,24 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { NextRequest } from "next/server";
+
+// ---------------------------------------------------------------------------
+// Client IP extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extrai o IP real do cliente de forma segura.
+ * Prioridade: x-real-ip (confiavel em Vercel/Nginx) > x-forwarded-for primeiro IP > fallback.
+ */
+export function getClientIp(request: NextRequest): string {
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+
+  return "unknown";
+}
 
 // ---------------------------------------------------------------------------
 // Lazy Redis initialization

@@ -11,7 +11,7 @@
 | `auth/verify-session.ts` | Helper centralizado para extrair e verificar token de uma Request (header Authorization ou cookie access_token). Lanca `AuthenticationError` tipado |
 | `api-response.ts` | Helpers `apiSuccess()` e `apiError()` para respostas JSON padronizadas em Route Handlers |
 | `cookies.ts` | Helpers para ler/escrever cookies de sessão (Next.js `cookies()`) |
-| `rate-limit.ts` | Rate limiting via @upstash/ratelimit (sliding window). Lazy init — se Upstash nao estiver configurado, opera como no-op com `console.warn`. Exporta `rateLimit()` generico e `authRateLimit()` pre-configurado para rotas de auth (5 req/60s) |
+| `rate-limit.ts` | Rate limiting via @upstash/ratelimit (sliding window). Lazy init — se Upstash nao estiver configurado, opera como no-op com `console.warn`. Exporta `rateLimit()` generico, `authRateLimit()` pre-configurado para rotas de auth (5 req/60s) e `getClientIp(request)` que extrai IP real priorizando x-real-ip > x-forwarded-for > "unknown" |
 | `house.ts` | Lógica de alocação de casa com base nos hábitos selecionados |
 | `battle.ts` | Cálculo de dano, ordem de turno, resolução de habilidades |
 | `helpers/determine-house.ts` | Funcao pura que determina a casa do jogador pela categoria dominante dos habitos |

@@ -8,14 +8,12 @@ import {
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { rotateRefreshToken } from "@/lib/auth/refresh-token";
 import { setRefreshTokenCookie, setAccessTokenCookie } from "@/lib/auth/set-auth-cookies";
-import { authRateLimit } from "@/lib/rate-limit";
+import { authRateLimit, getClientIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-      ?? request.headers.get("x-real-ip")
-      ?? "unknown";
+    const ip = getClientIp(request);
     const rateLimitResult = await authRateLimit(`refresh:${ip}`);
 
     if (!rateLimitResult.success) {

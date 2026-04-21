@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { signAccessToken } from "@/lib/auth/jwt";
 import { createPersistedRefreshToken } from "@/lib/auth/refresh-token";
 import { setRefreshTokenCookie, setAccessTokenCookie } from "@/lib/auth/set-auth-cookies";
-import { authRateLimit } from "@/lib/rate-limit";
+import { authRateLimit, getClientIp } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validations/auth";
 import { determineHouse } from "@/lib/helpers/determine-house";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -12,9 +12,7 @@ import { apiSuccess, apiError } from "@/lib/api-response";
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting pelo IP
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-      ?? request.headers.get("x-real-ip")
-      ?? "unknown";
+    const ip = getClientIp(request);
 
     const rateLimitResult = await authRateLimit(ip);
 
