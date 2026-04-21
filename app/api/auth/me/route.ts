@@ -2,10 +2,25 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await verifySession(request);
+
+    // Rate limit por userId (30 req/60s)
+    const rateLimitResult = await rateLimit(`me:${userId}`, {
+      maxRequests: 30,
+      window: "60 s",
+    });
+
+    if (!rateLimitResult.success) {
+      return apiError(
+        "Muitas tentativas. Tente novamente mais tarde.",
+        "RATE_LIMIT_EXCEEDED",
+        429
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
