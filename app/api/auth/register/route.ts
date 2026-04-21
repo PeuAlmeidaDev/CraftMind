@@ -49,23 +49,21 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password, habitIds } = parsed.data;
 
-    // Verificar se nome ja esta em uso
-    const existingName = await prisma.user.findUnique({
-      where: { name },
-      select: { id: true },
-    });
+    // Verificar se nome ou email ja estao em uso (queries paralelas)
+    const [existingName, existingEmail] = await Promise.all([
+      prisma.user.findUnique({
+        where: { name },
+        select: { id: true },
+      }),
+      prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      }),
+    ]);
 
-    if (existingName) {
-      return apiError("Nome de usuario ja esta em uso", "NAME_ALREADY_EXISTS", 422);
-    }
-
-    // Verificar se email ja existe
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-
-    if (existingUser) {
+    if (existingName || existingEmail) {
+      // Executar hash para equalizar timing independente do motivo da falha
+      await hashPassword(password);
       return apiError("Nao foi possivel completar o registro", "REGISTER_FAILED", 422);
     }
 
