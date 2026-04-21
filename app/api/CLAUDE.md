@@ -58,9 +58,11 @@ api/
     │   ├── start/route.ts    # POST (iniciar batalha PvE 1v3 — protegida, seleciona 3 mobs por tier, store separado)
     │   ├── action/route.ts   # POST (enviar acao do turno 1v3 — protegida, body: {battleId, skillId, targetIndex?}, rate limited)
     │   └── state/route.ts    # GET (consultar estado sanitizado da batalha 1v3 — protegida, query param battleId)
-    └── coop/
-        ├── eligible/route.ts  # GET (verificar elegibilidade para boss fight cooperativo — protegida, requer 5 tarefas completas no dia)
-        └── history/route.ts   # GET (historico paginado de boss fights coop — protegida, default 20/page, max 50, apenas FINISHED)
+    ├── coop/
+    │   ├── eligible/route.ts  # GET (verificar elegibilidade para boss fight cooperativo — protegida, requer 5 tarefas completas no dia)
+    │   └── history/route.ts   # GET (historico paginado de boss fights coop — protegida, default 20/page, max 50, apenas FINISHED)
+    └── coop-pve/
+        └── history/route.ts   # GET (historico paginado de batalhas coop PvE 2v3/2v5 — protegida, default 20/page, max 50, apenas com resultado)
 ```
 
 ## Formato de resposta padrão

@@ -20,3 +20,11 @@ export type { PveBattleSession } from "./pve-store";
 export * from "./coop-types";
 export { chooseBossTarget, resolveCoopTargets } from "./coop-target";
 export { initCoopBattle, resolveCoopTurn } from "./coop-turn";
+
+// PvE Multi (1v3 / 1v5)
+export * from "./pve-multi-types";
+export { initMultiPveBattle, resolveMultiPveTurn } from "./pve-multi-turn";
+
+// Coop PvE (2v3 / 2v5)
+export * from "./coop-pve-types";
+export { initCoopPveBattle, resolveCoopPveTurn } from "./coop-pve-turn";

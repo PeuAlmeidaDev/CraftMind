@@ -12,7 +12,7 @@ Componentes Client-side (`"use client"`) usados exclusivamente pela pagina `/bat
 | `BattleLog.tsx` | Feed de eventos do turno com scroll automatico |
 | `BattleResult.tsx` | **NAO USADO** — resultado agora e inline em `page.tsx`. Mantido como referencia para possivel extracao futura. |
 | `AttackEffect.tsx` | **NAO IMPORTADO** — efeito visual de slash. Mantido para uso futuro. |
-| `MobPlaceholder.tsx` | Placeholder visual para retrato do mob — gradiente por tier + inicial do nome |
+| `MobPlaceholder.tsx` | Retrato do mob via next/image (Cloudinary URL) com fallback para gradiente por tier + inicial do nome. Props: `name`, `tier`, `imageUrl?` |
 | `StatusParticles.tsx` | Particulas visuais por status effect (BURN, FROZEN, POISON, STUN, SLOW). Renderizado apenas no desktop, dentro da area de imagem dos cards. Sem libs externas, posicoes fixas (sem Math.random). |
 | `DefeatSequence.tsx` | **NAO IMPORTADO** — sequencia de derrota do mob. Mantido para uso futuro. |
 

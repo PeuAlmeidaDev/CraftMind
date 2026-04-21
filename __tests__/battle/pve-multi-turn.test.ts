@@ -13,6 +13,7 @@ import type {
 import type {
   MobState,
   PveMultiBattleState,
+  PveMultiMode,
 } from "@/lib/battle/pve-multi-types";
 import type { AiProfile } from "@/lib/battle/ai-profiles";
 import type { Skill } from "@/types/skill";
@@ -123,12 +124,18 @@ function makeMobState(
 }
 
 function makeMultiBattleState(
-  overrides?: Partial<PveMultiBattleState>
+  overrides?: Partial<PveMultiBattleState>,
+  mobCount: number = 3
 ): PveMultiBattleState {
+  const mobs =
+    overrides?.mobs ??
+    Array.from({ length: mobCount }, (_, i) => makeMobState({}, i));
+  const mode: PveMultiMode = mobCount === 5 ? "1v5" : "1v3";
   return {
     battleId: "battle-1",
     player: makePlayerState(),
-    mobs: [makeMobState({}, 0), makeMobState({}, 1), makeMobState({}, 2)],
+    mobs,
+    mode,
     turnNumber: 1,
     status: "IN_PROGRESS",
     result: "PENDING",
@@ -144,7 +151,7 @@ function makeMultiBattleState(
 describe("initMultiPveBattle", () => {
   it("gera estado inicial correto (turnNumber 1, status IN_PROGRESS, result PENDING)", () => {
     const player = makePlayerState();
-    const mobs: [MobState, MobState, MobState] = [
+    const mobs: MobState[] = [
       makeMobState({}, 0),
       makeMobState({}, 1),
       makeMobState({}, 2),
@@ -165,7 +172,7 @@ describe("initMultiPveBattle", () => {
 
   it("player e mobs sao armazenados corretamente", () => {
     const player = makePlayerState({ playerId: "p-custom" });
-    const mobs: [MobState, MobState, MobState] = [
+    const mobs: MobState[] = [
       makeMobState({ mobId: "m-a" }, 0),
       makeMobState({ mobId: "m-b" }, 1),
       makeMobState({ mobId: "m-c" }, 2),
@@ -185,7 +192,7 @@ describe("initMultiPveBattle", () => {
 
   it("nenhum mob comeca defeated", () => {
     const player = makePlayerState();
-    const mobs: [MobState, MobState, MobState] = [
+    const mobs: MobState[] = [
       makeMobState({}, 0),
       makeMobState({}, 1),
       makeMobState({}, 2),
@@ -477,7 +484,7 @@ describe("resolveMultiPveTurn — vitoria e derrota", () => {
       baseStats: makeStats({ physicalAtk: 100 }),
       equippedSkills: [makeEquipped(strongSkill, 0)],
     });
-    const mobs: [MobState, MobState, MobState] = [
+    const mobs: MobState[] = [
       makeMobState({ currentHp: 5, baseStats: makeStats({ hp: 5 }) }, 0),
       makeMobState({ currentHp: 5, baseStats: makeStats({ hp: 5 }) }, 1),
       makeMobState({ currentHp: 5, baseStats: makeStats({ hp: 5 }) }, 2),
@@ -751,5 +758,109 @@ describe("resolveMultiPveTurn — edge cases", () => {
         e.targetId === "player-1"
     );
     expect(mobDamageOnPlayer).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Modo 1v5
+// ---------------------------------------------------------------------------
+
+describe("modo 1v5", () => {
+  it("inicializa com 5 mobs e mode 1v5", () => {
+    const player = makePlayerState();
+    const mobs: MobState[] = Array.from({ length: 5 }, (_, i) =>
+      makeMobState({}, i)
+    );
+
+    const state = initMultiPveBattle({
+      battleId: "battle-5",
+      player,
+      mobs,
+      mode: "1v5",
+    });
+
+    expect(state.mobs.length).toBe(5);
+    expect(state.mode).toBe("1v5");
+    expect(state.status).toBe("IN_PROGRESS");
+  });
+
+  it("player ataca SINGLE_ENEMY no index 4 (ultimo mob)", () => {
+    const state = makeMultiBattleState(undefined, 5);
+    const initialHp = state.mobs[4].currentHp;
+
+    const result = resolveMultiPveTurn(
+      state,
+      { skillId: "test-skill", targetIndex: 4 },
+      alwaysHitRandom
+    );
+
+    expect(result.state.mobs[4].currentHp).toBeLessThan(initialHp);
+  });
+
+  it("ALL_ENEMIES atinge todos 5 mobs vivos", () => {
+    const aoeSkill = makeSkill({
+      id: "aoe-skill-5",
+      name: "AOE 5",
+      target: "ALL_ENEMIES",
+      basePower: 40,
+      accuracy: 100,
+    });
+    const player = makePlayerState({
+      equippedSkills: [makeEquipped(aoeSkill, 0)],
+    });
+    const state = makeMultiBattleState({ player }, 5);
+
+    const hpsBefore = state.mobs.map((m) => m.currentHp);
+
+    const result = resolveMultiPveTurn(
+      state,
+      { skillId: "aoe-skill-5" },
+      alwaysHitRandom
+    );
+
+    for (let i = 0; i < 5; i++) {
+      expect(result.state.mobs[i].currentHp).toBeLessThan(hpsBefore[i]);
+    }
+  });
+
+  it("vitoria quando todos 5 mobs sao derrotados", () => {
+    const strongSkill = makeSkill({
+      id: "nuke-5",
+      name: "Nuke 5",
+      target: "ALL_ENEMIES",
+      basePower: 500,
+      accuracy: 100,
+    });
+    const player = makePlayerState({
+      baseStats: makeStats({ physicalAtk: 100 }),
+      equippedSkills: [makeEquipped(strongSkill, 0)],
+    });
+    const mobs: MobState[] = Array.from({ length: 5 }, (_, i) =>
+      makeMobState({ currentHp: 5, baseStats: makeStats({ hp: 5 }) }, i)
+    );
+    const state = makeMultiBattleState({ player, mobs }, 5);
+
+    const result = resolveMultiPveTurn(
+      state,
+      { skillId: "nuke-5" },
+      alwaysHitRandom
+    );
+
+    expect(result.state.status).toBe("FINISHED");
+    expect(result.state.result).toBe("VICTORY");
+    expect(result.state.mobs.every((m) => m.defeated)).toBe(true);
+  });
+
+  it("targetIndex >= 5 gera evento INVALID", () => {
+    const state = makeMultiBattleState(undefined, 5);
+
+    const result = resolveMultiPveTurn(
+      state,
+      { skillId: "test-skill", targetIndex: 5 },
+      alwaysHitRandom
+    );
+
+    const invalidEvent = result.events.find((e) => e.phase === "INVALID");
+    expect(invalidEvent).toBeDefined();
   });
 });

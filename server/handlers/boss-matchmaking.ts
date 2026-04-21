@@ -9,6 +9,8 @@ import { convertToEquippedSkills, extractBaseStats } from "../lib/convert-skills
 import { initCoopBattle } from "../../lib/battle/coop-turn";
 import { isInQueue } from "../stores/queue-store";
 import { getPlayerBattle } from "../stores/pvp-store";
+import { isInCoopPveQueue } from "../stores/coop-pve-queue-store";
+import { getPlayerCoopPveBattle } from "../stores/coop-pve-battle-store";
 import {
   addToBossQueue,
   removeFromBossQueue,
@@ -113,6 +115,21 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
     if (getPlayerBossBattle(userId)) {
       socket.emit("boss:queue:error", {
         message: "Voce ja esta em uma boss fight ativa",
+      });
+      return;
+    }
+
+    if (isInCoopPveQueue(userId)) {
+      socket.emit("boss:queue:error", {
+        message: "Voce ja esta na fila de batalha coop PvE",
+      });
+      return;
+    }
+
+    const activeCoopPve = getPlayerCoopPveBattle(userId);
+    if (activeCoopPve) {
+      socket.emit("boss:queue:error", {
+        message: "Voce ja esta em uma batalha coop PvE ativa",
       });
       return;
     }

@@ -1,4 +1,4 @@
-// lib/battle/pve-multi-turn.ts — Engine adapter para batalha PvE 1v3
+// lib/battle/pve-multi-turn.ts — Engine adapter para batalha PvE 1v3 / 1v5
 
 import type { PlayerState, TurnLogEntry, BattleState, Skill } from "./types";
 import type {
@@ -6,6 +6,7 @@ import type {
   PveMultiBattleState,
   PveMultiAction,
   PveMultiTurnResult,
+  PveMultiMode,
 } from "./pve-multi-types";
 import { clampStage } from "./utils";
 import { getEffectiveStat, calculateDamage } from "./damage";
@@ -66,12 +67,18 @@ function makeFakeBattleState(
 export function initMultiPveBattle(config: {
   battleId: string;
   player: PlayerState;
-  mobs: [MobState, MobState, MobState];
+  mobs: MobState[];
+  mode?: PveMultiMode;
 }): PveMultiBattleState {
+  if (config.mobs.length === 0) {
+    throw new Error("initMultiPveBattle requires at least 1 mob");
+  }
+
   return {
     battleId: config.battleId,
     player: config.player,
     mobs: config.mobs,
+    mode: config.mode ?? "1v3",
     turnNumber: 1,
     status: "IN_PROGRESS",
     result: "PENDING",
@@ -422,7 +429,7 @@ function resolvePlayerSkill(
       });
       return;
     }
-    if (action.targetIndex < 0 || action.targetIndex > 2) {
+    if (action.targetIndex < 0 || action.targetIndex > s.mobs.length - 1) {
       events.push({
         turn: s.turnNumber,
         phase: "INVALID",

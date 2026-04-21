@@ -192,6 +192,7 @@ export function BossQueueProvider({
     const socket = io(SOCKET_URL, {
       auth: { token: token ?? "" },
       autoConnect: false,
+      forceNew: true,
     });
 
     socket.on("connect", () => setConnected(true));

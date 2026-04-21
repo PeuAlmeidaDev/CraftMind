@@ -646,6 +646,7 @@ async function main(): Promise<void> {
     magicDef: number
     hp: number
     speed: number
+    imageUrl: string
     skills: [string, string, string, string]
   }
 
@@ -655,18 +656,21 @@ async function main(): Promise<void> {
       name: 'Slime Verdejante', description: 'Criatura gelatinosa encontrada nos arredores da vila. Facil de vencer, dificil de subestimar.',
       tier: 1, aiProfile: 'BALANCED',
       physicalAtk: 10, physicalDef: 12, magicAtk: 10, magicDef: 10, hp: 120, speed: 10,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721358/craft-mind/monsters/slime.jpg',
       skills: ['Ataque Rapido', 'Fagulha Arcana', 'Cura Vital', 'Postura Defensiva'],
     },
     {
       name: 'Rato de Esgoto', description: 'Roedor agressivo que ataca sem hesitar. Rapido e imprevisivel.',
       tier: 1, aiProfile: 'AGGRESSIVE',
       physicalAtk: 14, physicalDef: 10, magicAtk: 10, magicDef: 10, hp: 100, speed: 13,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721359/craft-mind/monsters/rato-esgoto.jpg',
       skills: ['Mordida Venenosa', 'Investida Selvagem', 'Corte Rapido', 'Pancada Dupla'],
     },
     {
       name: 'Morcego Sombrio', description: 'Criatura noturna que enfraquece suas presas antes de atacar.',
       tier: 1, aiProfile: 'TACTICAL',
       physicalAtk: 11, physicalDef: 10, magicAtk: 13, magicDef: 11, hp: 95, speed: 15,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721360/craft-mind/monsters/morcego.jpg',
       skills: ['Onda Letargica', 'Grito Intimidador', 'Olhar Penetrante', 'Fagulha Arcana'],
     },
     // Tier 2
@@ -674,18 +678,21 @@ async function main(): Promise<void> {
       name: 'Golem de Pedra', description: 'Construto de rocha que absorve golpes como se fossem nada.',
       tier: 2, aiProfile: 'DEFENSIVE',
       physicalAtk: 22, physicalDef: 30, magicAtk: 20, magicDef: 25, hp: 250, speed: 20,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721361/craft-mind/monsters/golem-de-pedra.jpg',
       skills: ['Veu Protetor', 'Reflexo de Combate', 'Cura Vital', 'Impacto Trovejante'],
     },
     {
       name: 'Lobo Fantasma', description: 'Predador espectral que caca em silencio e ataca com ferocidade.',
       tier: 2, aiProfile: 'AGGRESSIVE',
       physicalAtk: 28, physicalDef: 22, magicAtk: 20, magicDef: 20, hp: 200, speed: 27,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721361/craft-mind/monsters/lobo-fantasma.jpg',
       skills: ['Lamina Crescente', 'Furia de Garras', 'Investida Selvagem', 'Provocacao'],
     },
     {
       name: 'Feiticeira das Sombras', description: 'Maga sombria que manipula o campo de batalha com maldicoes.',
       tier: 2, aiProfile: 'TACTICAL',
       physicalAtk: 20, physicalDef: 22, magicAtk: 28, magicDef: 25, hp: 190, speed: 24,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721362/craft-mind/monsters/feiticeira-das-sombras.jpg',
       skills: ['Chama Sombria', 'Maldicao Enfraquecedora', 'Analise Fatal', 'Prisao de Gelo'],
     },
     // Tier 3
@@ -693,18 +700,21 @@ async function main(): Promise<void> {
       name: 'Cavaleiro Maldito', description: 'Guerreiro condenado que luta com a forca de uma maldicao eterna.',
       tier: 3, aiProfile: 'BALANCED',
       physicalAtk: 45, physicalDef: 42, magicAtk: 35, magicDef: 38, hp: 380, speed: 38,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721363/craft-mind/monsters/cavaleiro-maldito.jpg',
       skills: ['Lamina Crescente', 'Impacto Trovejante', 'Veu Protetor', 'Regeneracao Profunda'],
     },
     {
       name: 'Serpente Venenosa', description: 'Serpente mortal que envenena e congela suas vitimas.',
       tier: 3, aiProfile: 'TACTICAL',
       physicalAtk: 40, physicalDef: 35, magicAtk: 42, magicDef: 40, hp: 350, speed: 48,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721363/craft-mind/monsters/serpente-venenosa.jpg',
       skills: ['Mordida Venenosa', 'Prisao de Gelo', 'Espinhos da Vinganca', 'Analise Fatal'],
     },
     {
       name: 'Elemental de Fogo', description: 'Espirito flamejante que reduz tudo a cinzas com poder arcano.',
       tier: 3, aiProfile: 'AGGRESSIVE',
       physicalAtk: 38, physicalDef: 36, magicAtk: 50, magicDef: 35, hp: 320, speed: 42,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721364/craft-mind/monsters/elemental-fogo.jpg',
       skills: ['Chama Sombria', 'Relampago Arcano', 'Soco Flamejante', 'Onda de Choque'],
     },
     // Tier 4
@@ -712,12 +722,14 @@ async function main(): Promise<void> {
       name: 'Dragao Jovem', description: 'Filhote de dragao ja capaz de destruicao massiva.',
       tier: 4, aiProfile: 'AGGRESSIVE',
       physicalAtk: 70, physicalDef: 60, magicAtk: 65, magicDef: 55, hp: 550, speed: 58,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721365/craft-mind/monsters/dragao-filhote.jpg',
       skills: ['Furia do Dragao', 'Meteoro Abissal', 'Lamina Crescente', 'Cura Vital'],
     },
     {
       name: 'Lich Anciaa', description: 'Feiticeira imortal que se sustenta drenando a forca dos vivos.',
       tier: 4, aiProfile: 'DEFENSIVE',
       physicalAtk: 55, physicalDef: 65, magicAtk: 75, magicDef: 70, hp: 500, speed: 55,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721366/craft-mind/monsters/lich-ancia.jpg',
       skills: ['Aurora Restauradora', 'Chama Sombria', 'Maldicao Enfraquecedora', 'Espinhos da Vinganca'],
     },
     // Tier 5
@@ -725,6 +737,7 @@ async function main(): Promise<void> {
       name: 'Arauto do Abismo', description: 'Entidade primordial que habita as profundezas. Poucos sobrevivem ao encontro.',
       tier: 5, aiProfile: 'TACTICAL',
       physicalAtk: 90, physicalDef: 85, magicAtk: 100, magicDef: 90, hp: 800, speed: 80,
+      imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721367/craft-mind/monsters/arauto-abismo.jpg',
       skills: ['Meteoro Abissal', 'Ressonancia Arcana', 'Aurora Restauradora', 'Execucao Perfeita'],
     },
   ]
@@ -745,6 +758,7 @@ async function main(): Promise<void> {
         magicDef: mobFields.magicDef,
         hp: mobFields.hp,
         speed: mobFields.speed,
+        imageUrl: mobFields.imageUrl,
       },
       create: mobFields,
     })

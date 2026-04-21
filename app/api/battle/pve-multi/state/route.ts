@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     // Retornar estado sanitizado (sem mob profiles, sem mob skill details)
     return apiSuccess({
       battleId: state.battleId,
+      mode: state.mode,
       turnNumber: state.turnNumber,
       status: state.status,
       result: state.result,

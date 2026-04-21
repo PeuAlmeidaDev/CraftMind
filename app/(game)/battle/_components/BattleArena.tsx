@@ -197,11 +197,11 @@ export default function BattleArena({
     floatTimers.current.add(timer);
   }, []);
 
-  const houseAssets = profile.house
+  const houseAssets = profile?.house
     ? getHouseAssets(profile.house.name as HouseName)
     : null;
 
-  const playerInitial = profile.name.charAt(0).toUpperCase();
+  const playerInitial = profile?.name?.charAt(0).toUpperCase() ?? "?";
 
   // -------------------------------------------------------------------------
   // Detect new damage events and trigger shake
@@ -253,13 +253,14 @@ export default function BattleArena({
   // -------------------------------------------------------------------------
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <div className="mx-auto max-w-4xl lg:max-w-6xl px-4 py-6">
       {/* ================================================================= */}
-      {/* DESKTOP — cards lado a lado                                       */}
+      {/* DESKTOP — player panel + mob card vertical                        */}
       {/* ================================================================= */}
-      <div className="hidden lg:flex lg:flex-col lg:gap-4">
-        <div className="grid grid-cols-2 gap-4">
-          {/* --- Player Card (esquerda) --- */}
+      <div className="hidden lg:flex lg:flex-row lg:gap-4">
+        {/* --- Player Panel (esquerda ~45%) --- */}
+        <div className="flex flex-col gap-3 w-[45%]">
+          {/* Player info card */}
           <div
             className={`relative rounded-[14px] border ${getStatusBorderClass(playerStatusEffects)} overflow-hidden ${
               playerShaking ? "animate-shake" : ""
@@ -268,52 +269,50 @@ export default function BattleArena({
               background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
             }}
           >
-            {/* Header: player portrait */}
-            <div className="relative h-48 overflow-hidden bg-[var(--bg-secondary)]">
-              {profile.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt={profile.name}
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-[var(--bg-secondary)]">
-                  <span
-                    className="text-6xl text-white/30"
-                    style={{ fontFamily: "var(--font-cinzel)" }}
-                  >
-                    {playerInitial}
-                  </span>
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/40 pointer-events-none" />
-              <div className="absolute bottom-0 w-full bg-black/60 px-3 py-2">
-                <span className="text-white font-semibold text-sm">{profile.name}</span>
+            {/* Bandeira da casa como background do card inteiro */}
+            {houseAssets && (
+              <Image
+                src={houseAssets.bandeira}
+                alt=""
+                width={100}
+                height={160}
+                className="absolute right-3 top-1/2 -translate-y-1/2 object-contain opacity-[0.07] pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
+
+            {/* Player header: avatar + name + house */}
+            <div className="relative z-10 flex items-center gap-3 p-4">
+              <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-[var(--bg-secondary)]">
+                {profile.avatarUrl ? (
+                  <img
+                    src={profile.avatarUrl}
+                    alt={profile.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span
+                      className="text-2xl text-white/30"
+                      style={{ fontFamily: "var(--font-cinzel)" }}
+                    >
+                      {playerInitial}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-white font-semibold text-sm truncate">{profile.name}</span>
+                {profile.house && (
+                  <span className="text-[11px] text-gray-400 truncate">{profile.house.name}</span>
+                )}
               </div>
             </div>
 
-            {/* Body: HP + status + skills */}
-            <div className="relative overflow-hidden p-4 space-y-3">
-              {houseAssets && (
-                <Image
-                  src={houseAssets.bandeira}
-                  alt=""
-                  width={140}
-                  height={220}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 object-contain opacity-[0.06] pointer-events-none"
-                  aria-hidden="true"
-                />
-              )}
-              <div className="relative z-10 space-y-3">
-                <HpBar current={playerHp} max={playerMaxHp} variant="player" />
-                <StatusBadges effects={playerStatusEffects} />
-                <SkillBar
-                  skills={availableSkills}
-                  onSkillUse={onSkillUse}
-                  onSkipTurn={onSkipTurn}
-                  disabled={acting}
-                />
-              </div>
+            {/* HP + Status */}
+            <div className="relative z-10 px-4 pb-4 space-y-2">
+              <HpBar current={playerHp} max={playerMaxHp} variant="player" />
+              <StatusBadges effects={playerStatusEffects} />
             </div>
 
             {/* Floating numbers */}
@@ -329,58 +328,76 @@ export default function BattleArena({
             ))}
           </div>
 
-          {/* --- Mob Card (direita) --- */}
+          {/* Skills */}
           <div
-            className={`relative rounded-[14px] border ${getStatusBorderClass(mobStatusEffects)} overflow-hidden ${
-              mobShaking ? "animate-shake" : ""
-            }`}
-            style={{
-              background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
-            }}
+            className="rounded-[14px] border border-[var(--border-subtle)] p-4"
+            style={{ background: "var(--bg-card)" }}
           >
-            <div className="relative overflow-hidden rounded-t-[14px]">
-              <MobPlaceholder name={mob.name} tier={mob.tier} />
-              <div className="absolute bottom-0 w-full bg-black/60 px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-semibold text-sm">{mob.name}</span>
-                  <span
-                    className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border ${
-                      TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1]
-                    }`}
-                  >
-                    T{mob.tier}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 space-y-2">
-              <HpBar current={mobHp} max={mobMaxHp} variant="mob" />
-              <StatusBadges effects={mobStatusEffects} />
-            </div>
-
-            {/* Floating numbers */}
-            {mobFloats.map((f) => (
-              <span
-                key={f.id}
-                className={`absolute top-4 left-1/2 -translate-x-1/2 font-bold text-lg pointer-events-none z-30 animate-float-number ${
-                  f.type === "damage" ? "text-red-400" : "text-emerald-400"
-                }`}
-              >
-                {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
-              </span>
-            ))}
+            <SkillBar
+              skills={availableSkills}
+              onSkillUse={onSkillUse}
+              onSkipTurn={onSkipTurn}
+              disabled={acting}
+            />
           </div>
+
+          {/* Battle Log */}
+          <BattleLog
+            events={events}
+            playerId={playerId ?? undefined}
+            playerName={profile.name}
+            mobId={mobId ?? undefined}
+            mobName={mob.name}
+          />
         </div>
 
-        {/* --- Battle Log --- */}
-        <BattleLog
-          events={events}
-          playerId={playerId ?? undefined}
-          playerName={profile.name}
-          mobId={mobId ?? undefined}
-          mobName={mob.name}
-        />
+        {/* --- Mob Card vertical/tall (direita ~55%) --- */}
+        <div
+          className={`relative rounded-[14px] border ${getStatusBorderClass(mobStatusEffects)} overflow-hidden w-[55%] flex flex-col ${
+            mobShaking ? "animate-shake" : ""
+          }`}
+          style={{
+            background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
+          }}
+        >
+          {/* Mob portrait — tall image */}
+          <div className="relative h-[420px] overflow-hidden">
+            <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />
+            {/* Gradient overlay for name readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+            {/* Name + tier badge at bottom of image */}
+            <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold text-xl drop-shadow-lg">{mob.name}</span>
+                <span
+                  className={`text-[11px] font-semibold rounded-full px-2.5 py-0.5 border backdrop-blur-sm ${
+                    TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1]
+                  }`}
+                >
+                  T{mob.tier}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* HP + Status below image */}
+          <div className="p-4 space-y-2">
+            <HpBar current={mobHp} max={mobMaxHp} variant="mob" />
+            <StatusBadges effects={mobStatusEffects} />
+          </div>
+
+          {/* Floating numbers */}
+          {mobFloats.map((f) => (
+            <span
+              key={f.id}
+              className={`absolute top-4 left-1/2 -translate-x-1/2 font-bold text-lg pointer-events-none z-30 animate-float-number ${
+                f.type === "damage" ? "text-red-400" : "text-emerald-400"
+              }`}
+            >
+              {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* ================================================================= */}

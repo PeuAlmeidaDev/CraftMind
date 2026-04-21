@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { House, HouseName } from "@/types/house";
@@ -13,6 +13,8 @@ import { useFriends } from "./_hooks/useFriends";
 import { BossQueueProvider } from "./_hooks/useBossQueue";
 import BossQueueBar from "./_components/BossQueueBar";
 import BossMatchModal from "./_components/BossMatchModal";
+import CoopPveInviteNotification from "./_components/CoopPveInviteNotification";
+import { LayoutSocketProvider } from "./_hooks/useLayoutSocket";
 import PlayerSearchBar from "@/components/ui/PlayerSearchBar";
 import PlayerProfileCard from "@/components/ui/PlayerProfileCard";
 import FriendsList from "@/components/ui/FriendsList";
@@ -51,6 +53,8 @@ export default function GameLayout({
   const [menuOpen, setMenuOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [searchedPlayer, setSearchedPlayer] = useState<PlayerPublicProfile | null>(null);
+  const layoutSocketRef = useRef<Socket | null>(null);
+  const [layoutSocket, setLayoutSocket] = useState<Socket | null>(null);
 
   const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight")) ? "battle" : "ambient";
   const music = useMusicPlayer(musicContext);
@@ -144,13 +148,22 @@ export default function GameLayout({
     });
 
     socket.connect();
+    layoutSocketRef.current = socket;
+    setLayoutSocket(socket);
 
     return () => {
       socket.disconnect();
+      layoutSocketRef.current = null;
+      setLayoutSocket(null);
     };
   }, [refreshFriends]);
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // Continuar com logout local mesmo se a API falhar
+    }
     clearAuthAndRedirect(router);
   }
 
@@ -443,11 +456,16 @@ export default function GameLayout({
       </aside>
 
       {/* Main content + Boss Queue overlay */}
+      <LayoutSocketProvider value={layoutSocket}>
       <BossQueueProvider>
         <main className="mx-auto max-w-6xl px-4 pt-20 pb-20">{children}</main>
         <BossQueueBar />
         <BossMatchModal />
       </BossQueueProvider>
+      </LayoutSocketProvider>
+
+      {/* Coop PvE invite notification (visible on any page) */}
+      <CoopPveInviteNotification socket={layoutSocket} />
 
       {/* Player profile modal */}
       {searchedPlayer && (

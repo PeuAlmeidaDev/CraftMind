@@ -14,9 +14,9 @@
 | `CharacterSkill` | Relação N-N entre Character e Skill (equipada ou não) |
 | `DailyTask` | Tarefa diária gerada de um hábito: userId, habitId, description, tag (String?, nullable), attributeGrants (JSON), dueDate, completed, completedAt. Constraint unique em `[userId, description, dueDate]` (permite múltiplas tarefas do mesmo hábito no mesmo dia, desde que com descrições diferentes). Índice composto em `[userId, dueDate]` |
 | `Battle` | Batalha: player1Id, player2Id, winnerId, status, log (JSON), createdAt |
-| `Mob` | Inimigo PvE: name (unique), description, tier (1-5), aiProfile (AGGRESSIVE/DEFENSIVE/TACTICAL/BALANCED), stats (physicalAtk, physicalDef, magicAtk, magicDef, hp, speed) |
+| `Mob` | Inimigo PvE: name (unique), description, tier (1-5), aiProfile (AGGRESSIVE/DEFENSIVE/TACTICAL/BALANCED), imageUrl (String?, URL Cloudinary da imagem do mob), stats (physicalAtk, physicalDef, magicAtk, magicDef, hp, speed) |
 | `MobSkill` | Relacao N-N entre Mob e Skill: mobId, skillId, slotIndex (0-3). Constraints unique em `[mobId, skillId]` e `[mobId, slotIndex]` |
-| `PveBattle` | Registro de batalha PvE: userId, mobId, result (VICTORY/DEFEAT/DRAW/null), expGained, turns, log (JSON), createdAt |
+| `PveBattle` | Registro de batalha PvE: userId, mobId, result (VICTORY/DEFEAT/DRAW/null), expGained, turns, log (JSON), mode (PveBattleMode: SOLO/MULTI/COOP_2V3/COOP_2V5, default SOLO), teamMateId (String?, parceiro em coop), mobIds (String[], IDs dos mobs em multi/coop), createdAt |
 | `RefreshToken` | Token de refresh persistido: userId, tokenHash (SHA-256, unique), family (UUID para rotacao), revoked, expiresAt. Indices em userId, family e expiresAt. onDelete Cascade com User |
 | `Boss` | Chefe cooperativo: name (unique), description, lore, category (HabitCategory), tier (2-4), aiProfile, stats (physicalAtk, physicalDef, magicAtk, magicDef, hp, speed). Stats ~3x de mobs normais por tier |
 | `BossSkill` | Relacao N-N entre Boss e Skill: bossId, skillId, slotIndex (0-3). Constraints unique em `[bossId, skillId]` e `[bossId, slotIndex]` |
@@ -28,7 +28,7 @@
 
 - Sempre usar `id String @id @default(cuid())` — nunca `Int @default(autoincrement())`.
 - Timestamps: `createdAt DateTime @default(now())` e `updatedAt DateTime @updatedAt` em todo model.
-- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`.
+- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`, `PveBattleMode` (SOLO, MULTI, COOP_2V3, COOP_2V5).
 - Dados variáveis por registro (atributos concedidos, log de batalha): usar `Json` com tipo TypeScript em `types/`.
 
 ## Comandos
@@ -50,7 +50,7 @@ O arquivo `prisma/seed.ts` popula o banco com dados iniciais. Executar via `npx 
 - **4 Casas**: ARION (Leao), LYCUS (Lobo), NOCTIS (Coruja), NEREID (Sereia) — upsert por `name`
 - **25 Habitos**: categorias amplas distribuidas em 5 grupos — PHYSICAL (5), INTELLECTUAL (6), MENTAL (5), SOCIAL (4), SPIRITUAL (5) — upsert por `name`. Tarefas diarias serao geradas com base nos habitos escolhidos (fase futura).
 - **49 Skills**: habilidades de batalha distribuidas em 3 tiers — Tier 1 (23, cooldown 0), Tier 2 (17, cooldown 1), Tier 3 (9, cooldown 2) — upsert por `name`. Skills nao sao vinculadas a casas; qualquer jogador pode desbloquea-las. Cobrem todos os 6 targets (SELF, SINGLE_ALLY, ALL_ALLIES, SINGLE_ENEMY, ALL_ENEMIES, ALL), todos os 12 effect types (BUFF, DEBUFF, STATUS, VULNERABILITY, PRIORITY_SHIFT, COUNTER, HEAL, CLEANSE, RECOIL, SELF_DEBUFF, COMBO, ON_EXPIRE) e todos os 5 status effects (STUN, FROZEN, BURN, POISON, SLOW). Inclui 2 skills COMBO, 2 skills ON_EXPIRE, skills AoE com tradeoffs e skills de suporte para team modes.
-- **12 Mobs**: inimigos PvE distribuidos em 5 tiers — Tier 1 (3), Tier 2 (3), Tier 3 (3), Tier 4 (2), Tier 5 (1 boss) — upsert por `name`. Cada mob tem 4 skills (MobSkill com slotIndex 0-3), um perfil de IA (AGGRESSIVE, DEFENSIVE, TACTICAL, BALANCED) e stats base. Skills dos mobs sao referenciadas pelo nome exato do seed de skills.
+- **12 Mobs**: inimigos PvE distribuidos em 5 tiers — Tier 1 (3), Tier 2 (3), Tier 3 (3), Tier 4 (2), Tier 5 (1 boss) — upsert por `name`. Cada mob tem 4 skills (MobSkill com slotIndex 0-3), um perfil de IA (AGGRESSIVE, DEFENSIVE, TACTICAL, BALANCED), stats base e `imageUrl` (URL Cloudinary da imagem). Skills dos mobs sao referenciadas pelo nome exato do seed de skills.
 - **10 Bosses**: chefes cooperativos distribuidos em 5 categorias (PHYSICAL, INTELLECTUAL, MENTAL, SOCIAL, SPIRITUAL), 2 por categoria — tiers 2, 3 e 4. Cada boss tem 4 skills (BossSkill com slotIndex 0-3), perfil de IA e stats ~3x de mobs normais. Seed em `prisma/seed-bosses.ts`, executado apos mobs no seed principal.
 
 ### Targets validos para Skill.target (String no Prisma)

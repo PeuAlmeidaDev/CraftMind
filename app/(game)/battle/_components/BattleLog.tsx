@@ -9,6 +9,7 @@ type BattleLogProps = {
   playerName?: string;
   mobId?: string;
   mobName?: string;
+  nameMap?: Record<string, string>;
 };
 
 const PHASE_STYLE: Record<string, string> = {
@@ -41,14 +42,19 @@ const PHASE_ICON: Record<string, string> = {
   STUN: "\uD83D\uDE35",
 };
 
-function replaceIds(msg: string, playerId?: string, playerName?: string, mobId?: string, mobName?: string): string {
+function replaceIds(msg: string, playerId?: string, playerName?: string, mobId?: string, mobName?: string, nameMap?: Record<string, string>): string {
   let result = msg;
   if (playerId && playerName) result = result.replaceAll(playerId, playerName);
   if (mobId && mobName) result = result.replaceAll(mobId, mobName);
+  if (nameMap) {
+    for (const [id, name] of Object.entries(nameMap)) {
+      result = result.replaceAll(id, name);
+    }
+  }
   return result;
 }
 
-export default function BattleLog({ events, playerId, playerName, mobId, mobName }: BattleLogProps) {
+export default function BattleLog({ events, playerId, playerName, mobId, mobName, nameMap }: BattleLogProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,7 +105,7 @@ export default function BattleLog({ events, playerId, playerName, mobId, mobName
                   className={`text-sm ${style} animate-battle-fade-in`}
                 >
                   <span className="mr-1">{icon}</span>
-                  {replaceIds(event.message, playerId, playerName, mobId, mobName)}
+                  {replaceIds(event.message, playerId, playerName, mobId, mobName, nameMap)}
                 </p>
               );
             })}

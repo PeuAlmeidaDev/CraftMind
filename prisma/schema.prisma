@@ -329,6 +329,7 @@ model Mob {
   description String
   tier        Int
   aiProfile   String
+  imageUrl    String?
 
   physicalAtk Int
   physicalDef Int
@@ -368,6 +369,8 @@ model MobSkill {
 enum PveBattleMode {
   SOLO
   MULTI
+  COOP_2V3
+  COOP_2V5
 }
 
 model PveBattle {
@@ -379,6 +382,7 @@ model PveBattle {
   turns     Int           @default(0)
   log       Json          @default("[]")
   mode      PveBattleMode @default(SOLO)
+  teamMateId String?
   mobIds    String[]      @default([])
 
   user User @relation(fields: [userId], references: [id])

@@ -42,6 +42,9 @@ io.use((socket, next) => {
 | `handlers/battle.ts` | Acoes de batalha PvP, timer de turno, reconexao, persistencia |
 | `handlers/boss-matchmaking.ts` | Fila e emparelhamento para Boss Fight 3v1 por HabitCategory |
 | `handlers/boss-battle.ts` | Acoes de boss battle, timer de turno, reconexao, persistencia coop |
+| `handlers/coop-pve-matchmaking.ts` | Fila e emparelhamento para Coop PvE 2v3/2v5 (2 players vs N mobs) |
+| `handlers/coop-pve-battle.ts` | Acoes de batalha coop PvE, timer de turno, reconexao, persistencia |
+| `handlers/coop-pve-invite.ts` | Convites de amigos para batalha coop PvE (send, accept, decline, online-check, disconnect cleanup) |
 
 ## Lib (helpers do servidor)
 
@@ -59,6 +62,9 @@ io.use((socket, next) => {
 | `stores/pvp-store.ts` | Batalhas PvP ativas in-memory (Map battleId -> PvpBattleSession) |
 | `stores/boss-queue-store.ts` | Fila de boss fight in-memory por HabitCategory (Map category -> BossQueueEntry[]) |
 | `stores/boss-battle-store.ts` | Batalhas coop ativas in-memory (Map battleId -> BossBattleSession). TTL 30min, cleanup 5min |
+| `stores/coop-pve-queue-store.ts` | Fila de batalha coop PvE in-memory por modo (Map CoopPveMode -> CoopPveQueueEntry[]). Match de 2 jogadores no mesmo modo |
+| `stores/coop-pve-battle-store.ts` | Batalhas coop PvE ativas in-memory (Map battleId -> CoopPveBattleSession). TTL 30min, cleanup 5min |
+| `stores/coop-pve-invite-store.ts` | Convites pendentes de coop PvE in-memory (Map inviteId -> CoopPveInvite). TTL 30s por convite, 1 por sender |
 
 ## Eventos disponiveis
 
@@ -112,6 +118,56 @@ io.use((socket, next) => {
 | `boss:battle:player-disconnected` | `{ playerId, gracePeriodMs }` | Jogador desconectou da boss battle |
 | `boss:battle:player-reconnected` | `{ playerId }` | Jogador reconectou na boss battle |
 
+### Coop PvE — Cliente -> Servidor
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `coop-pve:queue:join` | `{ mode: "2v3" \| "2v5" }` | Entrar na fila de coop PvE |
+| `coop-pve:queue:leave` | - | Sair da fila de coop PvE |
+| `coop-pve:match:accept` | `{ battleId }` | Aceitar match de coop PvE |
+| `coop-pve:match:decline` | `{ battleId }` | Recusar match de coop PvE |
+| `coop-pve:battle:request-state` | - | Solicitar estado da batalha (ao carregar pagina) |
+| `coop-pve:action` | `{ battleId, skillId, targetIndex?, targetId? }` | Escolher skill no turno |
+
+### Coop PvE — Servidor -> Cliente
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `coop-pve:queue:status` | `{ position, size, mode }` | Status da posicao na fila |
+| `coop-pve:queue:error` | `{ message }` | Erro na fila coop PvE |
+| `coop-pve:queue:timeout` | `{ message }` | Tempo na fila expirou (5min) |
+| `coop-pve:queue:left` | `{ message }` | Confirmacao de saida da fila |
+| `coop-pve:match:found` | `{ battleId, teammate, mobs, mode, acceptTimeoutMs }` | Match encontrado |
+| `coop-pve:match:accepted` | `{ accepted, total }` | Contagem de aceites |
+| `coop-pve:match:timeout` | `{ message }` | Tempo para aceitar expirou |
+| `coop-pve:match:cancelled` | `{ message }` | Match cancelado (decline/disconnect) |
+| `coop-pve:battle:start` | `{ battleId }` | Batalha iniciada |
+| `coop-pve:battle:state` | `{ state, events }` | Estado apos turno (mobs sanitizados) |
+| `coop-pve:battle:end` | `{ result }` | Batalha encerrada (VICTORY/DEFEAT) |
+| `coop-pve:battle:error` | `{ message }` | Erro na batalha |
+| `coop-pve:action:received` | `{ playerId, total, expected }` | Acao recebida de um jogador |
+| `coop-pve:battle:player-disconnected` | `{ playerId, gracePeriodMs }` | Jogador desconectou |
+| `coop-pve:battle:player-reconnected` | `{ playerId }` | Jogador reconectou |
+
+### Coop PvE Invite — Cliente -> Servidor
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `coop-pve:invite:send` | `{ targetUserId, mode: "2v3"\|"2v5" }` | Enviar convite para amigo |
+| `coop-pve:invite:accept` | `{ inviteId }` | Aceitar convite (inicia batalha direto) |
+| `coop-pve:invite:decline` | `{ inviteId }` | Recusar convite |
+| `coop-pve:friends:online-check` | `{ userIds: string[] }` | Checar quais amigos estao online (max 50) |
+
+### Coop PvE Invite — Servidor -> Cliente
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `coop-pve:invite:received` | `{ inviteId, from: { userId, name }, mode }` | Convite recebido (para target) |
+| `coop-pve:invite:sent` | `{ inviteId, targetUserId, mode }` | Confirmacao de envio (para sender) |
+| `coop-pve:invite:declined` | `{ inviteId }` | Convite recusado (para sender) |
+| `coop-pve:invite:expired` | `{ inviteId }` | Convite expirou (30s TTL) — emitido para ambos |
+| `coop-pve:invite:error` | `{ message }` | Erro generico no fluxo de convite |
+
 ### Amizade — Servidor -> Cliente (via /internal/notify)
 
 | Evento | Payload | Descricao |
@@ -130,6 +186,12 @@ io.use((socket, next) => {
 | Reconnect grace (PvP) | 30s | Derrota por WO se nao reconectar |
 | Reconnect grace (Boss) | 30s | Batalha continua com os outros 2 |
 | Session TTL (Boss) | 30min | Remove sessao inativa |
+| Turn timer (Coop PvE) | 30s | Auto-skip para quem nao enviou |
+| Queue timeout (Coop PvE) | 5min | Remove jogador da fila |
+| Match accept (Coop PvE) | 30s | Cancela match se ambos nao aceitaram |
+| Reconnect grace (Coop PvE) | 30s | Se ambos desconectam -> derrota |
+| Session TTL (Coop PvE) | 30min | Remove sessao inativa |
+| Invite TTL (Coop PvE) | 30s | Convite expira automaticamente |
 
 ## Fluxo da Boss Fight
 

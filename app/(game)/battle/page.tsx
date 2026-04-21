@@ -53,6 +53,7 @@ export type MobInfo = {
   tier: number;
   hp: number;
   aiProfile: string;
+  imageUrl: string | null;
 };
 
 export type PveBattleResult = {

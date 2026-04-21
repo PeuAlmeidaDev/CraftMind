@@ -30,6 +30,8 @@ O estado original nunca e mutado. `resolveTurn` faz deep clone no topo e todas a
 | `pve-multi-types.ts` | Tipos para batalha PvE Multi (1v3): `MobState`, `PveMultiBattleState`, `PveMultiAction`, `PveMultiTurnResult`, `PveMultiBattleSession` |
 | `pve-multi-turn.ts` | `initMultiPveBattle()` e `resolveMultiPveTurn()` — orquestrador do turno PvE 1v3. Usa adapters (BattleState fake) como coop-turn.ts. Player resolve primeiro, depois mobs por speed DESC |
 | `pve-multi-store.ts` | Store em memoria (Map) para batalhas PvE Multi ativas. Exporta `getMultiPveBattle`, `setMultiPveBattle`, `removeMultiPveBattle`, `hasActiveMultiBattle`. TTL 30min |
+| `coop-pve-types.ts` | Tipos para batalha cooperativa PvE (2v3 / 2v5): `CoopPveBattleState`, `CoopPveAction`, `CoopPveTurnResult`, `CoopPveBattleConfig`, `CoopPveMobConfig`, `CoopPvePlayerConfig`, `CoopPveBattleSession` |
+| `coop-pve-turn.ts` | `initCoopPveBattle()` e `resolveCoopPveTurn()` — orquestrador do turno coop PvE 2v3/2v5. Players resolvem primeiro (speed DESC), depois mobs (speed DESC, desempate index). Usa adapters (BattleState fake) como coop-turn.ts |
 | `index.ts` | Barrel export |
 
 ## Fluxo do resolveTurn
@@ -231,10 +233,47 @@ Modo de batalha onde 1 jogador enfrenta 3 mobs simultaneos. Estado usa `PveMulti
 - `"DEFEAT"` = player morreu ou MAX_TURNS excedido
 - `"PENDING"` = batalha em andamento
 
+## Batalha Cooperativa PvE (2v3 / 2v5)
+
+Modo de batalha onde 2 jogadores enfrentam 3 ou 5 mobs simultaneos. Estado usa `CoopPveBattleState` com `team: PlayerState[]` (2 players) + `mobs: MobState[]` (3 ou 5). Cada `MobState` estende `PlayerState` com `mobId`, `profile` (AiProfile) e `defeated` (boolean).
+
+### Fluxo do resolveCoopPveTurn
+
+```
+0. Guard: se status === "FINISHED" retornar imediatamente
+1. structuredClone do estado
+2. Validar acoes do time (1 acao por player vivo, playerIds validos, sem duplicatas)
+3. Gerar acoes dos mobs via IA (chooseBossTarget para selecionar alvo + chooseAction com fake state)
+4. Players resolvem PRIMEIRO (speed DESC):
+   a. Incapacitacao, statusDamage (pode matar -> se ambos mortos -> DEFEAT)
+   b. Validar skill, combo, accuracy
+   c. Resolver alvos: SINGLE_ENEMY por targetIndex, SINGLE_ALLY por targetId, ALL_ENEMIES/ALL_ALLIES/SELF/ALL
+   d. Dano + counters + efeitos via adapter
+   e. Se todos mobs defeated -> VICTORY
+5. Mobs resolvem DEPOIS (speed DESC, desempate index menor):
+   a. Para cada mob vivo: incapacitacao, statusDamage, resolver skill via IA
+   b. SELF/SINGLE_ALLY/ALL_ALLIES: aplica no proprio mob
+   c. SINGLE_ENEMY/ALL_ENEMIES: aplica nos players vivos
+   d. Se ambos players mortos -> DEFEAT
+   e. Se mob morreu por counter -> defeated
+6. Checar vitoria apos turno dos mobs
+7. tickEntitiesEndOfTurn para team vivos + mobs vivos
+8. tickCooldowns para todos
+9. Checar mortes por ON_EXPIRE
+10. Incrementar turno
+11. Se turnNumber > MAX_TURNS -> DEFEAT
+```
+
+### CoopPveBattleState.result
+
+- `"VICTORY"` = todos os mobs derrotados
+- `"DEFEAT"` = ambos players mortos ou MAX_TURNS excedido
+- `"PENDING"` = batalha em andamento
+
 ## Convencoes
 
 - Funcoes puras: sem side effects externos, sem acesso a banco, sem fetch
-- Deep clone no topo de `resolveTurn`, `resolveCoopTurn` e `resolveMultiPveTurn`; sub-funcoes mutam o clone
+- Deep clone no topo de `resolveTurn`, `resolveCoopTurn`, `resolveMultiPveTurn` e `resolveCoopPveTurn`; sub-funcoes mutam o clone
 - Tudo serializavel JSON: sem classes, sem funcoes no estado
 - Sem `any` — TypeScript strict
 - IDs gerados via `crypto.randomUUID()`

@@ -7,6 +7,9 @@ import { registerMatchmakingHandlers } from "./handlers/matchmaking";
 import { registerBattleHandlers, handleReconnection } from "./handlers/battle";
 import { registerBossMatchmakingHandlers } from "./handlers/boss-matchmaking";
 import { registerBossBattleHandlers, handleBossReconnection } from "./handlers/boss-battle";
+import { registerCoopPveMatchmakingHandlers } from "./handlers/coop-pve-matchmaking";
+import { registerCoopPveBattleHandlers, handleCoopPveReconnection } from "./handlers/coop-pve-battle";
+import { registerCoopPveInviteHandlers } from "./handlers/coop-pve-invite";
 import { registerSocket, unregisterSocket, getSocketIds } from "./stores/user-store";
 
 // ---------------------------------------------------------------------------
@@ -183,10 +186,21 @@ io.on("connection", (socket) => {
     );
   }
 
+  // Verificar reconexao pendente em coop PvE battle ativa
+  const coopPveReconnected = handleCoopPveReconnection(io, socket, socket.data.userId);
+  if (coopPveReconnected) {
+    console.log(
+      `[Socket.io] ${socket.data.userId} reconectou em coop PvE battle`
+    );
+  }
+
   registerMatchmakingHandlers(io, socket);
   registerBattleHandlers(io, socket);
   registerBossMatchmakingHandlers(io, socket);
   registerBossBattleHandlers(io, socket);
+  registerCoopPveMatchmakingHandlers(io, socket);
+  registerCoopPveBattleHandlers(io, socket);
+  registerCoopPveInviteHandlers(io, socket);
 
   socket.on("disconnect", (reason) => {
     unregisterSocket(userId, socket.id);

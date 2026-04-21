@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
+
 // ---------------------------------------------------------------------------
-// Tier gradient map — visual placeholder for mob portrait
+// Tier gradient map — visual fallback for mob portrait
 // ---------------------------------------------------------------------------
 
 const TIER_GRADIENTS: Record<number, string> = {
@@ -15,22 +17,36 @@ const TIER_GRADIENTS: Record<number, string> = {
 type MobPlaceholderProps = {
   name: string;
   tier: number;
+  imageUrl?: string | null;
 };
 
-export default function MobPlaceholder({ name, tier }: MobPlaceholderProps) {
+export default function MobPlaceholder({ name, tier, imageUrl }: MobPlaceholderProps) {
   const gradient = TIER_GRADIENTS[tier] ?? TIER_GRADIENTS[1];
   const initial = name.charAt(0).toUpperCase();
 
   return (
     <div
-      className={`flex h-48 items-center justify-center rounded-t-[14px] bg-gradient-to-b ${gradient}`}
+      className={`relative w-full h-full min-h-[12rem] overflow-hidden rounded-t-[14px] bg-gradient-to-b ${gradient}`}
     >
-      <span
-        className="text-6xl text-white/30"
-        style={{ fontFamily: "var(--font-cinzel)" }}
-      >
-        {initial}
-      </span>
+      {imageUrl ? (
+        <Image
+          src={imageUrl}
+          alt={name}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 50vw, 640px"
+          quality={90}
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center">
+          <span
+            className="text-6xl text-white/30"
+            style={{ fontFamily: "var(--font-cinzel)" }}
+          >
+            {initial}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

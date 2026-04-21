@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -12,7 +13,7 @@ import { getPlayerTier, rollMobTier, selectRandomMob } from "@/lib/exp/matchmaki
 import { createPlayerState } from "@/lib/battle/shared-helpers";
 import type { EquippedSkill, BaseStats } from "@/lib/battle/types";
 import type { AiProfile } from "@/lib/battle/ai-profiles";
-import type { MobState } from "@/lib/battle/pve-multi-types";
+import type { MobState, PveMultiMode } from "@/lib/battle/pve-multi-types";
 import type {
   Skill,
   SkillTarget,
@@ -20,9 +21,26 @@ import type {
   SkillMastery,
 } from "@/types/skill";
 
+const startBodySchema = z.object({
+  mode: z.enum(["1v3", "1v5"]).default("1v3"),
+}).optional();
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await verifySession(request);
+
+    // Parse body para determinar modo (1v3 ou 1v5)
+    let mode: PveMultiMode = "1v3";
+    try {
+      const rawBody: unknown = await request.json();
+      const parsed = startBodySchema.safeParse(rawBody);
+      if (parsed.success && parsed.data) {
+        mode = parsed.data.mode;
+      }
+    } catch {
+      // Body vazio ou invalido — usar default "1v3"
+    }
+    const mobCount = mode === "1v5" ? 5 : 3;
 
     // Verificar batalhas ativas (solo ou multi)
     const activeMultiBattleId = hasActiveMultiBattle(userId);
@@ -131,11 +149,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Selecionar 3 mobs (podem repetir se menos de 3 unicos disponiveis)
+    // Selecionar mobs (podem repetir se menos que mobCount unicos disponiveis)
     const selectedMobs: typeof mobs = [];
     const availableMobs = [...mobs];
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < mobCount; i++) {
       if (availableMobs.length > 0) {
         const chosen = selectRandomMob(availableMobs);
         selectedMobs.push(chosen);
@@ -235,7 +253,7 @@ export async function POST(request: NextRequest) {
       };
 
       return mobState;
-    }) as [MobState, MobState, MobState];
+    });
 
     const battleId = crypto.randomUUID();
 
@@ -243,6 +261,7 @@ export async function POST(request: NextRequest) {
       battleId,
       player: playerState,
       mobs: mobStates,
+      mode,
     });
 
     setMultiPveBattle(battleId, {
@@ -254,11 +273,14 @@ export async function POST(request: NextRequest) {
     return apiSuccess(
       {
         battleId,
+        mode,
         mobs: selectedMobs.map((mob, index) => ({
           name: mob.name,
           tier: mob.tier,
           hp: mob.hp,
           index,
+          playerId: mobStates[index].playerId,
+          imageUrl: mob.imageUrl ?? null,
         })),
         player: {
           hp: character.hp,

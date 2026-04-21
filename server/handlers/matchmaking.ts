@@ -12,6 +12,10 @@ import {
 } from "../stores/queue-store";
 import { prisma } from "../lib/prisma";
 import { setPvpBattle, getPlayerBattle } from "../stores/pvp-store";
+import { isInBossQueue } from "../stores/boss-queue-store";
+import { getPlayerBossBattle } from "../stores/boss-battle-store";
+import { isInCoopPveQueue } from "../stores/coop-pve-queue-store";
+import { getPlayerCoopPveBattle } from "../stores/coop-pve-battle-store";
 import type { PvpBattleSession } from "../stores/pvp-store";
 import { startTurnTimer } from "./battle";
 import {
@@ -100,6 +104,35 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
     if (getPlayerBattle(userId)) {
       socket.emit("matchmaking:error", {
         message: "Voce ja esta em uma batalha ativa",
+      });
+      return;
+    }
+
+    if (isInBossQueue(userId)) {
+      socket.emit("matchmaking:error", {
+        message: "Voce ja esta na fila de boss fight",
+      });
+      return;
+    }
+
+    if (getPlayerBossBattle(userId)) {
+      socket.emit("matchmaking:error", {
+        message: "Voce ja esta em uma boss fight ativa",
+      });
+      return;
+    }
+
+    if (isInCoopPveQueue(userId)) {
+      socket.emit("matchmaking:error", {
+        message: "Voce ja esta na fila de batalha coop PvE",
+      });
+      return;
+    }
+
+    const activeCoopPve = getPlayerCoopPveBattle(userId);
+    if (activeCoopPve) {
+      socket.emit("matchmaking:error", {
+        message: "Voce ja esta em uma batalha coop PvE ativa",
       });
       return;
     }

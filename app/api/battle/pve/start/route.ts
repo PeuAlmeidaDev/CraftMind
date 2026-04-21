@@ -201,6 +201,7 @@ export async function POST(request: NextRequest) {
         tier: mob.tier,
         hp: mob.hp,
         aiProfile: mob.aiProfile,
+        imageUrl: mob.imageUrl ?? null,
       },
       player: {
         hp: character.hp,
