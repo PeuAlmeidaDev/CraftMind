@@ -28,10 +28,7 @@ type InviteFriendModalProps = {
   inviteTargetName: string | null;
 };
 
-const SOCKET_URL =
-  (typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_SOCKET_URL
-    : undefined) ?? "http://localhost:3001";
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? "";
 
 export default function InviteFriendModal({
   open,

@@ -8,9 +8,15 @@ Servidor Node.js standalone (nao faz parte do Next.js). Roda na porta 3001. O Ne
 
 `server/index.ts` — inicializa o servidor HTTP + Socket.io, registra handlers de eventos.
 
-## Endpoint HTTP interno
+## Endpoints HTTP
 
-O httpServer expoe `POST /internal/notify` para que as API routes do Next.js possam emitir eventos Socket.io para usuarios especificos. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
+### GET /health
+
+Liveness probe para Railway / load balancer. Retorna `{ "status": "ok" }` com status 200. Sem autenticacao.
+
+### POST /internal/notify
+
+Emite evento Socket.io para um userId especifico. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
 
 Payload: `{ targetUserId: string, event: string, payload: object }`
 

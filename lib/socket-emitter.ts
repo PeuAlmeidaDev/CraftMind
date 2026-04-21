@@ -3,8 +3,8 @@
 // Faz um POST HTTP interno para o servidor Socket.io (endpoint /internal/notify).
 // Fire-and-forget: erros sao logados mas nunca propagados ao chamador.
 
-const SOCKET_SERVER_URL = process.env.SOCKET_SERVER_URL || "http://localhost:3001";
-const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET || "";
+const SOCKET_SERVER_URL = process.env.SOCKET_SERVER_URL;
+const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET;
 
 type NotifyPayload = {
   targetUserId: string;
@@ -23,6 +23,11 @@ export async function emitToUser(
   payload: Record<string, unknown>
 ): Promise<void> {
   const body: NotifyPayload = { targetUserId, event, payload };
+
+  if (!SOCKET_SERVER_URL || !INTERNAL_SECRET) {
+    console.warn("[socket-emitter] SOCKET_SERVER_URL or SOCKET_INTERNAL_SECRET not configured, skipping");
+    return;
+  }
 
   try {
     const response = await fetch(`${SOCKET_SERVER_URL}/internal/notify`, {

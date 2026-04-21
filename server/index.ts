@@ -33,11 +33,30 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET || "";
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+if (IS_PRODUCTION && !process.env.CLIENT_URL) {
+  throw new Error("CLIENT_URL must be set in production");
+}
+if (IS_PRODUCTION && !process.env.SOCKET_INTERNAL_SECRET) {
+  throw new Error("SOCKET_INTERNAL_SECRET must be set in production");
+}
+if (IS_PRODUCTION && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET must be set in production");
+}
+
 // ---------------------------------------------------------------------------
 // HTTP handler para notificacoes internas do Next.js
 // ---------------------------------------------------------------------------
 
 const httpServer = http.createServer((req, res) => {
+  // GET /health — liveness probe para Railway / load balancer
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+
   // POST /internal/notify — emite evento para um userId especifico
   if (req.method === "POST" && req.url === "/internal/notify") {
     // Verificar autorizacao

@@ -36,3 +36,6 @@ tsconfig.tsbuildinfo
 
 # Review logs temporários
 reviews-backend.md
+
+# Documentação
+*.md

@@ -63,10 +63,7 @@ export const BossQueueContext = createContext<BossQueueState | null>(null);
 // Provider
 // ---------------------------------------------------------------------------
 
-const SOCKET_URL =
-  (typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_SOCKET_URL
-    : undefined) ?? "http://localhost:3001";
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? "";
 
 const QUEUE_TIMEOUT_SECONDS = 300; // 5 minutes
 
