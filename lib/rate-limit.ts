@@ -54,6 +54,23 @@ const NOOP_RESULT: RateLimitResult = {
   reset: 0,
 };
 
+const FAIL_CLOSED_RESULT: RateLimitResult = {
+  success: false,
+  remaining: 0,
+  reset: Date.now() + 60_000,
+};
+
+const isDev = process.env.NODE_ENV === "development";
+
+/** Retorna fail-open (NOOP) em dev, fail-closed em produção. Loga erro em produção. */
+function failSafeResult(context: string, error?: unknown): RateLimitResult {
+  if (isDev) {
+    return NOOP_RESULT;
+  }
+  console.error(`[${context}] Redis indisponivel — fail-close ativado (requests bloqueados).`, error ?? "");
+  return { ...FAIL_CLOSED_RESULT, reset: Date.now() + 60_000 };
+}
+
 // ---------------------------------------------------------------------------
 // Generic rate limiter
 // ---------------------------------------------------------------------------
@@ -72,7 +89,7 @@ export async function rateLimit(
   config?: RateLimitConfig
 ): Promise<RateLimitResult> {
   const redis = getRedisInstance();
-  if (!redis) return NOOP_RESULT;
+  if (!redis) return failSafeResult("rate-limit");
 
   const maxRequests = config?.maxRequests ?? 5;
   const window = config?.window ?? "60 s";
@@ -96,8 +113,7 @@ export async function rateLimit(
       reset: result.reset,
     };
   } catch (error) {
-    console.warn("[rate-limit] Redis indisponivel, fail-open:", error);
-    return NOOP_RESULT;
+    return failSafeResult("rate-limit", error);
   }
 }
 
@@ -128,7 +144,7 @@ export async function authRateLimit(
   identifier: string
 ): Promise<RateLimitResult> {
   const limiter = getAuthLimiter();
-  if (!limiter) return NOOP_RESULT;
+  if (!limiter) return failSafeResult("auth-rate-limit");
 
   try {
     const result = await limiter.limit(identifier);
@@ -139,8 +155,7 @@ export async function authRateLimit(
       reset: result.reset,
     };
   } catch (error) {
-    console.warn("[auth-rate-limit] Redis indisponivel, fail-open:", error);
-    return NOOP_RESULT;
+    return failSafeResult("auth-rate-limit", error);
   }
 }
 
@@ -171,7 +186,7 @@ export async function battleActionRateLimit(
   identifier: string
 ): Promise<RateLimitResult> {
   const limiter = getBattleLimiter();
-  if (!limiter) return NOOP_RESULT;
+  if (!limiter) return failSafeResult("battle-rate-limit");
 
   try {
     const result = await limiter.limit(identifier);
@@ -182,7 +197,6 @@ export async function battleActionRateLimit(
       reset: result.reset,
     };
   } catch (error) {
-    console.warn("[battle-rate-limit] Redis indisponivel, fail-open:", error);
-    return NOOP_RESULT;
+    return failSafeResult("battle-rate-limit", error);
   }
 }
