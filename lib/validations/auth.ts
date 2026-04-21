@@ -12,10 +12,10 @@ export const registerSchema = z.object({
     ),
   email: z
     .string()
+    .trim()
     .max(254, "Email invalido")
     .email("Email invalido")
-    .toLowerCase()
-    .trim(),
+    .toLowerCase(),
   password: z
     .string()
     .min(8, "Senha deve ter no minimo 8 caracteres")
@@ -31,10 +31,10 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z
     .string()
+    .trim()
     .max(254, "Email invalido")
     .email("Email invalido")
-    .toLowerCase()
-    .trim(),
+    .toLowerCase(),
   password: z
     .string()
     .min(1, "Senha e obrigatoria")
