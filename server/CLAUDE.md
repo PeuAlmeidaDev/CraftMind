@@ -14,6 +14,16 @@ Servidor Node.js standalone (nao faz parte do Next.js). Roda na porta 3001. O Ne
 
 Liveness probe para Railway / load balancer. Retorna `{ "status": "ok" }` com status 200. Sem autenticacao.
 
+### GET /internal/active-battle
+
+Consulta se um usuario tem batalha ativa em qualquer store do servidor Socket.io (PvP, Boss, Coop PvE). Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
+
+Query param: `userId=<string>`
+
+Resposta: `{ hasBattle: true, battleType: "pvp"|"boss"|"coop-pve", battleId: string }` ou `{ hasBattle: false }`
+
+Usado pela API route `GET /api/battle/active` no Next.js.
+
 ### POST /internal/notify
 
 Emite evento Socket.io para um userId especifico. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.

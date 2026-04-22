@@ -189,6 +189,10 @@ export async function POST(request: NextRequest) {
       mobId: mob.id,
       userId,
       lastActivityAt: Date.now(),
+      mobName: mob.name,
+      mobTier: mob.tier,
+      mobImageUrl: mob.imageUrl ?? null,
+      mobDescription: mob.description,
     });
 
     return apiSuccess({

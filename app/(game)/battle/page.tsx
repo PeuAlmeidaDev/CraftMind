@@ -73,10 +73,38 @@ export type PlayerProfile = {
 // Page
 // ---------------------------------------------------------------------------
 
+// Response type for GET /api/battle/active
+type ActiveBattleData =
+  | { hasBattle: true; battleType: "pve" | "pve-multi" | "pvp" | "boss" | "coop-pve"; battleId: string }
+  | { hasBattle: false };
+
+// Response shape for GET /api/battle/pve/state (with mob info for reconnection)
+type PveStateData = {
+  battleId: string;
+  turnNumber: number;
+  status: string;
+  player: {
+    currentHp: number;
+    maxHp: number;
+    availableSkills: AvailableSkill[];
+    statusEffects: ActiveStatusEffect[];
+  };
+  mob: {
+    currentHp: number;
+    maxHp: number;
+    statusEffects: ActiveStatusEffect[];
+    name: string;
+    description: string;
+    tier: number;
+    imageUrl: string | null;
+  };
+};
+
 export default function BattlePage() {
   const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
 
+  const [checkingActive, setCheckingActive] = useState(true);
   const [phase, setPhase] = useState<"IDLE" | "BATTLE" | "RESULT">("IDLE");
   const [battleId, setBattleId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -143,6 +171,132 @@ export default function BattlePage() {
         if (err instanceof DOMException && err.name === "AbortError") return;
         // Network error — keep page without profile data
       });
+
+    return () => ac.abort();
+  }, [router]);
+
+  // -----------------------------------------------------------------------
+  // Check for active battle on mount (reconnection)
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      clearAuthAndRedirect(router);
+      return;
+    }
+
+    const ac = new AbortController();
+
+    const checkActiveBattle = async () => {
+      try {
+        // 1. Check if user has an active battle
+        const activeRes = await fetch(
+          "/api/battle/active",
+          authFetchOptions(token, ac.signal),
+        );
+
+        if (activeRes.status === 401) {
+          clearAuthAndRedirect(router);
+          return;
+        }
+
+        if (!activeRes.ok) {
+          setCheckingActive(false);
+          return;
+        }
+
+        const activeJson = (await activeRes.json()) as { data: ActiveBattleData };
+        const activeData = activeJson.data;
+
+        if (!activeData.hasBattle) {
+          setCheckingActive(false);
+          return;
+        }
+
+        // 2. Handle based on battle type
+        switch (activeData.battleType) {
+          case "pve": {
+            // Fetch full state to restore the battle
+            const stateRes = await fetch(
+              `/api/battle/pve/state?battleId=${encodeURIComponent(activeData.battleId)}`,
+              authFetchOptions(token, ac.signal),
+            );
+
+            if (stateRes.status === 401) {
+              clearAuthAndRedirect(router);
+              return;
+            }
+
+            if (!stateRes.ok) {
+              // Battle may have expired between checks
+              setCheckingActive(false);
+              return;
+            }
+
+            const stateJson = (await stateRes.json()) as { data: PveStateData };
+            const s = stateJson.data;
+
+            setBattleId(s.battleId);
+            setPlayerId(s.player.currentHp > 0 ? "player" : null);
+            setMobId(null);
+            setMob({
+              name: s.mob.name,
+              description: s.mob.description,
+              tier: s.mob.tier,
+              hp: s.mob.maxHp,
+              aiProfile: "BALANCED",
+              imageUrl: s.mob.imageUrl,
+            });
+            setPlayerHp(s.player.currentHp);
+            setPlayerMaxHp(s.player.maxHp);
+            setMobHp(s.mob.currentHp);
+            setMobMaxHp(s.mob.maxHp);
+            setAvailableSkills(s.player.availableSkills);
+            setPlayerStatusEffects(s.player.statusEffects);
+            setMobStatusEffects(s.mob.statusEffects);
+            setEvents([]);
+            setBattleResult(null);
+            setPhase("BATTLE");
+            break;
+          }
+
+          case "pve-multi": {
+            // PvE Multi has its own page — redirect
+            router.push("/battle-multi");
+            return;
+          }
+
+          case "pvp": {
+            // PvP uses Socket.io — the server handles reconnection on connect event
+            // Stay on /battle; socket reconnection handler will emit battle:state
+            setCheckingActive(false);
+            return;
+          }
+
+          case "boss": {
+            // Boss Fight has its own page
+            router.push("/boss-fight");
+            return;
+          }
+
+          case "coop-pve": {
+            // Coop PvE has its own page
+            router.push("/coop-pve");
+            return;
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Network error — fall through to idle
+      } finally {
+        if (!ac.signal.aborted) {
+          setCheckingActive(false);
+        }
+      }
+    };
+
+    checkActiveBattle();
 
     return () => ac.abort();
   }, [router]);
@@ -382,6 +536,17 @@ export default function BattlePage() {
   // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
+
+  if (checkingActive) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
+          <p className="text-sm text-gray-400">Verificando batalha...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === "IDLE") {
     return <BattleIdle onStart={handleStartBattle} loading={loading} />;

@@ -11,6 +11,11 @@ export type PveBattleSession = {
   mobId: string;
   userId: string;
   lastActivityAt: number;
+  // Dados do mob para reconexao (evita re-fetch do banco)
+  mobName: string;
+  mobTier: number;
+  mobImageUrl: string | null;
+  mobDescription: string;
 };
 
 // Singleton via globalThis para sobreviver a hot-reload do Next.js em dev
@@ -67,4 +72,16 @@ export function hasActiveBattle(userId: string): string | null {
     if (session.userId === userId) return battleId;
   }
   return null;
+}
+
+export function getActiveBattleByUser(userId: string): PveBattleSession | undefined {
+  const now = Date.now();
+  for (const [battleId, session] of activeBattles) {
+    if (now - session.lastActivityAt > PVE_BATTLE_TTL_MS) {
+      activeBattles.delete(battleId);
+      continue;
+    }
+    if (session.userId === userId) return session;
+  }
+  return undefined;
 }

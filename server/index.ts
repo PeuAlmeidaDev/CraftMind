@@ -11,6 +11,9 @@ import { registerCoopPveMatchmakingHandlers } from "./handlers/coop-pve-matchmak
 import { registerCoopPveBattleHandlers, handleCoopPveReconnection } from "./handlers/coop-pve-battle";
 import { registerCoopPveInviteHandlers } from "./handlers/coop-pve-invite";
 import { registerSocket, unregisterSocket, getSocketIds } from "./stores/user-store";
+import { getPlayerBattle } from "./stores/pvp-store";
+import { getPlayerBossBattle } from "./stores/boss-battle-store";
+import { getPlayerCoopPveBattle } from "./stores/coop-pve-battle-store";
 
 // ---------------------------------------------------------------------------
 // Tipagem do socket.data via generic do Server
@@ -54,6 +57,51 @@ const httpServer = http.createServer((req, res) => {
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+
+  // GET /internal/active-battle?userId=<userId> — consulta batalha ativa de um usuario
+  if (req.method === "GET" && req.url?.startsWith("/internal/active-battle")) {
+    const authHeader = req.headers.authorization;
+    if (!INTERNAL_SECRET || authHeader !== `Bearer ${INTERNAL_SECRET}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const parsedUrl = new URL(req.url, "http://localhost");
+    const userId = parsedUrl.searchParams.get("userId");
+
+    if (!userId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing userId query param" }));
+      return;
+    }
+
+    // Consultar stores na ordem: PvP -> Boss -> Coop PvE
+    const pvpResult = getPlayerBattle(userId);
+    if (pvpResult) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ hasBattle: true, battleType: "pvp", battleId: pvpResult.battleId }));
+      return;
+    }
+
+    const bossResult = getPlayerBossBattle(userId);
+    if (bossResult) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ hasBattle: true, battleType: "boss", battleId: bossResult.battleId }));
+      return;
+    }
+
+    const coopPveResult = getPlayerCoopPveBattle(userId);
+    if (coopPveResult) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ hasBattle: true, battleType: "coop-pve", battleId: coopPveResult.battleId }));
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ hasBattle: false }));
     return;
   }
 

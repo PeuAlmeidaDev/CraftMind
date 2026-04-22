@@ -49,6 +49,7 @@ api/
 │       └── route.ts          # DELETE (remover amizade aceita — protegida, sender ou receiver)
 └── battle/
     ├── route.ts          # POST iniciar batalha
+    ├── active/route.ts   # GET (verificar se usuario tem batalha ativa em qualquer modo — protegida, consulta stores locais + Socket.io server)
     ├── pve/
     │   ├── start/route.ts    # POST (iniciar batalha PvE 1v1 — protegida, matchmaking por tier, armazena estado em memoria)
     │   ├── action/route.ts   # POST (enviar acao do turno 1v1 — protegida, resolve turno com IA, finaliza com EXP/level up)

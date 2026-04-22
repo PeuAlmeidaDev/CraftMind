@@ -49,6 +49,10 @@ export async function GET(request: NextRequest) {
         currentHp: mobState.currentHp,
         maxHp: mobState.baseStats.hp,
         statusEffects: mobState.statusEffects,
+        name: session.mobName,
+        description: session.mobDescription,
+        tier: session.mobTier,
+        imageUrl: session.mobImageUrl,
       },
     });
   } catch (error) {

@@ -59,3 +59,15 @@ export function hasActiveMultiBattle(userId: string): string | null {
   }
   return null;
 }
+
+export function getActiveMultiBattleByUser(userId: string): PveMultiBattleSession | undefined {
+  const now = Date.now();
+  for (const [battleId, session] of activeBattles) {
+    if (now - session.lastActivityAt > PVE_MULTI_BATTLE_TTL_MS) {
+      activeBattles.delete(battleId);
+      continue;
+    }
+    if (session.userId === userId) return session;
+  }
+  return undefined;
+}
