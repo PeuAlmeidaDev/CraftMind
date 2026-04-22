@@ -99,13 +99,46 @@ export default function BattleLog({ events, playerId, playerName, mobId, mobName
               const style = PHASE_STYLE[event.phase] ?? "text-gray-300";
               const icon = PHASE_ICON[event.phase] ?? "\u25B8";
 
+              const isPlayer = !!event.actorId && event.actorId === playerId;
+              const isMob = !!event.actorId && event.actorId === mobId;
+
+              const borderClass = isPlayer
+                ? "border-l-amber-400"
+                : isMob
+                  ? "border-l-red-500"
+                  : "border-l-zinc-600";
+
+              const bgClass = isPlayer
+                ? "bg-amber-400/5"
+                : isMob
+                  ? "bg-red-500/5"
+                  : "";
+
+              const actorLabel = isPlayer
+                ? playerName
+                : isMob
+                  ? mobName
+                  : undefined;
+
+              const labelColorClass = isPlayer
+                ? "text-amber-400"
+                : "text-red-400";
+
               return (
                 <p
                   key={`${event.turn}-${event.phase}-${idx}`}
-                  className={`text-sm ${style} animate-battle-fade-in`}
+                  className={`text-sm border-l-3 pl-2 rounded-sm ${borderClass} ${bgClass} animate-battle-fade-in`}
                 >
                   <span className="mr-1">{icon}</span>
-                  {replaceIds(event.message, playerId, playerName, mobId, mobName, nameMap)}
+                  {actorLabel && (
+                    <span className={`${labelColorClass} font-semibold text-xs`}>
+                      {actorLabel}
+                      {" — "}
+                    </span>
+                  )}
+                  <span className={style}>
+                    {replaceIds(event.message, playerId, playerName, mobId, mobName, nameMap)}
+                  </span>
                 </p>
               );
             })}
