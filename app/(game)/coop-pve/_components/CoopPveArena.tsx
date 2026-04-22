@@ -141,14 +141,14 @@ export default function CoopPveArena({
   }, [onAction]);
 
   return (
-    <div className="flex flex-col gap-3 p-2 md:p-4 max-w-5xl mx-auto">
+    <div className="flex flex-col gap-2 sm:gap-3 p-2 md:p-4 max-w-5xl mx-auto">
       {/* Turn timer bar */}
-      <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] p-2">
+      <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] p-1.5 sm:p-2">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-semibold text-gray-400">
+          <span className="text-[11px] sm:text-xs font-semibold text-gray-400">
             Turno {battleState.turnNumber}
           </span>
-          <span className="text-xs font-medium text-white">
+          <span className="text-[11px] sm:text-xs font-medium text-white">
             {turnTimeRemaining}s
           </span>
         </div>
@@ -177,7 +177,7 @@ export default function CoopPveArena({
       />
 
       {/* Bottom section: Skills + Log */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
         {/* Skills */}
         <div>
           <CoopPveSkillBar

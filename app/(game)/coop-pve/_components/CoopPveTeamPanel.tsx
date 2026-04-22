@@ -45,7 +45,7 @@ export default function CoopPveTeamPanel({
         }
       `}</style>
 
-      <div className="flex justify-center gap-3 md:gap-4">
+      <div className="flex justify-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto pb-1">
         {teammates.map((player) => {
           const isCurrent = player.playerId === currentPlayerId;
           const isAlive = player.isAlive;
@@ -74,7 +74,7 @@ export default function CoopPveTeamPanel({
               onClick={() => {
                 if (isTargetable) onAllyClick(player.playerId);
               }}
-              className={`relative flex flex-col items-center rounded-xl border p-3 w-36 md:w-44 transition-all ${
+              className={`relative flex flex-col items-center rounded-xl border p-2 sm:p-3 w-28 min-w-28 sm:w-36 sm:min-w-36 md:w-44 md:min-w-44 shrink-0 transition-all ${
                 isCurrent
                   ? "border-[var(--accent-primary)]/60 bg-[var(--bg-card)]"
                   : isTargetable
@@ -83,7 +83,7 @@ export default function CoopPveTeamPanel({
               } ${!isAlive ? "opacity-50 grayscale" : ""}`}
             >
               {/* Avatar */}
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--bg-primary)] border border-[var(--border-subtle)] mb-2 flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-[var(--bg-primary)] border border-[var(--border-subtle)] mb-1.5 sm:mb-2 flex items-center justify-center">
                 {player.avatarUrl ? (
                   <Image
                     src={player.avatarUrl}
@@ -100,24 +100,24 @@ export default function CoopPveTeamPanel({
               </div>
 
               {/* Name */}
-              <p className="text-xs font-semibold text-white truncate max-w-full">
+              <p className="text-[11px] sm:text-xs font-semibold text-white truncate max-w-full">
                 {player.name}
               </p>
 
               {/* House badge */}
-              <span className={`text-[9px] px-1.5 py-0.5 rounded mt-1 ${houseBadge}`}>
+              <span className={`text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded mt-0.5 sm:mt-1 ${houseBadge}`}>
                 {player.houseName}
               </span>
 
               {/* HP bar */}
-              <div className="w-full mt-2">
+              <div className="w-full mt-1.5 sm:mt-2">
                 <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${hpColor}`}
                     style={{ width: `${hpPercent}%` }}
                   />
                 </div>
-                <p className="text-[9px] text-gray-400 text-center mt-0.5">
+                <p className="text-[8px] sm:text-[9px] text-gray-400 text-center mt-0.5">
                   {player.currentHp}/{player.maxHp}
                 </p>
               </div>

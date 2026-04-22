@@ -225,13 +225,13 @@ export default function MultiBattleArena({
   // -------------------------------------------------------------------------
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="mx-auto max-w-5xl px-2 sm:px-4 py-3 sm:py-6">
       {/* ================================================================= */}
       {/* DESKTOP (md+)                                                     */}
       {/* ================================================================= */}
       <div className="hidden md:flex md:flex-col md:gap-4">
         {/* Mob row */}
-        <div className={`flex gap-3 justify-center flex-wrap ${mobs.length > 3 ? "gap-2" : "gap-4"}`}>
+        <div className={`flex gap-3 lg:gap-4 justify-center flex-wrap ${mobs.length > 3 ? "gap-2" : ""}`}>
           {mobs.map((mob) => (
             <div key={mob.index} className={`flex-1 ${mobs.length > 3 ? "max-w-[180px] min-w-[140px]" : "max-w-[240px]"}`}>
               <MultiMobCard
@@ -295,7 +295,7 @@ export default function MultiBattleArena({
         </div>
 
         {/* Skills + Log row */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 lg:gap-4">
           <div>
             <MultiSkillBar
               skills={skills}
@@ -322,11 +322,11 @@ export default function MultiBattleArena({
       {/* ================================================================= */}
       {/* MOBILE (<md)                                                      */}
       {/* ================================================================= */}
-      <div className="flex flex-col gap-3 md:hidden">
+      <div className="flex flex-col gap-2 sm:gap-3 md:hidden">
         {/* Mob row - compact */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           {mobs.map((mob) => (
-            <div key={mob.index} className="flex-1">
+            <div key={mob.index} className="flex-1 min-w-0">
               <MultiMobCard
                 mob={mob}
                 targeting={targetingMode}
@@ -340,7 +340,7 @@ export default function MultiBattleArena({
 
         {/* Player HP */}
         <div
-          className={`relative overflow-hidden rounded-lg border border-[var(--border-subtle)] p-3 ${
+          className={`relative overflow-hidden rounded-lg border border-[var(--border-subtle)] p-2 sm:p-3 ${
             playerShaking ? "animate-shake" : ""
           }`}
           style={{ background: "var(--bg-card)" }}
@@ -372,7 +372,7 @@ export default function MultiBattleArena({
                 </span>
               </div>
             )}
-            <span className="text-sm font-semibold text-white truncate">{profile.name}</span>
+            <span className="text-xs sm:text-sm font-semibold text-white truncate">{profile.name}</span>
           </div>
           <div className="relative">
             <HpBar current={playerHp} max={playerMaxHp} />
