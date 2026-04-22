@@ -43,8 +43,8 @@ export default function CoopPveSkillBar({
     <div className="space-y-3">
       {/* Targeting message */}
       {isTargeting && (
-        <div className="flex items-center justify-between rounded-lg bg-[var(--accent-primary)]/10 border border-[var(--accent-primary)]/30 px-3 py-2">
-          <span className="text-sm text-[var(--accent-primary)]">
+        <div className="flex items-center justify-between rounded-lg bg-[var(--accent-primary)]/10 border border-[var(--accent-primary)]/30 px-2 sm:px-3 py-2 gap-2">
+          <span className="text-xs sm:text-sm text-[var(--accent-primary)]">
             {targetingMode === "SINGLE_ENEMY"
               ? "Selecione um mob alvo..."
               : "Selecione um aliado..."}
@@ -60,7 +60,7 @@ export default function CoopPveSkillBar({
       )}
 
       {/* Skill grid 2x2 */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         {skills.map((skill) => {
           const isPending = pendingSkillId === skill.skillId;
           const isOnCooldown = skill.cooldown > 0;
@@ -75,7 +75,7 @@ export default function CoopPveSkillBar({
                 onSkillSelect(skill.skillId, skill.target);
               }}
               disabled={isDisabled}
-              className={`relative rounded-lg border p-2.5 text-left transition cursor-pointer ${
+              className={`relative rounded-lg border p-2 sm:p-2.5 text-left transition cursor-pointer ${
                 isPending
                   ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
                   : isOnCooldown
@@ -94,11 +94,11 @@ export default function CoopPveSkillBar({
                 </div>
               )}
 
-              <p className="text-sm font-semibold text-white truncate">
+              <p className="text-xs sm:text-sm font-semibold text-white truncate">
                 {skill.name}
               </p>
 
-              <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400">
+              <div className="mt-0.5 sm:mt-1 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] text-gray-400">
                 {skill.basePower > 0 && (
                   <span className="text-gray-300 font-medium">
                     {skill.basePower}
@@ -118,7 +118,7 @@ export default function CoopPveSkillBar({
         type="button"
         onClick={onSkipTurn}
         disabled={disabled || isTargeting}
-        className="w-full rounded-lg py-2 text-xs font-medium text-gray-400 border border-[var(--border-subtle)] hover:text-white hover:border-gray-500 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full rounded-lg py-1.5 sm:py-2 text-[11px] sm:text-xs font-medium text-gray-400 border border-[var(--border-subtle)] hover:text-white hover:border-gray-500 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-h-[36px]"
       >
         Pular turno
       </button>

@@ -55,13 +55,13 @@ export default function MultiSkillBar({
         </div>
       )}
 
-      <div className={`grid grid-cols-2 gap-2 ${targetingMode ? "opacity-40" : ""}`}>
+      <div className={`grid grid-cols-2 gap-1.5 sm:gap-2 ${targetingMode ? "opacity-40" : ""}`}>
         {slots.map((skill, idx) => {
           if (!skill) {
             return (
               <div
                 key={`empty-${idx}`}
-                className="rounded-lg border border-dashed border-[var(--border-subtle)] p-3 min-h-[72px]"
+                className="rounded-lg border border-dashed border-[var(--border-subtle)] p-2 sm:p-3 min-h-[60px] sm:min-h-[72px]"
               />
             );
           }
@@ -80,7 +80,7 @@ export default function MultiSkillBar({
               type="button"
               disabled={isDisabled}
               onClick={() => onSkillSelect(skill.skillId, skill.target)}
-              className={`relative rounded-lg border p-3 text-left transition-colors ${
+              className={`relative rounded-lg border p-2 sm:p-3 text-left transition-colors ${
                 isPending
                   ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 opacity-100"
                   : "border-[var(--border-subtle)] bg-[var(--bg-secondary)]/60"
@@ -90,22 +90,22 @@ export default function MultiSkillBar({
                   : "hover:border-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/5 cursor-pointer"
               }`}
             >
-              <span className="block text-sm font-medium truncate">
+              <span className="block text-xs sm:text-sm font-medium truncate">
                 {skill.name}
               </span>
 
-              <span className={`block text-[10px] ${dmgType.color}`}>
+              <span className={`block text-[9px] sm:text-[10px] ${dmgType.color}`}>
                 {dmgType.text}
               </span>
 
               {skill.basePower > 0 && (
-                <span className="block text-[10px] text-gray-500">
+                <span className="block text-[9px] sm:text-[10px] text-gray-500">
                   Poder: {skill.basePower}
                 </span>
               )}
 
               {skill.target === "SINGLE_ENEMY" && (
-                <span className="block text-[10px] text-gray-600">
+                <span className="block text-[9px] sm:text-[10px] text-gray-600">
                   Alvo unico
                 </span>
               )}
@@ -126,7 +126,7 @@ export default function MultiSkillBar({
         type="button"
         disabled={disabled || targetingMode}
         onClick={onSkipTurn}
-        className={`mt-2 w-full py-2 text-xs text-gray-500 transition-colors ${
+        className={`mt-2 w-full py-1.5 sm:py-2 text-[11px] sm:text-xs text-gray-500 transition-colors min-h-[36px] ${
           disabled || targetingMode
             ? "opacity-50 cursor-not-allowed"
             : "hover:text-gray-300 cursor-pointer"

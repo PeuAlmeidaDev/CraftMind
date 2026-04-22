@@ -40,7 +40,7 @@ export default function CoopPveMobRow({ mobs, targeting, onMobClick }: CoopPveMo
         }
       `}</style>
 
-      <div className={`flex justify-center gap-2 ${isCompact ? "gap-1.5" : "gap-3"}`}>
+      <div className={`flex justify-start sm:justify-center overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide ${isCompact ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-3"}`}>
         {mobs.map((mob) => {
           const isDefeated = mob.defeated;
           const isTargetable = targeting && !isDefeated;
@@ -55,8 +55,8 @@ export default function CoopPveMobRow({ mobs, targeting, onMobClick }: CoopPveMo
               onClick={() => {
                 if (isTargetable) onMobClick(mob.index);
               }}
-              className={`relative flex flex-col rounded-xl border overflow-hidden transition-all ${
-                isCompact ? "w-28 md:w-32" : "w-36 md:w-44"
+              className={`relative flex flex-col rounded-xl border overflow-hidden transition-all snap-center shrink-0 ${
+                isCompact ? "w-[5.5rem] sm:w-28 md:w-32" : "w-24 sm:w-36 md:w-44"
               } ${
                 isDefeated
                   ? "opacity-40 grayscale pointer-events-none border-[var(--border-subtle)]"
@@ -77,7 +77,7 @@ export default function CoopPveMobRow({ mobs, targeting, onMobClick }: CoopPveMo
               )}
 
               {/* Info */}
-              <div className="p-2 space-y-1.5">
+              <div className="p-1.5 sm:p-2 space-y-1.5">
                 {/* Name + tier badge */}
                 <div className="flex items-center justify-between gap-1">
                   <p className="text-xs font-semibold text-white truncate flex-1">

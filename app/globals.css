@@ -11,3 +11,12 @@
   --accent-secondary: #10b981;
   --border-subtle: #2a2a3e;
 }
+
+/* Scrollbar hide utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

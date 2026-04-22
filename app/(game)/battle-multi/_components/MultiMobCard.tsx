@@ -68,13 +68,13 @@ function MobHpBar({ current, max }: { current: number; max: number }) {
 
   return (
     <div>
-      <div className="w-full h-2.5 rounded-full bg-red-950/30 overflow-hidden">
+      <div className="w-full h-2 sm:h-2.5 rounded-full bg-red-950/30 overflow-hidden">
         <div
           className="h-full rounded-full bg-red-500 transition-all duration-500"
           style={{ width: `${percent}%` }}
         />
       </div>
-      <p className="text-[10px] text-gray-500 mt-0.5">
+      <p className="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">
         HP: {current} / {max}
       </p>
     </div>
@@ -88,7 +88,7 @@ function MobHpBar({ current, max }: { current: number; max: number }) {
 function CompactMobThumb({ mob }: { mob: MultiMobInfo }) {
   if (mob.imageUrl) {
     return (
-      <div className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] overflow-hidden relative shrink-0">
+      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[var(--bg-secondary)] overflow-hidden relative shrink-0">
         <Image
           src={mob.imageUrl}
           alt={mob.name}
@@ -101,8 +101,8 @@ function CompactMobThumb({ mob }: { mob: MultiMobInfo }) {
   }
 
   return (
-    <div className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center shrink-0">
-      <span className="text-xs text-white/30">{mob.name.charAt(0).toUpperCase()}</span>
+    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center shrink-0">
+      <span className="text-[10px] sm:text-xs text-white/30">{mob.name.charAt(0).toUpperCase()}</span>
     </div>
   );
 }
@@ -126,7 +126,7 @@ export default function MultiMobCard({
     return (
       <div
         className={`relative rounded-xl border border-[var(--border-subtle)] overflow-hidden opacity-40 grayscale pointer-events-none ${
-          compact ? "p-2" : ""
+          compact ? "p-1.5 sm:p-2" : ""
         }`}
         style={{ background: "var(--bg-card)" }}
       >
@@ -135,10 +135,10 @@ export default function MultiMobCard({
           {compact && <CompactMobThumb mob={mob} />}
           <div className={compact ? "flex-1 min-w-0" : ""}>
             <div className="flex items-center gap-1">
-              <span className={`font-semibold text-white truncate ${compact ? "text-xs" : "text-sm"}`}>
+              <span className={`font-semibold text-white truncate ${compact ? "text-[11px] sm:text-xs" : "text-sm"}`}>
                 {mob.name}
               </span>
-              <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 border shrink-0 ${tierBadge}`}>
+              <span className={`font-semibold rounded-full py-0.5 border shrink-0 ${compact ? "text-[8px] sm:text-[9px] px-1 sm:px-1.5" : "text-[9px] px-1.5"} ${tierBadge}`}>
                 T{mob.tier}
               </span>
             </div>
@@ -172,7 +172,7 @@ export default function MultiMobCard({
         isTargetable
           ? "border-[var(--accent-secondary)] cursor-pointer hover:shadow-[0_0_12px_var(--accent-secondary)] animate-pulse-border"
           : "border-[var(--border-subtle)]"
-      } ${compact ? "p-2" : ""}`}
+      } ${compact ? "p-1.5 sm:p-2" : ""}`}
       style={{ background: "var(--bg-card)" }}
     >
       {!compact && <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />}
@@ -181,10 +181,10 @@ export default function MultiMobCard({
         {compact && <CompactMobThumb mob={mob} />}
         <div className={compact ? "flex-1 min-w-0" : ""}>
           <div className="flex items-center gap-1">
-            <span className={`font-semibold text-white truncate ${compact ? "text-xs" : "text-sm"}`}>
+            <span className={`font-semibold text-white truncate ${compact ? "text-[11px] sm:text-xs" : "text-sm"}`}>
               {mob.name}
             </span>
-            <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 border shrink-0 ${tierBadge}`}>
+            <span className={`font-semibold rounded-full py-0.5 border shrink-0 ${compact ? "text-[8px] sm:text-[9px] px-1 sm:px-1.5" : "text-[9px] px-1.5"} ${tierBadge}`}>
               T{mob.tier}
             </span>
           </div>
