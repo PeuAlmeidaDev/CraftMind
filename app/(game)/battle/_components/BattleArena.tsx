@@ -437,22 +437,27 @@ export default function BattleArena({
 
         {/* --- Mob compact bar --- */}
         <div
-          className={`relative bg-[var(--bg-card)] border ${getStatusBorderClass(mobStatusEffects)} rounded-lg p-3 ${
+          className={`relative bg-[var(--bg-card)] border ${getStatusBorderClass(mobStatusEffects)} rounded-lg p-0 pb-3 ${
             mobShaking ? "animate-shake" : ""
           }`}
         >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-white truncate">{mob.name}</span>
-            <span
-              className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border shrink-0 ${
-                TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1]
-              }`}
-            >
-              T{mob.tier}
-            </span>
+          <div className="relative h-[180px] w-full overflow-hidden rounded-t-lg">
+            <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />
           </div>
-          <HpBar current={mobHp} max={mobMaxHp} variant="mob" size="compact" />
-          <StatusBadges effects={mobStatusEffects} />
+          <div className="px-3">
+            <div className="flex items-center gap-2 mb-1 mt-2">
+              <span className="text-sm font-semibold text-white truncate">{mob.name}</span>
+              <span
+                className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border shrink-0 ${
+                  TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1]
+                }`}
+              >
+                T{mob.tier}
+              </span>
+            </div>
+            <HpBar current={mobHp} max={mobMaxHp} variant="mob" size="compact" />
+            <StatusBadges effects={mobStatusEffects} />
+          </div>
           {mobFloats.map((f) => (
             <span
               key={f.id}
