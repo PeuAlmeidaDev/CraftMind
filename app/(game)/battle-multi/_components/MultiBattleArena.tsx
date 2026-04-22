@@ -230,20 +230,51 @@ export default function MultiBattleArena({
       {/* DESKTOP (md+)                                                     */}
       {/* ================================================================= */}
       <div className="hidden md:flex md:flex-col md:gap-4">
-        {/* Mob row */}
-        <div className={`flex gap-3 lg:gap-4 justify-center flex-wrap ${mobs.length > 3 ? "gap-2" : ""}`}>
-          {mobs.map((mob) => (
-            <div key={mob.index} className={`flex-1 ${mobs.length > 3 ? "max-w-[180px] min-w-[140px]" : "max-w-[240px]"}`}>
-              <MultiMobCard
-                mob={mob}
-                targeting={targetingMode}
-                onClick={() => handleMobClick(mob.index)}
-                shaking={shakingMobs.has(mob.index)}
-                compact={mobs.length > 3}
-              />
+        {/* Mob row(s) */}
+        {mobs.length <= 3 ? (
+          <div className="flex gap-3 lg:gap-4 justify-center">
+            {mobs.map((mob) => (
+              <div key={mob.index} className="flex-1 max-w-[240px]">
+                <MultiMobCard
+                  mob={mob}
+                  targeting={targetingMode}
+                  onClick={() => handleMobClick(mob.index)}
+                  shaking={shakingMobs.has(mob.index)}
+                  compact={false}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 lg:gap-3 items-center">
+            <div className="flex gap-2 lg:gap-3 justify-center">
+              {mobs.slice(0, 3).map((mob) => (
+                <div key={mob.index} className="max-w-[180px] min-w-[140px] flex-1">
+                  <MultiMobCard
+                    mob={mob}
+                    targeting={targetingMode}
+                    onClick={() => handleMobClick(mob.index)}
+                    shaking={shakingMobs.has(mob.index)}
+                    compact
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            <div className="flex gap-2 lg:gap-3 justify-center">
+              {mobs.slice(3).map((mob) => (
+                <div key={mob.index} className="max-w-[180px] min-w-[140px] flex-1">
+                  <MultiMobCard
+                    mob={mob}
+                    targeting={targetingMode}
+                    onClick={() => handleMobClick(mob.index)}
+                    shaking={shakingMobs.has(mob.index)}
+                    compact
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Player HP section */}
         <div
@@ -323,20 +354,51 @@ export default function MultiBattleArena({
       {/* MOBILE (<md)                                                      */}
       {/* ================================================================= */}
       <div className="flex flex-col gap-2 sm:gap-3 md:hidden">
-        {/* Mob row - compact */}
-        <div className="flex gap-1.5 sm:gap-2">
-          {mobs.map((mob) => (
-            <div key={mob.index} className="flex-1 min-w-0">
-              <MultiMobCard
-                mob={mob}
-                targeting={targetingMode}
-                onClick={() => handleMobClick(mob.index)}
-                shaking={shakingMobs.has(mob.index)}
-                compact
-              />
+        {/* Mob row(s) - compact */}
+        {mobs.length <= 3 ? (
+          <div className="flex gap-1.5 sm:gap-2">
+            {mobs.map((mob) => (
+              <div key={mob.index} className="flex-1 min-w-0">
+                <MultiMobCard
+                  mob={mob}
+                  targeting={targetingMode}
+                  onClick={() => handleMobClick(mob.index)}
+                  shaking={shakingMobs.has(mob.index)}
+                  compact
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5 sm:gap-2 items-center">
+            <div className="flex gap-1.5 sm:gap-2 justify-center w-full">
+              {mobs.slice(0, 3).map((mob) => (
+                <div key={mob.index} className="flex-1 min-w-0">
+                  <MultiMobCard
+                    mob={mob}
+                    targeting={targetingMode}
+                    onClick={() => handleMobClick(mob.index)}
+                    shaking={shakingMobs.has(mob.index)}
+                    compact
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            <div className="flex gap-1.5 sm:gap-2 justify-center w-full max-w-[66%]">
+              {mobs.slice(3).map((mob) => (
+                <div key={mob.index} className="flex-1 min-w-0">
+                  <MultiMobCard
+                    mob={mob}
+                    targeting={targetingMode}
+                    onClick={() => handleMobClick(mob.index)}
+                    shaking={shakingMobs.has(mob.index)}
+                    compact
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Player HP */}
         <div
