@@ -307,6 +307,27 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       return;
     }
 
+    // Verificar se o socket do sender ainda esta conectado
+    const senderSocket = io.sockets.sockets.get(invite.senderSocketId);
+    if (!senderSocket) {
+      // Tentar encontrar outro socket ativo do sender
+      const currentSenderSocketIds = getSocketIds(invite.senderId);
+      const hasActiveSenderSocket = currentSenderSocketIds
+        ? Array.from(currentSenderSocketIds).some((sid) => io.sockets.sockets.get(sid))
+        : false;
+
+      if (!hasActiveSenderSocket) {
+        socket.emit("coop-pve:invite:error", {
+          message: "O jogador que convidou nao esta mais online",
+        });
+        removeInvite(inviteId);
+        console.log(
+          `[Socket.io] Coop PvE invite ${inviteId} rejeitado: sender ${invite.senderId} desconectou`
+        );
+        return;
+      }
+    }
+
     // Remover convite do store
     removeInvite(inviteId);
 

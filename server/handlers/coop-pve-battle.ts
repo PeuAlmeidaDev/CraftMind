@@ -532,35 +532,31 @@ export function registerCoopPveBattleHandlers(io: Server, socket: Socket): void 
 
       currentSession.disconnectedPlayers.delete(userId);
 
-      // Verificar se TODOS os players vivos estao desconectados
-      const allDisconnected = currentSession.state.team.every(
-        (pl) =>
-          pl.currentHp <= 0 ||
-          currentSession.disconnectedPlayers.has(pl.playerId)
-      );
+      // Grace period expirou — encerrar batalha como derrota
+      currentSession.state.status = "FINISHED";
+      currentSession.state.result = "DEFEAT";
 
-      if (allDisconnected) {
-        // Todos desconectaram — encerrar como derrota
-        currentSession.state.status = "FINISHED";
-        currentSession.state.result = "DEFEAT";
-
-        io.to(roomName).emit("coop-pve:battle:end", {
-          result: "DEFEAT",
-        });
-
-        persistCoopPveResult(currentSession).catch((err) => {
-          console.log(
-            `[Socket.io] Erro ao persistir coop PvE ${battleId} (todos desconectaram): ${String(err)}`
-          );
-        });
-
-        readyPlayers.delete(battleId);
-        removeCoopPveBattle(battleId);
-        console.log(
-          `[Socket.io] Coop PvE ${battleId} encerrada: todos desconectaram`
-        );
+      if (currentSession.turnTimer) {
+        clearTimeout(currentSession.turnTimer);
+        currentSession.turnTimer = null;
       }
-      // Se ainda ha players conectados, a batalha continua sem o desconectado
+
+      io.to(roomName).emit("coop-pve:battle:end", {
+        result: "DEFEAT",
+        message: "Aliado desconectou permanentemente. Batalha encerrada.",
+      });
+
+      persistCoopPveResult(currentSession).catch((err) => {
+        console.log(
+          `[Socket.io] Erro ao persistir coop PvE ${battleId} (desconexao permanente de ${userId}): ${String(err)}`
+        );
+      });
+
+      readyPlayers.delete(battleId);
+      removeCoopPveBattle(battleId);
+      console.log(
+        `[Socket.io] Coop PvE ${battleId} encerrada: ${userId} desconectou permanentemente`
+      );
     }, RECONNECT_GRACE_MS);
 
     session.disconnectedPlayers.set(userId, { disconnectTimer });

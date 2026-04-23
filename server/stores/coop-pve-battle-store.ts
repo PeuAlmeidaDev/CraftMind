@@ -76,6 +76,10 @@ export function getPlayerCoopPveBattle(
         battles.delete(battleId);
         continue;
       }
+      // Ignorar batalhas ja finalizadas (orfas aguardando TTL)
+      if (session.state.status === "FINISHED") {
+        continue;
+      }
       return { battleId, session };
     }
   }
