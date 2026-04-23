@@ -57,8 +57,9 @@ api/
     │   └── history/route.ts  # GET (historico paginado de batalhas PvE — protegida, 20 por pagina)
     ├── pve-multi/
     │   ├── start/route.ts    # POST (iniciar batalha PvE 1v3 — protegida, seleciona 3 mobs por tier, store separado)
-    │   ├── action/route.ts   # POST (enviar acao do turno 1v3 — protegida, body: {battleId, skillId, targetIndex?}, rate limited)
-    │   └── state/route.ts    # GET (consultar estado sanitizado da batalha 1v3 — protegida, query param battleId)
+    │   ├── action/route.ts   # POST (enviar acao do turno 1v3 — protegida, body: {battleId, skillId, targetIndex?}, rate limited, detecta timeout 1min)
+    │   ├── state/route.ts    # GET (consultar estado sanitizado da batalha 1v3 — protegida, query param battleId, detecta timeout 1min)
+    │   └── forfeit/route.ts  # POST (desistir da batalha PvE Multi — protegida, persiste DEFEAT no banco, remove da store)
     ├── coop/
     │   ├── eligible/route.ts  # GET (verificar elegibilidade para boss fight cooperativo — protegida, requer 5 tarefas completas no dia)
     │   └── history/route.ts   # GET (historico paginado de boss fights coop — protegida, default 20/page, max 50, apenas FINISHED)

@@ -4,6 +4,7 @@ import type { BattleState } from "./types";
 import type { AiProfile } from "./ai-profiles";
 
 const PVE_BATTLE_TTL_MS = 30 * 60 * 1000; // 30 minutos
+export const INACTIVITY_TIMEOUT_MS = 60 * 1000; // 1 minuto
 
 export type PveBattleSession = {
   state: BattleState;
@@ -37,9 +38,20 @@ setInterval(() => {
   for (const [battleId, session] of activeBattles) {
     if (now - session.lastActivityAt > PVE_BATTLE_TTL_MS) {
       activeBattles.delete(battleId);
+      continue;
+    }
+    if (
+      session.state.status === "IN_PROGRESS" &&
+      now - session.lastActivityAt > INACTIVITY_TIMEOUT_MS
+    ) {
+      activeBattles.delete(battleId);
     }
   }
 }, CLEANUP_INTERVAL_MS);
+
+export function isSessionTimedOut(session: PveBattleSession): boolean {
+  return Date.now() - session.lastActivityAt > INACTIVITY_TIMEOUT_MS;
+}
 
 export function getPveBattle(battleId: string): PveBattleSession | undefined {
   const session = activeBattles.get(battleId);

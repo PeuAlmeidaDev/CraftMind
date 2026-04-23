@@ -46,6 +46,9 @@ type BossQueueState = {
   // Socket access (for boss-fight page to reuse the connection)
   getSocket: () => Socket | null;
 
+  // Reconnection
+  reconnectSocket: () => Promise<Socket>;
+
   // Actions
   joinQueue: (category: string) => void;
   leaveQueue: () => void;
@@ -347,6 +350,33 @@ export function BossQueueProvider({
     return socketRef.current;
   }, []);
 
+  const reconnectSocket = useCallback((): Promise<Socket> => {
+    const existing = socketRef.current;
+
+    // Already connected — resolve immediately
+    if (existing && existing.connected) {
+      return Promise.resolve(existing);
+    }
+
+    // Exists but disconnected — reconnect
+    if (existing) {
+      return new Promise<Socket>((resolve) => {
+        existing.once("connect", () => resolve(existing));
+        existing.connect();
+      });
+    }
+
+    // Does not exist — create a new socket (same logic as getSocket)
+    return new Promise<Socket>((resolve) => {
+      const socket = getSocket(); // creates + connects
+      if (socket.connected) {
+        resolve(socket);
+      } else {
+        socket.once("connect", () => resolve(socket));
+      }
+    });
+  }, [getSocket]);
+
   const value: BossQueueState = {
     connected,
     inQueue,
@@ -361,6 +391,7 @@ export function BossQueueProvider({
     battleStarted,
     battleId,
     getSocket: getSocketRef,
+    reconnectSocket,
     joinQueue,
     leaveQueue,
     acceptMatch,

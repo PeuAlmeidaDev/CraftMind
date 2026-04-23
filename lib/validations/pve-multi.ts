@@ -7,3 +7,8 @@ export const pveMultiActionSchema = z.object({
 });
 
 export type PveMultiActionInput = z.infer<typeof pveMultiActionSchema>;
+
+export const pveMultiForfeitSchema = z.object({
+  battleId: z.string().min(1),
+});
+export type PveMultiForfeitInput = z.infer<typeof pveMultiForfeitSchema>;

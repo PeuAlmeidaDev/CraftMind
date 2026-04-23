@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { getPveBattle } from "@/lib/battle/pve-store";
+import { getPveBattle, removePveBattle, isSessionTimedOut } from "@/lib/battle/pve-store";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +19,15 @@ export async function GET(request: NextRequest) {
 
     if (session.userId !== userId) {
       return apiError("Esta batalha nao pertence a voce", "NOT_YOUR_BATTLE", 403);
+    }
+
+    if (isSessionTimedOut(session)) {
+      removePveBattle(battleId);
+      return apiSuccess({
+        battleOver: true,
+        result: "DEFEAT",
+        reason: "INACTIVITY_TIMEOUT",
+      });
     }
 
     const playerState = session.state.players[0];

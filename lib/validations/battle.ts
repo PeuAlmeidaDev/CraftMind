@@ -28,5 +28,10 @@ export const distributePointsSchema = z.object({
     ),
 });
 
+export const pveForfeitSchema = z.object({
+  battleId: z.string().min(1, "battleId e obrigatorio"),
+});
+
 export type PveBattleActionInput = z.infer<typeof pveBattleActionSchema>;
 export type DistributePointsInput = z.infer<typeof distributePointsSchema>;
+export type PveForfeitInput = z.infer<typeof pveForfeitSchema>;

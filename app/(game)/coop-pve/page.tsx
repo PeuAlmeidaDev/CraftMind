@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CoopPveProvider, useCoopPveQueue } from "../_hooks/useCoopPveQueue";
 import type { SanitizedMobState, SanitizedCoopPveState, CoopPveMode } from "../_hooks/useCoopPveQueue";
-import { getToken, authFetchOptions } from "@/lib/client-auth";
+import { getToken, authFetchOptions, clearAuthAndRedirect } from "@/lib/client-auth";
 import CoopPveArena from "./_components/CoopPveArena";
 import CoopPveResult from "./_components/CoopPveResult";
 import InviteFriendModal from "./_components/InviteFriendModal";
@@ -93,10 +93,14 @@ function CoopPveContent() {
 // ---------------------------------------------------------------------------
 
 function CoopPveInner() {
+  const router = useRouter();
   const ctx = useCoopPveQueue();
   const [currentPlayerId, setCurrentPlayerId] = useState<string>("");
+  const [activeBattleType, setActiveBattleType] = useState<string | null>(null);
+  const [checkingActive, setCheckingActive] = useState(true);
+  const [reconnecting, setReconnecting] = useState(false);
 
-  // Fetch player profile on mount (same pattern as boss-fight)
+  // Fetch player profile on mount
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -115,12 +119,118 @@ function CoopPveInner() {
           setCurrentPlayerId(json.data.id);
         }
       })
-      .catch(() => {
-        // Silently fail — profile not critical for phase rendering
-      });
+      .catch(() => {});
 
     return () => ac.abort();
   }, []);
+
+  // Check for active battle on mount
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      clearAuthAndRedirect(router);
+      return;
+    }
+
+    const ac = new AbortController();
+
+    const checkActiveBattle = async () => {
+      try {
+        const res = await fetch("/api/battle/active", authFetchOptions(token, ac.signal));
+
+        if (res.status === 401) {
+          clearAuthAndRedirect(router);
+          return;
+        }
+
+        if (!res.ok) {
+          setCheckingActive(false);
+          return;
+        }
+
+        const json = (await res.json()) as {
+          data:
+            | { hasBattle: true; battleType: string; battleId: string }
+            | { hasBattle: false };
+        };
+
+        if (json.data.hasBattle) {
+          setActiveBattleType(json.data.battleType);
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      } finally {
+        if (!ac.signal.aborted) {
+          setCheckingActive(false);
+        }
+      }
+    };
+
+    checkActiveBattle();
+
+    return () => ac.abort();
+  }, [router]);
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    try {
+      const socket = await ctx.reconnectSocket();
+      socket.emit("coop-pve:battle:request-state");
+      // Wait for the hook listener to process battle:state and set phase to BATTLE
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      setActiveBattleType(null);
+    } catch {
+      setActiveBattleType(null);
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
+  if (checkingActive) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
+          <p className="text-sm text-gray-400">Verificando batalha...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show reconnect banner if active battle detected and phase is still IDLE
+  if (activeBattleType && ctx.phase === "IDLE") {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div
+          className="max-w-sm w-full rounded-xl border border-amber-500/30 p-8 text-center"
+          style={{ background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))" }}
+        >
+          <div className="text-5xl mb-4">&#9876;&#65039;</div>
+          <h2 className="text-lg font-bold text-white mb-2">Batalha em andamento</h2>
+          <p className="text-sm text-gray-400 mb-6">
+            Voce tem uma batalha {activeBattleType === "coop-pve" ? "Coop PvE" : activeBattleType} ativa. Deseja reconectar?
+          </p>
+          <button
+            type="button"
+            onClick={handleReconnect}
+            disabled={reconnecting}
+            className={`w-full cursor-pointer rounded-lg py-3 font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 transition ${
+              reconnecting ? "opacity-60 cursor-not-allowed" : "hover:brightness-110"
+            }`}
+          >
+            {reconnecting ? "Reconectando..." : "Reconectar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveBattleType(null)}
+            className="mt-3 w-full cursor-pointer rounded-lg py-3 text-gray-400 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:text-white transition"
+          >
+            Ignorar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   switch (ctx.phase) {
     case "IDLE":

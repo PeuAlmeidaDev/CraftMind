@@ -34,6 +34,7 @@ type BattleArenaProps = {
   availableSkills: AvailableSkill[];
   onSkillUse: (skillId: string) => void;
   onSkipTurn: () => void;
+  onForfeit: () => void;
   acting: boolean;
 };
 
@@ -156,6 +157,7 @@ export default function BattleArena({
   availableSkills,
   onSkillUse,
   onSkipTurn,
+  onForfeit,
   acting,
 }: BattleArenaProps) {
   const [playerShaking, setPlayerShaking] = useState(false);
@@ -339,6 +341,14 @@ export default function BattleArena({
               onSkipTurn={onSkipTurn}
               disabled={acting}
             />
+            <button
+              type="button"
+              onClick={onForfeit}
+              disabled={acting}
+              className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Desistir da batalha
+            </button>
           </div>
 
           {/* Battle Log */}
@@ -422,6 +432,14 @@ export default function BattleArena({
               onSkipTurn={onSkipTurn}
               disabled={acting}
             />
+            <button
+              type="button"
+              onClick={onForfeit}
+              disabled={acting}
+              className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Desistir da batalha
+            </button>
           </div>
           {playerFloats.map((f) => (
             <span

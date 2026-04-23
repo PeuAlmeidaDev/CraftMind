@@ -7,6 +7,7 @@ import {
   getMultiPveBattle,
   setMultiPveBattle,
   removeMultiPveBattle,
+  isSessionTimedOut,
 } from "@/lib/battle/pve-multi-store";
 import { resolveMultiPveTurn } from "@/lib/battle/pve-multi-turn";
 import { pveMultiActionSchema } from "@/lib/validations/pve-multi";
@@ -43,6 +44,37 @@ export async function POST(request: NextRequest) {
 
     if (session.userId !== userId) {
       return apiError("Esta batalha nao pertence a voce", "NOT_YOUR_BATTLE", 403);
+    }
+
+    // Timeout por inatividade (1 min sem acao)
+    if (isSessionTimedOut(session)) {
+      const state = session.state;
+
+      await prisma.pveBattle.create({
+        data: {
+          userId,
+          mobId: state.mobs[0].mobId,
+          result: "DEFEAT",
+          expGained: 0,
+          turns: state.turnNumber,
+          log: state.turnLog as object[],
+          mode: "MULTI",
+          mobIds: state.mobs.map((m) => m.mobId),
+        },
+      });
+
+      removeMultiPveBattle(battleId);
+
+      return apiSuccess({
+        battleOver: true,
+        result: "DEFEAT",
+        reason: "INACTIVITY_TIMEOUT",
+        expGained: 0,
+        events: [],
+        playerHp: state.player.currentHp,
+        mobsHp: state.mobs.map((m) => m.currentHp),
+        mobsDefeated: state.mobs.map((m) => m.defeated),
+      });
     }
 
     if (session.state.status === "FINISHED") {

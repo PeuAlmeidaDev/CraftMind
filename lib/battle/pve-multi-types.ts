@@ -32,8 +32,15 @@ export type PveMultiTurnResult = {
   events: TurnLogEntry[];
 };
 
+export type MobDisplayInfo = {
+  name: string;
+  tier: number;
+  imageUrl: string | null;
+};
+
 export type PveMultiBattleSession = {
   state: PveMultiBattleState;
   userId: string;
   lastActivityAt: number;
+  mobsInfo: MobDisplayInfo[];
 };

@@ -443,6 +443,7 @@ export default function BattlePage() {
             mobHp: number;
             battleOver: boolean;
             result?: "VICTORY" | "DEFEAT" | "DRAW";
+            reason?: "INACTIVITY_TIMEOUT";
             expGained?: number;
             levelsGained?: number;
             newLevel?: number;
@@ -450,6 +451,17 @@ export default function BattlePage() {
         };
 
         const { data } = json;
+
+        // Timeout por inatividade
+        if (data.reason === "INACTIVITY_TIMEOUT") {
+          setBattleResult({
+            result: "DEFEAT",
+            expGained: 0,
+            levelsGained: 0,
+            newLevel: 0,
+          });
+          return;
+        }
 
         setEvents((prev) => [...prev, ...data.events]);
         setPlayerHp(data.playerHp);
@@ -513,6 +525,58 @@ export default function BattlePage() {
     handleAction(null);
   }, [handleAction]);
 
+  // -----------------------------------------------------------------------
+  // Forfeit handler
+  // -----------------------------------------------------------------------
+
+  const handleForfeit = useCallback(async () => {
+    if (!battleId) return;
+
+    const token = getToken();
+    if (!token) {
+      clearAuthAndRedirect(router);
+      return;
+    }
+
+    setActing(true);
+
+    try {
+      const res = await fetch("/api/battle/pve/forfeit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ battleId }),
+      });
+
+      if (res.status === 401) {
+        clearAuthAndRedirect(router);
+        return;
+      }
+
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        alert(errorBody?.error ?? "Erro ao desistir");
+        return;
+      }
+
+      setBattleResult({
+        result: "DEFEAT",
+        expGained: 0,
+        levelsGained: 0,
+        newLevel: 0,
+      });
+    } catch {
+      alert("Erro de conexao. Tente novamente.");
+    } finally {
+      setActing(false);
+    }
+  }, [battleId, router]);
+
   const handlePlayAgain = useCallback(() => {
     setBattleId(null);
     setMob(null);
@@ -570,6 +634,7 @@ export default function BattlePage() {
         availableSkills={availableSkills}
         onSkillUse={handleSkillUse}
         onSkipTurn={handleSkipTurn}
+        onForfeit={handleForfeit}
         acting={acting}
       />
 

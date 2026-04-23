@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Socket } from "socket.io-client";
-import { getToken, authFetchOptions } from "@/lib/client-auth";
+import { getToken, authFetchOptions, clearAuthAndRedirect } from "@/lib/client-auth";
 import { useBossQueue } from "../_hooks/useBossQueue";
 import CoopBattleArena from "./_components/CoopBattleArena";
 import CoopBattleResult from "./_components/CoopBattleResult";
@@ -72,7 +72,7 @@ function BossFightContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const battleIdParam = searchParams.get("battleId");
-  const { getSocket: getQueueSocket } = useBossQueue();
+  const { getSocket: getQueueSocket, reconnectSocket } = useBossQueue();
   const bossNameParam = searchParams.get("bossName");
 
   const socketRef = useRef<Socket | null>(null);
@@ -103,18 +103,116 @@ function BossFightContent() {
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
   const [localHouseName, setLocalHouseName] = useState<string>("NOCTIS");
 
+  // Reconnection
+  const [checkingActive, setCheckingActive] = useState(true);
+  const [activeBattleType, setActiveBattleType] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+
   // Track previous events length for hit detection
   const prevEventsLengthRef = useRef(0);
 
   // -------------------------------------------------------------------------
-  // Redirect if no battleId
+  // Check for active battle on mount (reconnection)
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!battleIdParam) {
+    const token = getToken();
+    if (!token) {
+      clearAuthAndRedirect(router);
+      return;
+    }
+
+    const ac = new AbortController();
+
+    const checkActiveBattle = async () => {
+      try {
+        const res = await fetch("/api/battle/active", authFetchOptions(token, ac.signal));
+
+        if (res.status === 401) {
+          clearAuthAndRedirect(router);
+          return;
+        }
+
+        if (!res.ok) {
+          setCheckingActive(false);
+          return;
+        }
+
+        const json = (await res.json()) as {
+          data:
+            | { hasBattle: true; battleType: string; battleId: string }
+            | { hasBattle: false };
+        };
+
+        if (json.data.hasBattle && json.data.battleType === "boss") {
+          setActiveBattleType("boss");
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      } finally {
+        if (!ac.signal.aborted) {
+          setCheckingActive(false);
+        }
+      }
+    };
+
+    checkActiveBattle();
+
+    return () => ac.abort();
+  }, [router]);
+
+  // -------------------------------------------------------------------------
+  // Reconnect handler
+  // -------------------------------------------------------------------------
+
+  const handleReconnect = useCallback(async () => {
+    setReconnecting(true);
+    try {
+      const socket = await reconnectSocket();
+      socketRef.current = socket;
+
+      // Register listeners before requesting state
+      const onState = (data: { state: SanitizedCoopState; events: TurnLogEntry[] }) => {
+        const { state, events: turnEvents } = data;
+        setBoss(state.boss);
+        setTeam(state.team);
+        if (state.bossName) setBossName(state.bossName);
+        if (state.playerNames) setPlayerNames(state.playerNames);
+        if (state.playerAvatars) setPlayerAvatars(state.playerAvatars);
+        if (state.playerHouses) setPlayerHouses(state.playerHouses);
+        setTurnNumber(state.turnNumber);
+        setEvents((prev) => [...prev, ...turnEvents]);
+        setActedPlayers(new Set());
+        setPhase("BATTLE");
+        setActiveBattleType(null);
+        setReconnecting(false);
+      };
+
+      socket.once("boss:battle:state", onState);
+      socket.emit("boss:battle:request-state");
+
+      // Timeout: if no response in 5s, give up
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      socket.off("boss:battle:state", onState);
+      if (activeBattleType) setActiveBattleType(null);
+    } catch {
+      setActiveBattleType(null);
+    } finally {
+      setReconnecting(false);
+    }
+  }, [reconnectSocket, activeBattleType]);
+
+  // -------------------------------------------------------------------------
+  // Redirect if no battleId (only after checking for active battle)
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (checkingActive) return;
+    if (activeBattleType) return;
+    if (!battleIdParam && phase === "LOADING") {
       router.push("/dashboard");
     }
-  }, [battleIdParam, router]);
+  }, [battleIdParam, router, checkingActive, activeBattleType, phase]);
 
   // -------------------------------------------------------------------------
   // Fetch player profile for name
@@ -230,7 +328,8 @@ function BossFightContent() {
     // Reuse the socket from useBossQueue — it's already authenticated and in the battle room
     const socket = getQueueSocket();
     if (!socket || !socket.connected) {
-      console.error("[BossFight] No active socket from queue — cannot join battle");
+      // Socket may not be ready yet (reconnection in progress or page loaded without queue flow).
+      // The checkActiveBattle useEffect handles reconnection and emits request-state directly.
       return;
     }
 
@@ -389,6 +488,55 @@ function BossFightContent() {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  if (checkingActive) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
+          <p className="text-sm text-gray-400">Verificando batalha...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show reconnect banner if active battle detected but no battleIdParam
+  if (activeBattleType && !battleIdParam) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div
+          className="max-w-sm w-full rounded-xl border border-amber-500/30 p-8 text-center"
+          style={{ background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))" }}
+        >
+          <div className="text-5xl mb-4">&#9876;&#65039;</div>
+          <h2 className="text-lg font-bold text-white mb-2">Batalha em andamento</h2>
+          <p className="text-sm text-gray-400 mb-6">
+            Voce tem uma batalha Boss Fight ativa. Deseja reconectar?
+          </p>
+          <button
+            type="button"
+            onClick={handleReconnect}
+            disabled={reconnecting}
+            className={`w-full cursor-pointer rounded-lg py-3 font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 transition ${
+              reconnecting ? "opacity-60 cursor-not-allowed" : "hover:brightness-110"
+            }`}
+          >
+            {reconnecting ? "Reconectando..." : "Reconectar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveBattleType(null);
+              router.push("/dashboard");
+            }}
+            className="mt-3 w-full cursor-pointer rounded-lg py-3 text-gray-400 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:text-white transition"
+          >
+            Voltar ao Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!battleIdParam) return null;
 

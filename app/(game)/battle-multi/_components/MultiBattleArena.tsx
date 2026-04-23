@@ -29,6 +29,7 @@ type MultiBattleArenaProps = {
   events: TurnLogEntry[];
   skills: AvailableSkill[];
   onAction: (skillId: string | null, targetIndex?: number) => void;
+  onForfeit: () => void;
   acting: boolean;
 };
 
@@ -107,6 +108,7 @@ export default function MultiBattleArena({
   events,
   skills,
   onAction,
+  onForfeit,
   acting,
 }: MultiBattleArenaProps) {
   const [targetingMode, setTargetingMode] = useState(false);
@@ -345,6 +347,14 @@ export default function MultiBattleArena({
                 Cancelar selecao de alvo
               </button>
             )}
+            <button
+              type="button"
+              onClick={onForfeit}
+              disabled={acting}
+              className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Desistir da batalha
+            </button>
           </div>
           <BattleLog events={events} playerId={playerId ?? undefined} playerName={profile.name} nameMap={nameMap} />
         </div>
@@ -463,6 +473,14 @@ export default function MultiBattleArena({
               Cancelar selecao de alvo
             </button>
           )}
+          <button
+            type="button"
+            onClick={onForfeit}
+            disabled={acting}
+            className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Desistir da batalha
+          </button>
         </div>
 
         {/* Battle Log */}

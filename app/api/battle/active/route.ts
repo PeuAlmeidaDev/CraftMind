@@ -41,18 +41,21 @@ export async function GET(request: NextRequest) {
 
     if (socketServerUrl && socketInternalSecret) {
       try {
-        const response = await fetch(
-          `${socketServerUrl}/internal/active-battle?userId=${encodeURIComponent(userId)}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${socketInternalSecret}`,
-            },
-          }
-        );
+        const url = `${socketServerUrl}/internal/active-battle?userId=${encodeURIComponent(userId)}`;
+        console.log("[GET /api/battle/active] Consultando Socket.io:", url);
+        console.log("[GET /api/battle/active] Secret enviado:", socketInternalSecret?.substring(0, 5) + "...");
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${socketInternalSecret}`,
+          },
+        });
+
+        console.log("[GET /api/battle/active] Socket.io respondeu:", response.status);
 
         if (response.ok) {
           const data = (await response.json()) as SocketServerResponse;
+          console.log("[GET /api/battle/active] Socket.io data:", JSON.stringify(data));
           if (data.hasBattle) {
             return apiSuccess<ActiveBattleResponse>({
               hasBattle: true,
@@ -62,9 +65,10 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (networkError) {
-        // Socket.io server offline — tratar graciosamente
         console.warn("[GET /api/battle/active] Socket.io server inacessivel:", networkError);
       }
+    } else {
+      console.warn("[GET /api/battle/active] SOCKET_SERVER_URL ou SOCKET_INTERNAL_SECRET nao configurados");
     }
 
     // 3. Nenhuma batalha ativa encontrada

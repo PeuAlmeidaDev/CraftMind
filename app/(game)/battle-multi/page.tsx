@@ -90,6 +90,7 @@ export default function BattleMultiPage() {
   const [acting, setActing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [checkingActive, setCheckingActive] = useState(true);
 
   // -------------------------------------------------------------------------
   // Abort in-flight fetches on unmount
@@ -139,6 +140,133 @@ export default function BattleMultiPage() {
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
       });
+
+    return () => ac.abort();
+  }, [router]);
+
+  // -------------------------------------------------------------------------
+  // Check for active battle on mount (reconnection)
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      clearAuthAndRedirect(router);
+      return;
+    }
+
+    const ac = new AbortController();
+
+    const checkActiveBattle = async () => {
+      try {
+        const activeRes = await fetch(
+          "/api/battle/active",
+          authFetchOptions(token, ac.signal),
+        );
+
+        if (activeRes.status === 401) {
+          clearAuthAndRedirect(router);
+          return;
+        }
+
+        if (!activeRes.ok) {
+          setCheckingActive(false);
+          return;
+        }
+
+        const activeJson = (await activeRes.json()) as {
+          data:
+            | { hasBattle: true; battleType: string; battleId: string }
+            | { hasBattle: false };
+        };
+
+        if (!activeJson.data.hasBattle || activeJson.data.battleType !== "pve-multi") {
+          setCheckingActive(false);
+          return;
+        }
+
+        const activeBattleId = activeJson.data.battleId;
+
+        // Fetch full state to restore
+        const stateRes = await fetch(
+          `/api/battle/pve-multi/state?battleId=${encodeURIComponent(activeBattleId)}`,
+          authFetchOptions(token, ac.signal),
+        );
+
+        if (stateRes.status === 401) {
+          clearAuthAndRedirect(router);
+          return;
+        }
+
+        if (!stateRes.ok) {
+          setCheckingActive(false);
+          return;
+        }
+
+        const stateJson = (await stateRes.json()) as {
+          data: {
+            battleOver?: boolean;
+            battleId: string;
+            mode: "1v3" | "1v5";
+            playerHp: number;
+            playerMaxHp: number;
+            playerStatusEffects: ActiveStatusEffect[];
+            playerCooldowns: Record<string, number>;
+            playerSkills: AvailableSkill[];
+            mobs: Array<{
+              index: number;
+              hp: number;
+              maxHp: number;
+              defeated: boolean;
+              name: string;
+              tier: number;
+              imageUrl: string | null;
+              playerId: string;
+              statusEffects: ActiveStatusEffect[];
+            }>;
+          };
+        };
+
+        const sd = stateJson.data;
+
+        // Battle may have timed out
+        if (sd.battleOver) {
+          setCheckingActive(false);
+          return;
+        }
+
+        setBattleId(sd.battleId);
+        setSelectedMode(sd.mode);
+        setPlayerHp(sd.playerHp);
+        setPlayerMaxHp(sd.playerMaxHp);
+        setPlayerStatusEffects(sd.playerStatusEffects);
+        setSkills(sd.playerSkills);
+        setMobs(
+          sd.mobs.map((m) => ({
+            name: m.name,
+            tier: m.tier,
+            hp: m.hp,
+            maxHp: m.maxHp,
+            index: m.index,
+            playerId: m.playerId,
+            defeated: m.defeated,
+            statusEffects: m.statusEffects,
+            imageUrl: m.imageUrl,
+          })),
+        );
+        setEvents([]);
+        setBattleResult(null);
+        setPhase("BATTLE");
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      } finally {
+        if (!ac.signal.aborted) {
+          setCheckingActive(false);
+        }
+      }
+    };
+
+    checkActiveBattle();
 
     return () => ac.abort();
   }, [router]);
@@ -353,6 +481,7 @@ export default function BattleMultiPage() {
             mobsDefeated: boolean[];
             battleOver: boolean;
             result: "VICTORY" | "DEFEAT" | null;
+            reason?: "INACTIVITY_TIMEOUT";
             expGained: number;
             levelsGained?: number;
             newLevel?: number;
@@ -360,6 +489,17 @@ export default function BattleMultiPage() {
         };
 
         const { data } = json;
+
+        // Timeout por inatividade — mostrar resultado direto
+        if (data.reason === "INACTIVITY_TIMEOUT") {
+          setBattleResult({
+            result: "DEFEAT",
+            expGained: 0,
+            levelsGained: 0,
+            newLevel: 0,
+          });
+          return;
+        }
 
         setEvents((prev) => [...prev, ...data.events]);
         setPlayerHp(data.playerHp);
@@ -438,6 +578,58 @@ export default function BattleMultiPage() {
   );
 
   // -------------------------------------------------------------------------
+  // Forfeit handler
+  // -------------------------------------------------------------------------
+
+  const handleForfeit = useCallback(async () => {
+    if (!battleId) return;
+
+    const token = getToken();
+    if (!token) {
+      clearAuthAndRedirect(router);
+      return;
+    }
+
+    setActing(true);
+
+    try {
+      const res = await fetch("/api/battle/pve-multi/forfeit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ battleId }),
+      });
+
+      if (res.status === 401) {
+        clearAuthAndRedirect(router);
+        return;
+      }
+
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        alert(errorBody?.error ?? "Erro ao desistir");
+        return;
+      }
+
+      setBattleResult({
+        result: "DEFEAT",
+        expGained: 0,
+        levelsGained: 0,
+        newLevel: 0,
+      });
+    } catch {
+      alert("Erro de conexao. Tente novamente.");
+    } finally {
+      setActing(false);
+    }
+  }, [battleId, router]);
+
+  // -------------------------------------------------------------------------
   // Play again / go home
   // -------------------------------------------------------------------------
 
@@ -461,6 +653,17 @@ export default function BattleMultiPage() {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  if (checkingActive) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
+          <p className="text-sm text-gray-400">Verificando batalha...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === "IDLE") {
     return (
@@ -535,6 +738,7 @@ export default function BattleMultiPage() {
         events={events}
         skills={skills}
         onAction={handleAction}
+        onForfeit={handleForfeit}
         acting={acting}
       />
 

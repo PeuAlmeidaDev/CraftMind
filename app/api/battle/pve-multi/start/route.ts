@@ -268,6 +268,11 @@ export async function POST(request: NextRequest) {
       state: battleState,
       userId,
       lastActivityAt: Date.now(),
+      mobsInfo: selectedMobs.map((mob) => ({
+        name: mob.name,
+        tier: mob.tier,
+        imageUrl: mob.imageUrl ?? null,
+      })),
     });
 
     return apiSuccess(

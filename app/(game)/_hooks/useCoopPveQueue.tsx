@@ -115,6 +115,7 @@ type CoopPveQueueState = {
   requestState: () => void;
   playAgain: () => void;
   getSocket: () => Socket | null;
+  reconnectSocket: () => Promise<Socket>;
   sendInvite: (targetUserId: string, targetName: string) => void;
 };
 
@@ -357,9 +358,12 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
       "coop-pve:battle:state",
       (data: { state: SanitizedCoopPveState; events: Array<Record<string, unknown>> }) => {
         setBattleState(data.state);
+        setBattleId(data.state.battleId);
         setTurnEvents(data.events);
         setActedPlayers(new Set());
         startTurnTimer();
+        // Reconexão: se o phase não é BATTLE, transicionar
+        setPhase((prev) => (prev !== "BATTLE" && prev !== "RESULT" ? "BATTLE" : prev));
       },
     );
 
@@ -553,6 +557,33 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     return socketRef.current;
   }, []);
 
+  const reconnectSocket = useCallback((): Promise<Socket> => {
+    const existing = socketRef.current;
+
+    // Already connected — resolve immediately
+    if (existing && existing.connected) {
+      return Promise.resolve(existing);
+    }
+
+    // Exists but disconnected — reconnect
+    if (existing) {
+      return new Promise<Socket>((resolve) => {
+        existing.once("connect", () => resolve(existing));
+        existing.connect();
+      });
+    }
+
+    // Does not exist — create a new socket (same logic as getSocket)
+    return new Promise<Socket>((resolve) => {
+      const socket = getSocket(); // creates + connects
+      if (socket.connected) {
+        resolve(socket);
+      } else {
+        socket.once("connect", () => resolve(socket));
+      }
+    });
+  }, [getSocket]);
+
   // -------------------------------------------------------------------------
   // Auto-connect when redirected from invite accept (?invited=true)
   // -------------------------------------------------------------------------
@@ -722,6 +753,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     requestState,
     playAgain,
     getSocket: getSocketRef,
+    reconnectSocket,
     sendInvite,
   };
 

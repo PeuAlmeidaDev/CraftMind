@@ -29,7 +29,7 @@ O estado original nunca e mutado. `resolveTurn` faz deep clone no topo e todas a
 | ~~`coop-store.ts`~~ | **REMOVIDO** — store duplicado de `server/stores/boss-battle-store.ts`. O store autoritativo para batalhas coop fica em `server/stores/boss-battle-store.ts` |
 | `pve-multi-types.ts` | Tipos para batalha PvE Multi (1v3): `MobState`, `PveMultiBattleState`, `PveMultiAction`, `PveMultiTurnResult`, `PveMultiBattleSession` |
 | `pve-multi-turn.ts` | `initMultiPveBattle()` e `resolveMultiPveTurn()` — orquestrador do turno PvE 1v3. Usa adapters (BattleState fake) como coop-turn.ts. Player resolve primeiro, depois mobs por speed DESC |
-| `pve-multi-store.ts` | Store em memoria (Map) para batalhas PvE Multi ativas. Exporta `getMultiPveBattle`, `setMultiPveBattle`, `removeMultiPveBattle`, `hasActiveMultiBattle`, `getActiveMultiBattleByUser`. TTL 30min |
+| `pve-multi-store.ts` | Store em memoria (Map) para batalhas PvE Multi ativas. Exporta `getMultiPveBattle`, `setMultiPveBattle`, `removeMultiPveBattle`, `hasActiveMultiBattle`, `getActiveMultiBattleByUser`, `isSessionTimedOut`, `INACTIVITY_TIMEOUT_MS`. TTL 30min, cleanup tambem remove sessoes IN_PROGRESS com inatividade > 1 min |
 | `coop-pve-types.ts` | Tipos para batalha cooperativa PvE (2v3 / 2v5): `CoopPveBattleState`, `CoopPveAction`, `CoopPveTurnResult`, `CoopPveBattleConfig`, `CoopPveMobConfig`, `CoopPvePlayerConfig`, `CoopPveBattleSession` |
 | `coop-pve-turn.ts` | `initCoopPveBattle()` e `resolveCoopPveTurn()` — orquestrador do turno coop PvE 2v3/2v5. Players resolvem primeiro (speed DESC), depois mobs (speed DESC, desempate index). Usa adapters (BattleState fake) como coop-turn.ts |
 | `index.ts` | Barrel export |

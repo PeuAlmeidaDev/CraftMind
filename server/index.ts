@@ -1,5 +1,8 @@
 // server/index.ts — Servidor HTTP + Socket.io principal
 
+import { config } from "dotenv";
+import path from "node:path";
+config({ path: path.resolve(__dirname, "..", ".env") });
 import http from "node:http";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -36,6 +39,8 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET || "";
 
+console.log("[Socket.io] INTERNAL_SECRET carregado:", INTERNAL_SECRET ? `${INTERNAL_SECRET.substring(0, 5)}...` : "(VAZIO)");
+
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 if (IS_PRODUCTION && !process.env.CLIENT_URL) {
@@ -63,6 +68,8 @@ const httpServer = http.createServer((req, res) => {
   // GET /internal/active-battle?userId=<userId> — consulta batalha ativa de um usuario
   if (req.method === "GET" && req.url?.startsWith("/internal/active-battle")) {
     const authHeader = req.headers.authorization;
+    console.log("[Socket.io] active-battle recebido:", JSON.stringify(authHeader));
+    console.log("[Socket.io] active-battle esperado:", JSON.stringify(`Bearer ${INTERNAL_SECRET}`));
     if (!INTERNAL_SECRET || authHeader !== `Bearer ${INTERNAL_SECRET}`) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));

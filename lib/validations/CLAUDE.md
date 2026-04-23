@@ -8,6 +8,7 @@
 | `tasks.ts` | Schema de validacao de params para completar tarefa (`completeTaskParamsSchema`) |
 | `skill.ts` | Schemas de equip/unequip de skills (`equipSkillSchema`, `unequipSkillSchema`) |
 | `battle.ts` | Schemas de batalha PvE: `pveBattleActionSchema` (battleId + skillId nullable), `distributePointsSchema` (distribuicao de pontos livres) |
+| `pve-multi.ts` | Schemas de batalha PvE Multi: `pveMultiActionSchema` (battleId + skillId + targetIndex), `pveMultiForfeitSchema` (battleId para desistencia) |
 
 ## Convencoes
 

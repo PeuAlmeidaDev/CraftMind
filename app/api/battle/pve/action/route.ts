@@ -7,6 +7,7 @@ import {
   getPveBattle,
   setPveBattle,
   removePveBattle,
+  isSessionTimedOut,
 } from "@/lib/battle/pve-store";
 import { resolveTurn } from "@/lib/battle/turn";
 import { chooseAction } from "@/lib/battle/ai";
@@ -45,6 +46,34 @@ export async function POST(request: NextRequest) {
 
     if (session.userId !== userId) {
       return apiError("Esta batalha nao pertence a voce", "NOT_YOUR_BATTLE", 403);
+    }
+
+    // Timeout por inatividade (1 min sem acao)
+    if (isSessionTimedOut(session)) {
+      await prisma.pveBattle.create({
+        data: {
+          userId,
+          mobId: session.mobId,
+          result: "DEFEAT",
+          expGained: 0,
+          turns: session.state.turnNumber,
+          log: session.state.turnLog as object[],
+        },
+      });
+
+      removePveBattle(battleId);
+
+      return apiSuccess({
+        events: [],
+        playerHp: session.state.players[0].currentHp,
+        mobHp: session.state.players[1].currentHp,
+        battleOver: true,
+        result: "DEFEAT",
+        reason: "INACTIVITY_TIMEOUT",
+        expGained: 0,
+        levelsGained: 0,
+        newLevel: 0,
+      });
     }
 
     if (session.state.status === "FINISHED") {
