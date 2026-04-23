@@ -11,7 +11,9 @@ Componentes Client-side (`"use client"`) usados exclusivamente pela pagina `/bat
 | `SkillBar.tsx` | Grid 2x2 com 4 slots de skill + botao pular turno |
 | `BattleLog.tsx` | Feed de eventos do turno com scroll automatico |
 | `BattleResult.tsx` | **NAO USADO** — resultado agora e inline em `page.tsx`. Mantido como referencia para possivel extracao futura. |
-| `AttackEffect.tsx` | **NAO IMPORTADO** — efeito visual de slash. Mantido para uso futuro. |
+| `SkillVfx.tsx` | Overlay de VFX por skill (slash/arcane/heal/fire). Mapeamento `skillName -> tipo` interno. CSS puro em `skill-vfx.css`. Renderizado dentro dos cards de player e mob no BattleArena. |
+| `skill-vfx.css` | Keyframes e estilos dos 4 efeitos visuais: slash (700ms), arcane (800ms), heal (1100ms), fire (750ms). Classe base `.vfx` com `.active` para disparar. |
+| `AttackEffect.tsx` | **NAO IMPORTADO** — efeito visual de slash legado. Mantido para referencia. |
 | `MobPlaceholder.tsx` | Retrato do mob via next/image (Cloudinary URL) com fallback para gradiente por tier + inicial do nome. Props: `name`, `tier`, `imageUrl?` |
 | `StatusParticles.tsx` | Particulas visuais por status effect (BURN, FROZEN, POISON, STUN, SLOW). Renderizado apenas no desktop, dentro da area de imagem dos cards. Sem libs externas, posicoes fixas (sem Math.random). |
 | `DefeatSequence.tsx` | **NAO IMPORTADO** — sequencia de derrota do mob. Mantido para uso futuro. |

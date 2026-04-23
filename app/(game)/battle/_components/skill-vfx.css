@@ -1,0 +1,232 @@
+/* ==========================================================================
+   Craftmind · Skill VFX — CSS puro
+   Classe base .vfx dentro de um card com overflow:hidden + position:relative.
+   Adicionar .active para disparar a animacao.
+   ========================================================================== */
+
+.vfx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* fade envelope compartilhada */
+@keyframes vfxFade {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ──────────────────────────────────────────
+   1. SLASH (PHYSICAL)  —  700ms
+   ────────────────────────────────────────── */
+.vfx-slash.active { animation: vfxFade 700ms ease-out forwards; }
+
+.vfx-slash__blade {
+  position: absolute;
+  top: 50%; left: -10%;
+  width: 120%; height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(255,220,180,0) 20%,
+    #fff 48%, #fff 52%,
+    rgba(255,120,60,0.9) 70%, transparent 100%);
+  box-shadow:
+    0 0 12px rgba(255,80,40,0.9),
+    0 0 28px rgba(255,60,20,0.6),
+    0 0 50px rgba(255,40,10,0.35);
+  transform-origin: center;
+  opacity: 0;
+}
+.vfx-slash__blade.b1 { transform: translateY(-60px) rotate(-28deg); }
+.vfx-slash__blade.b2 { transform: translateY(0)     rotate(22deg); }
+.vfx-slash__blade.b3 { transform: translateY(60px)  rotate(-18deg); }
+
+.vfx-slash.active .vfx-slash__blade.b1 { animation: vfxBladeSweep 380ms cubic-bezier(.2,.9,.3,1) 0ms   forwards; }
+.vfx-slash.active .vfx-slash__blade.b2 { animation: vfxBladeSweep 380ms cubic-bezier(.2,.9,.3,1) 90ms  forwards; }
+.vfx-slash.active .vfx-slash__blade.b3 { animation: vfxBladeSweep 380ms cubic-bezier(.2,.9,.3,1) 180ms forwards; }
+
+@keyframes vfxBladeSweep {
+  0%   { clip-path: inset(0 100% 0 0); opacity: 0; }
+  30%  { opacity: 1; }
+  70%  { clip-path: inset(0 0 0 0); opacity: 1; }
+  100% { clip-path: inset(0 0 0 100%); opacity: 0; }
+}
+
+.vfx-slash__flash {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 140px; height: 140px;
+  margin: -70px 0 0 -70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, rgba(255,160,80,0.6) 30%, rgba(200,40,20,0) 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+.vfx-slash.active .vfx-slash__flash { animation: vfxFlashPulse 220ms ease-out 90ms forwards; }
+
+@keyframes vfxFlashPulse {
+  0%   { opacity: 0; transform: scale(0.4); }
+  50%  { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+
+
+/* ──────────────────────────────────────────
+   2. ARCANE (MAGICAL)  —  800ms
+   ────────────────────────────────────────── */
+.vfx-arcane.active { animation: vfxFade 800ms ease-out forwards; }
+
+.vfx-arcane__ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 40px; height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  border: 2px solid #4fa9ff;
+  box-shadow: 0 0 14px #3a7eff, inset 0 0 14px #5ab8ff, 0 0 40px rgba(120,80,220,0.5);
+  opacity: 0;
+}
+.vfx-arcane__ring.r2 { border-color: #8a6cff; box-shadow: 0 0 16px #6a40ff, inset 0 0 10px #a080ff, 0 0 48px rgba(80,40,220,0.5); }
+.vfx-arcane__ring.r3 { border-color: #4ff0ff; border-style: dashed; border-width: 1px; box-shadow: 0 0 18px #3affff, 0 0 36px rgba(40,180,255,0.45); }
+
+.vfx-arcane.active .vfx-arcane__ring.r1 { animation: vfxRingPulse 700ms ease-out 0ms   forwards; }
+.vfx-arcane.active .vfx-arcane__ring.r2 { animation: vfxRingPulse 700ms ease-out 140ms forwards; }
+.vfx-arcane.active .vfx-arcane__ring.r3 { animation: vfxRingPulseSpin 800ms ease-out 240ms forwards; }
+
+@keyframes vfxRingPulse {
+  0%   { opacity: 0; transform: scale(0.2); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(7); }
+}
+@keyframes vfxRingPulseSpin {
+  0%   { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(6) rotate(180deg); }
+}
+
+.vfx-arcane__core {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 120px; height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    #fff 0%, #aef2ff 14%, #5ab8ff 28%, #6040d0 50%, rgba(40,20,100,0) 75%);
+  mix-blend-mode: screen;
+  filter: blur(1px);
+  opacity: 0;
+}
+.vfx-arcane.active .vfx-arcane__core { animation: vfxCoreBloom 700ms ease-out forwards; }
+
+@keyframes vfxCoreBloom {
+  0%   { opacity: 0; transform: scale(0.2); }
+  30%  { opacity: 1; transform: scale(1.2); }
+  70%  { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+
+/* ──────────────────────────────────────────
+   3. HEAL  —  1100ms
+   ────────────────────────────────────────── */
+.vfx-heal.active { animation: vfxFade 1200ms ease-out forwards; }
+
+.vfx-heal__aura {
+  position: absolute;
+  left: -10%; right: -10%; bottom: -20%;
+  height: 130%;
+  background: radial-gradient(ellipse at 50% 100%,
+    rgba(120,240,160,0.55) 0%,
+    rgba(80,200,120,0.3) 25%,
+    rgba(40,140,90,0.12) 50%,
+    transparent 75%);
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+.vfx-heal.active .vfx-heal__aura { animation: vfxAuraRise 1100ms ease-out forwards; }
+
+@keyframes vfxAuraRise {
+  0%   { opacity: 0; transform: translateY(30%); }
+  30%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10%); }
+}
+
+.vfx-heal__cross {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 80px; height: 80px;
+  margin: -40px 0 0 -40px;
+  opacity: 0;
+}
+.vfx-heal__cross::before,
+.vfx-heal__cross::after {
+  content: "";
+  position: absolute;
+  background: linear-gradient(180deg, #eaffe0, #7dffa0);
+  box-shadow: 0 0 20px #7dffa0, 0 0 40px #ffd87a;
+  border-radius: 2px;
+}
+.vfx-heal__cross::before {
+  top: 0; left: 50%; margin-left: -5px;
+  width: 10px; height: 100%;
+}
+.vfx-heal__cross::after {
+  top: 50%; left: 0; margin-top: -5px;
+  width: 100%; height: 10px;
+}
+.vfx-heal.active .vfx-heal__cross { animation: vfxCrossGlow 900ms ease-out 150ms forwards; }
+
+@keyframes vfxCrossGlow {
+  0%   { opacity: 0; transform: scale(0.4); }
+  40%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.15); }
+}
+
+
+/* ──────────────────────────────────────────
+   4. FIRE  —  750ms
+   ────────────────────────────────────────── */
+.vfx-fire.active { animation: vfxFade 750ms ease-out forwards; }
+
+.vfx-fire__ball {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 200px; height: 200px;
+  margin: -100px 0 0 -100px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    #fff 0%, #fff3a0 12%, #ffb347 28%,
+    #ff5a1f 48%, #a01a0a 68%, rgba(60,10,5,0) 82%);
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  opacity: 0;
+}
+.vfx-fire.active .vfx-fire__ball { animation: vfxFireBloom 620ms cubic-bezier(.1,.8,.3,1) forwards; }
+
+@keyframes vfxFireBloom {
+  0%   { opacity: 0; transform: scale(0.1); }
+  25%  { opacity: 1; transform: scale(1.3); }
+  60%  { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+
+.vfx-fire__shock {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 80px; height: 80px;
+  margin: -40px 0 0 -40px;
+  border-radius: 50%;
+  border: 3px solid #ffd070;
+  box-shadow: 0 0 18px #ff8030, inset 0 0 10px #ffe080;
+  opacity: 0;
+}
+.vfx-fire.active .vfx-fire__shock { animation: vfxShockExpand 500ms ease-out forwards; }
+
+@keyframes vfxShockExpand {
+  0%   { opacity: 0.9; transform: scale(0.2); }
+  100% { opacity: 0; transform: scale(1.8); }
+}

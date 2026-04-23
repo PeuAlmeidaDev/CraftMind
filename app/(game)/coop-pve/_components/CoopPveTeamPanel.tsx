@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import SkillVfx from "../../battle/_components/SkillVfx";
 import type { CoopPveTeammateInfo } from "../page";
 
 type CoopPveTeamPanelProps = {
@@ -9,6 +10,9 @@ type CoopPveTeamPanelProps = {
   actedPlayers: Set<string>;
   targeting: boolean;
   onAllyClick: (playerId: string) => void;
+  vfxTargetPlayerId?: string | null;
+  vfxSkillName?: string | null;
+  onVfxComplete?: () => void;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,6 +36,9 @@ export default function CoopPveTeamPanel({
   actedPlayers,
   targeting,
   onAllyClick,
+  vfxTargetPlayerId = null,
+  vfxSkillName = null,
+  onVfxComplete,
 }: CoopPveTeamPanelProps) {
   return (
     <>
@@ -136,6 +143,15 @@ export default function CoopPveTeamPanel({
                     </span>
                   ))}
                 </div>
+              )}
+
+              {/* Skill VFX overlay */}
+              {onVfxComplete && (
+                <SkillVfx
+                  skillName={vfxTargetPlayerId === player.playerId ? vfxSkillName : null}
+                  visible={vfxTargetPlayerId === player.playerId}
+                  onComplete={onVfxComplete}
+                />
               )}
 
               {/* Status badge */}

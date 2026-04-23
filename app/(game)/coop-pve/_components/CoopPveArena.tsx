@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { SanitizedCoopPveState, CoopPveSkillInfo, CoopPveTeammateInfo, CoopPveMobInfo } from "../page";
 import type { TurnLogEntry } from "../../battle/page";
 import BattleLog from "../../battle/_components/BattleLog";
@@ -27,6 +27,12 @@ export default function CoopPveArena({
 }: CoopPveArenaProps) {
   const [targetingMode, setTargetingMode] = useState<"SINGLE_ENEMY" | "SINGLE_ALLY" | null>(null);
   const [pendingSkillId, setPendingSkillId] = useState<string | null>(null);
+
+  // VFX state
+  type ActiveVfx = { skillName: string; target: "mob"; mobIndex: number } | { skillName: string; target: "player"; playerId: string } | null;
+  const [activeVfx, setActiveVfx] = useState<ActiveVfx>(null);
+  const handleVfxComplete = useCallback(() => setActiveVfx(null), []);
+  const prevTurnEventsLength = useRef(turnEvents.length);
 
   // Derive current player state
   const currentPlayer = battleState.team.find((p) => p.playerId === currentPlayerId);
@@ -89,6 +95,44 @@ export default function CoopPveArena({
   const nameMap: Record<string, string> = useMemo(() => {
     return { ...battleState.playerNames, ...battleState.mobNames };
   }, [battleState.playerNames, battleState.mobNames]);
+
+  // Detect new turn events and trigger VFX
+  useEffect(() => {
+    if (turnEvents.length <= prevTurnEventsLength.current) {
+      prevTurnEventsLength.current = turnEvents.length;
+      return;
+    }
+
+    const newEntries = turnEvents.slice(prevTurnEventsLength.current);
+    prevTurnEventsLength.current = turnEvents.length;
+
+    for (const rawEntry of newEntries) {
+      const entry = rawEntry as Record<string, unknown>;
+      const skillName = entry.skillName as string | undefined;
+      const damage = entry.damage as number | undefined;
+      const healing = entry.healing as number | undefined;
+      const targetId = entry.targetId as string | undefined;
+
+      if (!skillName) continue;
+      const hasDamage = damage !== undefined && damage > 0;
+      const hasHealing = healing !== undefined && healing > 0;
+      if (!hasDamage && !hasHealing) continue;
+
+      // Check if target is a mob
+      const targetMob = mobs.find((m) => m.playerId === targetId);
+      if (targetMob) {
+        setActiveVfx({ skillName, target: "mob", mobIndex: targetMob.index });
+        break;
+      }
+
+      // Check if target is a teammate
+      const targetTeammate = teammates.find((t) => t.playerId === targetId);
+      if (targetTeammate) {
+        setActiveVfx({ skillName, target: "player", playerId: targetTeammate.playerId });
+        break;
+      }
+    }
+  }, [turnEvents, mobs, teammates]);
 
   // Handlers
   const handleSkillSelect = useCallback(
@@ -165,6 +209,9 @@ export default function CoopPveArena({
         mobs={mobs}
         targeting={targetingMode === "SINGLE_ENEMY"}
         onMobClick={handleMobClick}
+        vfxTarget={activeVfx?.target === "mob" ? activeVfx.mobIndex : null}
+        vfxSkillName={activeVfx?.target === "mob" ? activeVfx.skillName : null}
+        onVfxComplete={handleVfxComplete}
       />
 
       {/* Team panel */}
@@ -174,6 +221,9 @@ export default function CoopPveArena({
         actedPlayers={actedPlayers}
         targeting={targetingMode === "SINGLE_ALLY"}
         onAllyClick={handleAllyClick}
+        vfxTargetPlayerId={activeVfx?.target === "player" ? activeVfx.playerId : null}
+        vfxSkillName={activeVfx?.target === "player" ? activeVfx.skillName : null}
+        onVfxComplete={handleVfxComplete}
       />
 
       {/* Bottom section: Skills + Log */}

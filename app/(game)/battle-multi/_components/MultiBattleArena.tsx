@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import BattleLog from "../../battle/_components/BattleLog";
+import SkillVfx from "../../battle/_components/SkillVfx";
 import MultiMobCard from "./MultiMobCard";
 import MultiSkillBar from "./MultiSkillBar";
 import { getHouseAssets } from "@/lib/houses/house-assets";
@@ -117,6 +118,11 @@ export default function MultiBattleArena({
   const [playerShaking, setPlayerShaking] = useState(false);
   const prevEventsLength = useRef(events.length);
 
+  // VFX state: target can be "player" or a mob index
+  type ActiveVfx = { skillName: string; target: "player" | number } | null;
+  const [activeVfx, setActiveVfx] = useState<ActiveVfx>(null);
+  const handleVfxComplete = useCallback(() => setActiveVfx(null), []);
+
   // -------------------------------------------------------------------------
   // Detect new damage events and trigger shake
   // -------------------------------------------------------------------------
@@ -132,9 +138,28 @@ export default function MultiBattleArena({
 
     const hitMobIndices = new Set<number>();
     let playerHit = false;
+    let vfxSet = false;
 
     for (const entry of newEntries) {
       const hasDamage = entry.damage !== undefined && entry.damage > 0;
+      const hasHealing = entry.healing !== undefined && entry.healing > 0;
+
+      // Set VFX for first event with skillName
+      if (!vfxSet && entry.skillName && (hasDamage || hasHealing)) {
+        if (entry.targetId === playerId) {
+          setActiveVfx({ skillName: entry.skillName, target: "player" });
+          vfxSet = true;
+        } else if (entry.targetId) {
+          for (const mob of mobs) {
+            if (entry.targetId === `mob-${mob.index}` || entry.targetId === String(mob.index) || entry.targetId === mob.playerId) {
+              setActiveVfx({ skillName: entry.skillName, target: mob.index });
+              vfxSet = true;
+              break;
+            }
+          }
+        }
+      }
+
       if (!hasDamage) continue;
 
       if (entry.targetId === playerId) {
@@ -243,6 +268,9 @@ export default function MultiBattleArena({
                   onClick={() => handleMobClick(mob.index)}
                   shaking={shakingMobs.has(mob.index)}
                   compact={false}
+                  vfxSkillName={activeVfx?.target === mob.index ? activeVfx.skillName : null}
+                  vfxVisible={activeVfx?.target === mob.index}
+                  onVfxComplete={handleVfxComplete}
                 />
               </div>
             ))}
@@ -258,6 +286,9 @@ export default function MultiBattleArena({
                     onClick={() => handleMobClick(mob.index)}
                     shaking={shakingMobs.has(mob.index)}
                     compact
+                    vfxSkillName={activeVfx?.target === mob.index ? activeVfx.skillName : null}
+                    vfxVisible={activeVfx?.target === mob.index}
+                    onVfxComplete={handleVfxComplete}
                   />
                 </div>
               ))}
@@ -271,6 +302,9 @@ export default function MultiBattleArena({
                     onClick={() => handleMobClick(mob.index)}
                     shaking={shakingMobs.has(mob.index)}
                     compact
+                    vfxSkillName={activeVfx?.target === mob.index ? activeVfx.skillName : null}
+                    vfxVisible={activeVfx?.target === mob.index}
+                    onVfxComplete={handleVfxComplete}
                   />
                 </div>
               ))}
@@ -325,6 +359,11 @@ export default function MultiBattleArena({
               <StatusBadges effects={playerStatusEffects} />
             </div>
           </div>
+          <SkillVfx
+            skillName={activeVfx?.target === "player" ? activeVfx.skillName : null}
+            visible={activeVfx?.target === "player" || false}
+            onComplete={handleVfxComplete}
+          />
         </div>
 
         {/* Skills + Log row */}
@@ -390,6 +429,9 @@ export default function MultiBattleArena({
                     onClick={() => handleMobClick(mob.index)}
                     shaking={shakingMobs.has(mob.index)}
                     compact
+                    vfxSkillName={activeVfx?.target === mob.index ? activeVfx.skillName : null}
+                    vfxVisible={activeVfx?.target === mob.index}
+                    onVfxComplete={handleVfxComplete}
                   />
                 </div>
               ))}
@@ -403,6 +445,9 @@ export default function MultiBattleArena({
                     onClick={() => handleMobClick(mob.index)}
                     shaking={shakingMobs.has(mob.index)}
                     compact
+                    vfxSkillName={activeVfx?.target === mob.index ? activeVfx.skillName : null}
+                    vfxVisible={activeVfx?.target === mob.index}
+                    onVfxComplete={handleVfxComplete}
                   />
                 </div>
               ))}
@@ -452,6 +497,11 @@ export default function MultiBattleArena({
               <StatusBadges effects={playerStatusEffects} />
             </div>
           </div>
+          <SkillVfx
+            skillName={activeVfx?.target === "player" ? activeVfx.skillName : null}
+            visible={activeVfx?.target === "player" || false}
+            onComplete={handleVfxComplete}
+          />
         </div>
 
         {/* Skills */}

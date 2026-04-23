@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bladeGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.5" stop-color="#ff9966" stop-opacity="1"/>
+      <stop offset="0.7" stop-color="#c42a15" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#420505" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="bladeGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="flashGrad">
+      <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.35" stop-color="#ffb070" stop-opacity="0.8"/>
+      <stop offset="0.7" stop-color="#c42a15" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#420505" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <style>
+    .vfx-root { opacity: 0; animation: svgFade 700ms ease-out forwards; }
+    @keyframes svgFade {
+      0%   { opacity: 0; }
+      10%  { opacity: 1; }
+      85%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .flash circle {
+      opacity: 0;
+      transform-origin: 256px 256px;
+      animation: flashPulse 220ms ease-out 90ms forwards;
+    }
+    @keyframes flashPulse {
+      0%   { opacity: 0; transform: scale(0.3); }
+      50%  { opacity: 0.9; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.4); }
+    }
+
+    .blade {
+      stroke-dasharray: 500;
+      stroke-dashoffset: 500;
+      opacity: 0;
+    }
+    .blade.b1 { animation: bladeSweep 350ms cubic-bezier(.2,.9,.3,1) 0ms forwards; }
+    .blade.b2 { animation: bladeSweep 350ms cubic-bezier(.2,.9,.3,1) 80ms forwards; }
+    .blade.b3 { animation: bladeSweep 350ms cubic-bezier(.2,.9,.3,1) 160ms forwards; }
+    @keyframes bladeSweep {
+      0%   { stroke-dashoffset: 500; opacity: 0; }
+      20%  { opacity: 1; }
+      70%  { stroke-dashoffset: 0; opacity: 1; }
+      100% { stroke-dashoffset: -500; opacity: 0; }
+    }
+
+    .spark { opacity: 0; }
+    .spark.s1 { animation: spark1 400ms ease-out 100ms forwards; }
+    .spark.s2 { animation: spark2 400ms ease-out 140ms forwards; }
+    .spark.s3 { animation: spark3 400ms ease-out 120ms forwards; }
+    .spark.s4 { animation: spark4 400ms ease-out 160ms forwards; }
+    .spark.s5 { animation: spark5 400ms ease-out 180ms forwards; }
+    .spark.s6 { animation: spark6 400ms ease-out 130ms forwards; }
+    .spark.s7 { animation: spark7 400ms ease-out 150ms forwards; }
+    .spark.s8 { animation: spark8 400ms ease-out 170ms forwards; }
+
+    @keyframes spark1 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-80px,-60px) scale(0.3); } }
+    @keyframes spark2 { 0% { opacity:1; } 100% { opacity:0; transform: translate(70px,-50px) scale(0.3); } }
+    @keyframes spark3 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-50px,70px) scale(0.3); } }
+    @keyframes spark4 { 0% { opacity:1; } 100% { opacity:0; transform: translate(90px,40px) scale(0.3); } }
+    @keyframes spark5 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-30px,-90px) scale(0.3); } }
+    @keyframes spark6 { 0% { opacity:1; } 100% { opacity:0; transform: translate(60px,80px) scale(0.3); } }
+    @keyframes spark7 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-90px,20px) scale(0.3); } }
+    @keyframes spark8 { 0% { opacity:1; } 100% { opacity:0; transform: translate(40px,-80px) scale(0.3); } }
+  </style>
+
+  <g class="vfx-root">
+    <g class="flash" style="transform-origin:256px 256px;mix-blend-mode:screen">
+      <circle cx="256" cy="256" r="120" fill="url(#flashGrad)"/>
+    </g>
+    <g filter="url(#bladeGlow)" style="mix-blend-mode:screen">
+      <path class="blade b1" d="M 40 180 L 472 140" stroke="url(#bladeGrad)" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path class="blade b2" d="M 50 280 L 470 260" stroke="url(#bladeGrad)" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <path class="blade b3" d="M 40 380 L 460 350" stroke="url(#bladeGrad)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </g>
+    <g style="mix-blend-mode:screen">
+      <circle class="spark s1" cx="256" cy="256" r="3" fill="#ffd070"/>
+      <circle class="spark s2" cx="256" cy="256" r="2" fill="#ff8040"/>
+      <circle class="spark s3" cx="256" cy="256" r="2.5" fill="#fff"/>
+      <circle class="spark s4" cx="256" cy="256" r="2" fill="#ffb070"/>
+      <circle class="spark s5" cx="256" cy="256" r="1.5" fill="#ffd070"/>
+      <circle class="spark s6" cx="256" cy="256" r="2" fill="#ff5020"/>
+      <circle class="spark s7" cx="256" cy="256" r="2.5" fill="#fff"/>
+      <circle class="spark s8" cx="256" cy="256" r="1.5" fill="#ffa050"/>
+    </g>
+  </g>
+</svg>

@@ -2,11 +2,15 @@
 
 import type { CoopPveMobInfo } from "../page";
 import MobPlaceholder from "../../battle/_components/MobPlaceholder";
+import SkillVfx from "../../battle/_components/SkillVfx";
 
 type CoopPveMobRowProps = {
   mobs: CoopPveMobInfo[];
   targeting: boolean;
   onMobClick: (index: number) => void;
+  vfxTarget?: number | null;
+  vfxSkillName?: string | null;
+  onVfxComplete?: () => void;
 };
 
 const TIER_COLORS: Record<number, string> = {
@@ -25,7 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
   SLOW: "bg-indigo-700/80 text-indigo-100",
 };
 
-export default function CoopPveMobRow({ mobs, targeting, onMobClick }: CoopPveMobRowProps) {
+export default function CoopPveMobRow({ mobs, targeting, onMobClick, vfxTarget = null, vfxSkillName = null, onVfxComplete }: CoopPveMobRowProps) {
   const isCompact = mobs.length > 3;
 
   return (
@@ -115,6 +119,15 @@ export default function CoopPveMobRow({ mobs, targeting, onMobClick }: CoopPveMo
                   </div>
                 )}
               </div>
+
+              {/* Skill VFX overlay */}
+              {onVfxComplete && (
+                <SkillVfx
+                  skillName={vfxTarget === mob.index ? vfxSkillName : null}
+                  visible={vfxTarget === mob.index}
+                  onComplete={onVfxComplete}
+                />
+              )}
 
               {/* Defeated overlay */}
               {isDefeated && (

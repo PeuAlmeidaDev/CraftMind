@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import MobPlaceholder from "./MobPlaceholder";
+import SkillVfx from "./SkillVfx";
 import BattleLog from "./BattleLog";
 import SkillBar from "./SkillBar";
 import { getHouseAssets } from "@/lib/houses/house-assets";
@@ -163,6 +164,17 @@ export default function BattleArena({
   const [playerShaking, setPlayerShaking] = useState(false);
   const [mobShaking, setMobShaking] = useState(false);
 
+  type ActiveVfx = {
+    skillName: string;
+    target: "player" | "mob";
+  } | null;
+
+  const [activeVfx, setActiveVfx] = useState<ActiveVfx>(null);
+
+  const handleVfxComplete = useCallback(() => {
+    setActiveVfx(null);
+  }, []);
+
   type FloatingNumber = { id: number; value: number; type: "damage" | "heal" };
   const [playerFloats, setPlayerFloats] = useState<FloatingNumber[]>([]);
   const [mobFloats, setMobFloats] = useState<FloatingNumber[]>([]);
@@ -238,6 +250,21 @@ export default function BattleArena({
           addPlayerFloat(entry.healing!, "heal");
         } else if (entry.targetId === mobId || entry.actorId === mobId) {
           addMobFloat(entry.healing!, "heal");
+        }
+      }
+
+      // Trigger VFX overlay
+      if (entry.skillName && (hasDamage || hasHealing) && activeVfx === null) {
+        let target: "player" | "mob" | undefined;
+
+        if (entry.targetId) {
+          target = entry.targetId === playerId ? "player" : entry.targetId === mobId ? "mob" : undefined;
+        } else if (hasHealing && entry.actorId) {
+          target = entry.actorId === playerId ? "player" : entry.actorId === mobId ? "mob" : undefined;
+        }
+
+        if (target) {
+          setActiveVfx({ skillName: entry.skillName, target });
         }
       }
     }
@@ -328,6 +355,12 @@ export default function BattleArena({
                 {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
               </span>
             ))}
+
+            <SkillVfx
+              skillName={activeVfx?.target === "player" ? activeVfx.skillName : null}
+              visible={activeVfx?.target === "player"}
+              onComplete={handleVfxComplete}
+            />
           </div>
 
           {/* Skills */}
@@ -407,6 +440,12 @@ export default function BattleArena({
               {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
             </span>
           ))}
+
+          <SkillVfx
+            skillName={activeVfx?.target === "mob" ? activeVfx.skillName : null}
+            visible={activeVfx?.target === "mob"}
+            onComplete={handleVfxComplete}
+          />
         </div>
       </div>
 
@@ -451,6 +490,12 @@ export default function BattleArena({
               {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
             </span>
           ))}
+
+          <SkillVfx
+            skillName={activeVfx?.target === "player" ? activeVfx.skillName : null}
+            visible={activeVfx?.target === "player"}
+            onComplete={handleVfxComplete}
+          />
         </div>
 
         {/* --- Mob compact bar --- */}
@@ -486,6 +531,12 @@ export default function BattleArena({
               {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
             </span>
           ))}
+
+          <SkillVfx
+            skillName={activeVfx?.target === "mob" ? activeVfx.skillName : null}
+            visible={activeVfx?.target === "mob"}
+            onComplete={handleVfxComplete}
+          />
         </div>
 
         {/* --- Battle Log --- */}

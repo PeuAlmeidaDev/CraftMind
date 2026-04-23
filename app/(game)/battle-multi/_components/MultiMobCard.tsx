@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import MobPlaceholder from "../../battle/_components/MobPlaceholder";
+import SkillVfx from "../../battle/_components/SkillVfx";
 import type { MultiMobInfo, ActiveStatusEffect } from "../page";
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,9 @@ type MultiMobCardProps = {
   onClick: () => void;
   shaking: boolean;
   compact?: boolean;
+  vfxSkillName?: string | null;
+  vfxVisible?: boolean;
+  onVfxComplete?: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -117,6 +121,9 @@ export default function MultiMobCard({
   onClick,
   shaking,
   compact = false,
+  vfxSkillName = null,
+  vfxVisible = false,
+  onVfxComplete,
 }: MultiMobCardProps) {
   const isTargetable = targeting && !mob.defeated;
   const tierBadge = TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1];
@@ -192,6 +199,15 @@ export default function MultiMobCard({
           <MobStatusBadges effects={mob.statusEffects} />
         </div>
       </div>
+
+      {/* Skill VFX overlay */}
+      {onVfxComplete && (
+        <SkillVfx
+          skillName={vfxSkillName ?? null}
+          visible={vfxVisible}
+          onComplete={onVfxComplete}
+        />
+      )}
 
       {/* Targeting indicator */}
       {isTargetable && (

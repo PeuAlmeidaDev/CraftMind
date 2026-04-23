@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="arcaneCoreGrad">
+      <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.15" stop-color="#aef2ff" stop-opacity="1"/>
+      <stop offset="0.35" stop-color="#5ab8ff" stop-opacity="0.9"/>
+      <stop offset="0.6" stop-color="#6040d0" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#1a0840" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="arcaneGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <style>
+    .vfx-root { opacity: 0; animation: svgFade 800ms ease-out forwards; }
+    @keyframes svgFade {
+      0%   { opacity: 0; }
+      10%  { opacity: 1; }
+      85%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Core bloom */
+    .core {
+      opacity: 0;
+      transform-origin: 256px 256px;
+      animation: coreBloom 700ms ease-out forwards;
+    }
+    @keyframes coreBloom {
+      0%   { opacity: 0; transform: scale(0.15); }
+      30%  { opacity: 1; transform: scale(1.2); }
+      70%  { opacity: 0.7; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.8); }
+    }
+
+    /* Rings expanding */
+    .ring { opacity: 0; }
+    .ring.r1 { animation: ringPulse 700ms ease-out 0ms forwards; }
+    .ring.r2 { animation: ringPulseSpin 700ms ease-out 140ms forwards; }
+    .ring.r3 { animation: ringPulseSpin 800ms ease-out 240ms forwards; }
+
+    @keyframes ringPulse {
+      0%   { opacity: 0; transform: scale(0.2); }
+      25%  { opacity: 1; }
+      100% { opacity: 0; transform: scale(4); }
+    }
+    @keyframes ringPulseSpin {
+      0%   { opacity: 0; transform: scale(0.2) rotate(0deg); }
+      25%  { opacity: 1; }
+      100% { opacity: 0; transform: scale(3.5) rotate(180deg); }
+    }
+
+    /* Motes orbiting outward */
+    .mote { opacity: 0; }
+    .mote.m1 { animation: mote1 600ms ease-out 80ms forwards; }
+    .mote.m2 { animation: mote2 600ms ease-out 140ms forwards; }
+    .mote.m3 { animation: mote3 600ms ease-out 200ms forwards; }
+    .mote.m4 { animation: mote4 600ms ease-out 120ms forwards; }
+    .mote.m5 { animation: mote5 600ms ease-out 180ms forwards; }
+    .mote.m6 { animation: mote6 600ms ease-out 100ms forwards; }
+
+    @keyframes mote1 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-70px,-80px) scale(0.3); } }
+    @keyframes mote2 { 0% { opacity:1; } 100% { opacity:0; transform: translate(80px,-60px) scale(0.3); } }
+    @keyframes mote3 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-60px,90px) scale(0.3); } }
+    @keyframes mote4 { 0% { opacity:1; } 100% { opacity:0; transform: translate(90px,50px) scale(0.3); } }
+    @keyframes mote5 { 0% { opacity:1; } 100% { opacity:0; transform: translate(-20px,-100px) scale(0.3); } }
+    @keyframes mote6 { 0% { opacity:1; } 100% { opacity:0; transform: translate(50px,85px) scale(0.3); } }
+  </style>
+
+  <g class="vfx-root">
+    <circle class="core" cx="256" cy="256" r="130" fill="url(#arcaneCoreGrad)" style="mix-blend-mode:screen;transform-origin:256px 256px"/>
+    <g style="mix-blend-mode:screen" filter="url(#arcaneGlow)">
+      <g class="ring r1" style="transform-origin:256px 256px">
+        <circle cx="256" cy="256" r="70" stroke="#7fcfff" stroke-width="2" fill="none"/>
+        <g stroke="#aef2ff" stroke-width="2">
+          <line x1="256" y1="180" x2="256" y2="168"/>
+          <line x1="256" y1="332" x2="256" y2="344"/>
+          <line x1="180" y1="256" x2="168" y2="256"/>
+          <line x1="332" y1="256" x2="344" y2="256"/>
+        </g>
+      </g>
+      <g class="ring r2" style="transform-origin:256px 256px">
+        <circle cx="256" cy="256" r="110" stroke="#a080ff" stroke-width="1.5" fill="none" stroke-dasharray="8 6"/>
+        <polygon points="256,130 268,150 244,150" fill="#a080ff" opacity="0.6"/>
+        <polygon points="256,382 268,362 244,362" fill="#a080ff" opacity="0.6"/>
+        <polygon points="130,256 150,244 150,268" fill="#a080ff" opacity="0.6"/>
+        <polygon points="382,256 362,244 362,268" fill="#a080ff" opacity="0.6"/>
+      </g>
+      <g class="ring r3" style="transform-origin:256px 256px">
+        <circle cx="256" cy="256" r="160" stroke="#4ff0ff" stroke-width="1" fill="none" stroke-dasharray="2 4" opacity="0.8"/>
+        <circle cx="256" cy="256" r="180" stroke="#7040ff" stroke-width="0.5" fill="none"/>
+      </g>
+    </g>
+    <g style="mix-blend-mode:screen">
+      <circle class="mote m1" cx="256" cy="256" r="2.5" fill="#7fe7ff"/>
+      <circle class="mote m2" cx="256" cy="256" r="3" fill="#a080ff"/>
+      <circle class="mote m3" cx="256" cy="256" r="2" fill="#4ff0ff"/>
+      <circle class="mote m4" cx="256" cy="256" r="2.5" fill="#c8a0ff"/>
+      <circle class="mote m5" cx="256" cy="256" r="1.5" fill="#fff"/>
+      <circle class="mote m6" cx="256" cy="256" r="2" fill="#7fe7ff"/>
+    </g>
+  </g>
+</svg>
