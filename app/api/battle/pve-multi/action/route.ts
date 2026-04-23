@@ -97,7 +97,8 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const expWithPenalty = totalExp;
+          const modeBonus = newState.mode === "1v5" ? 1.2 : newState.mode === "1v3" ? 1.1 : 1;
+          const expWithPenalty = Math.floor(totalExp * modeBonus);
           const totalCharExp = character.currentExp + expWithPenalty;
 
           const levelResult = processLevelUp({
