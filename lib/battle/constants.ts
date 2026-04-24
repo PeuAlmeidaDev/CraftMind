@@ -24,3 +24,9 @@ export const FROZEN_PHYSICAL_VULN = 0.30;
 export const RANDOM_MIN = 0.90;
 export const RANDOM_MAX = 1.10;
 export const MAX_TURNS = 50;
+
+/** Thresholds de ratio de speed para acoes extras (ratio >= threshold = +1 acao) */
+export const SPEED_EXTRA_TURN_THRESHOLDS = [2, 4, 8] as const;
+
+/** Maximo de acoes que um lado pode executar em um turno */
+export const MAX_ACTIONS_PER_TURN = 4;

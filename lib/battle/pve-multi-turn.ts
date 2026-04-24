@@ -15,6 +15,7 @@ import { isIncapacitated, applyStatusDamage } from "./status";
 import { applyEffects } from "./effects";
 import { chooseAction } from "./ai";
 import { MAX_TURNS, STAGE_MULTIPLIERS } from "./constants";
+import { calculateExtraActions } from "./speed";
 import {
   applyCounterTriggerEffects,
   tickEntitiesEndOfTurn,
@@ -104,6 +105,21 @@ export function resolveMultiPveTurn(
   const s = structuredClone(state);
   const events: TurnLogEntry[] = [];
 
+  // 1b. Calcular acoes extras por speed
+  const playerSpeed = getEffectiveStat(s.player.baseStats.speed, s.player.stages.speed);
+  const aliveMobSpeeds = s.mobs.filter((m) => !m.defeated).map((m) => getEffectiveStat(m.baseStats.speed, m.stages.speed));
+  const maxMobSpeed = aliveMobSpeeds.length > 0 ? Math.max(...aliveMobSpeeds) : 0;
+  const { extraA: playerExtras, extraB: mobExtras } = calculateExtraActions(playerSpeed, maxMobSpeed);
+
+  if (playerExtras > 0) {
+    events.push({
+      turn: s.turnNumber,
+      phase: "SPEED_ADVANTAGE",
+      actorId: s.player.playerId,
+      message: `${s.player.playerId} ganha ${playerExtras} acao(oes) extra(s) por vantagem de speed (${Math.round(playerSpeed)} vs ${Math.round(maxMobSpeed)})`,
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // 2. Turno do player
   // ---------------------------------------------------------------------------
@@ -181,6 +197,31 @@ export function resolveMultiPveTurn(
         actorId: player.playerId,
         message: `${player.playerId} pulou o turno`,
       });
+    }
+  }
+
+  // 2b. Acoes extras do player por speed
+  if (s.result === "PENDING" && playerExtras > 0 && !isIncapacitated(player).incapacitated && player.currentHp > 0) {
+    for (let extraIdx = 0; extraIdx < playerExtras; extraIdx++) {
+      if (s.result !== "PENDING" || player.currentHp <= 0) break;
+
+      if (playerAction.skillId !== null) {
+        resolvePlayerSkill(s, player, playerAction, events, randomFn);
+
+        if (player.currentHp <= 0) {
+          s.status = "FINISHED";
+          s.result = "DEFEAT";
+          s.turnLog = [...s.turnLog, ...events];
+          return { state: s, events };
+        }
+
+        if (s.mobs.every((m) => m.defeated)) {
+          s.status = "FINISHED";
+          s.result = "VICTORY";
+          s.turnLog = [...s.turnLog, ...events];
+          return { state: s, events };
+        }
+      }
     }
   }
 
@@ -292,6 +333,44 @@ export function resolveMultiPveTurn(
         targetId: mob.playerId,
         message: `${mob.playerId} foi derrotado por contra-ataque`,
       });
+    }
+  }
+
+  // 3b. Acoes extras dos mobs por speed (mob mais rapido ganha extras)
+  if (s.result === "PENDING" && mobExtras > 0) {
+    const fastestMob = s.mobs
+      .filter((m) => !m.defeated)
+      .sort((a, b) => getEffectiveStat(b.baseStats.speed, b.stages.speed) - getEffectiveStat(a.baseStats.speed, a.stages.speed))[0];
+
+    if (fastestMob && !isIncapacitated(fastestMob).incapacitated) {
+      events.push({
+        turn: s.turnNumber,
+        phase: "SPEED_ADVANTAGE",
+        actorId: fastestMob.playerId,
+        message: `${fastestMob.playerId} ganha ${mobExtras} acao(oes) extra(s) por vantagem de speed`,
+      });
+
+      for (let extraIdx = 0; extraIdx < mobExtras; extraIdx++) {
+        if (s.result !== "PENDING" || fastestMob.defeated || player.currentHp <= 0) break;
+
+        const extraFake = makeFakeBattleState(fastestMob, player, s.battleId, s.turnNumber);
+        const extraAi = chooseAction({ state: extraFake, mobPlayerId: fastestMob.playerId, profile: fastestMob.profile, randomFn });
+
+        if (extraAi.skillId !== null) {
+          resolveMobSkill(s, fastestMob, player, extraAi.skillId, events, randomFn);
+
+          if (player.currentHp <= 0) {
+            s.status = "FINISHED";
+            s.result = "DEFEAT";
+            events.push({ turn: s.turnNumber, phase: "DEATH", targetId: player.playerId, message: `${player.playerId} foi derrotado` });
+            break;
+          }
+
+          if (fastestMob.currentHp <= 0) {
+            fastestMob.defeated = true;
+          }
+        }
+      }
     }
   }
 

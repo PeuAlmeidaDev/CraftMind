@@ -9,6 +9,7 @@ export { isIncapacitated } from "./status";
 export { isStageStat, createPlayerState, applyCounterTriggerEffects, applyOnExpireEffect, tickEntitiesEndOfTurn, resolveTargetsPvP } from "./shared-helpers";
 export * from "./types";
 export * from "./constants";
+export { calculateExtraActions } from "./speed";
 export { AI_PROFILES } from "./ai-profiles";
 export type { AiProfile, ProfileModifiers } from "./ai-profiles";
 export { scoreSkill } from "./ai-scoring";

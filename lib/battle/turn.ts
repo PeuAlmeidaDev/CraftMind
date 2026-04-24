@@ -13,6 +13,7 @@ import { getComboModifier, putOnCooldown, tickCooldowns } from "./skills";
 import { isIncapacitated, applyStatusDamage, tickEndOfTurn } from "./status";
 import { applyEffects } from "./effects";
 import { MAX_TURNS, STAGE_MULTIPLIERS } from "./constants";
+import { calculateExtraActions } from "./speed";
 import { applyCounterTriggerEffects } from "./shared-helpers";
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,47 @@ export function resolveTurn(
     return tiebreaker;
   });
 
-  const orderedActions = actionPriorities.map((ap) => ap.action);
+  // 2b. Calcular acoes extras por vantagem de speed
+  const speedA = actionPriorities[0].effectiveSpeed;
+  const speedB = actionPriorities[1].effectiveSpeed;
+  const { extraA, extraB } = calculateExtraActions(
+    actionPriorities[0].effectiveSpeed,
+    actionPriorities[1].effectiveSpeed
+  );
+
+  // Montar array: mais rapido age primeiro, com extras logo apos, depois o mais lento
+  const orderedActions: TurnAction[] = [];
+  const fastAction = actionPriorities[0].action;
+  const slowAction = actionPriorities[1].action;
+  const fastExtras = extraA; // actionPriorities[0] is the faster (sorted)
+  const slowExtras = extraB;
+
+  // Fast player actions (1 + extras)
+  for (let i = 0; i < 1 + fastExtras; i++) {
+    orderedActions.push(fastAction);
+  }
+  // Slow player actions (1 + extras — typically 0 extras)
+  for (let i = 0; i < 1 + slowExtras; i++) {
+    orderedActions.push(slowAction);
+  }
+
+  // Log speed advantage
+  if (fastExtras > 0) {
+    events.push({
+      turn: clonedState.turnNumber,
+      phase: "SPEED_ADVANTAGE",
+      actorId: fastAction.playerId,
+      message: `${fastAction.playerId} ganha ${fastExtras} acao(oes) extra(s) por vantagem de speed (${speedA} vs ${speedB})`,
+    });
+  }
+  if (slowExtras > 0) {
+    events.push({
+      turn: clonedState.turnNumber,
+      phase: "SPEED_ADVANTAGE",
+      actorId: slowAction.playerId,
+      message: `${slowAction.playerId} ganha ${slowExtras} acao(oes) extra(s) por vantagem de speed (${speedB} vs ${speedA})`,
+    });
+  }
 
   // 3. Resolver cada acao na ordem
   for (const action of orderedActions) {

@@ -385,8 +385,12 @@ describe("Battle Engine — Resolucao de turno", () => {
     );
 
     const damageEvents = result.events.filter((e) => e.phase === "DAMAGE");
+    // Fast player acts first (speed advantage: 30/5 = 6x ratio → 2 extra actions)
     expect(damageEvents[0].actorId).toBe("fast");
-    expect(damageEvents[1].actorId).toBe("slow");
+    // Extra actions from fast player come next (may be COOLDOWN instead of DAMAGE)
+    // Last damage event should be from slow player
+    const lastDamage = damageEvents[damageEvents.length - 1];
+    expect(lastDamage.actorId).toBe("slow");
   });
 
   it("skill em cooldown deve ser bloqueada", () => {
