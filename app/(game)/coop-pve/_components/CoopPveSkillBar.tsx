@@ -15,9 +15,7 @@ type CoopPveSkillBarProps = {
 const DAMAGE_TYPE_LABEL: Record<string, string> = {
   PHYSICAL: "Fisico",
   MAGICAL: "Magico",
-  SUPPORT: "Suporte",
-  HEAL: "Suporte",
-  TRUE: "Verdadeiro",
+  NONE: "Suporte",
 };
 
 const TARGET_LABEL: Record<string, string> = {

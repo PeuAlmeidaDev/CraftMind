@@ -42,6 +42,12 @@ const DAMAGE_COLORS: Record<string, string> = {
   NONE: "text-emerald-400",
 };
 
+const DAMAGE_LABELS: Record<string, string> = {
+  PHYSICAL: "Fisico",
+  MAGICAL: "Magico",
+  NONE: "Suporte",
+};
+
 const TIER_COLORS: Record<number, string> = {
   1: "bg-gray-500/20 text-gray-400",
   2: "bg-green-500/20 text-green-400",
@@ -224,7 +230,7 @@ export default function AdminUsersPage() {
                                   T{skill.tier}
                                 </span>
                                 <span className={`text-[10px] ${DAMAGE_COLORS[skill.damageType] ?? "text-gray-400"}`}>
-                                  {skill.damageType}
+                                  {DAMAGE_LABELS[skill.damageType] ?? skill.damageType}
                                 </span>
                                 {skill.equipped && (
                                   <span className="text-[10px] text-amber-400">Slot {skill.slotIndex}</span>
@@ -288,7 +294,7 @@ export default function AdminUsersPage() {
                                       T{skill.tier}
                                     </span>
                                     <span className={`text-[10px] ${DAMAGE_COLORS[skill.damageType] ?? "text-gray-400"}`}>
-                                      {skill.damageType}
+                                      {DAMAGE_LABELS[skill.damageType] ?? skill.damageType}
                                     </span>
                                   </button>
                                 ))
