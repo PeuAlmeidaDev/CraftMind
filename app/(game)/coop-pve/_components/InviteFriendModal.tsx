@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { io, type Socket } from "socket.io-client";
 import { getToken, authFetchOptions } from "@/lib/client-auth";
+import { useLayoutSocket } from "../../_hooks/useLayoutSocket";
 import type { CoopPveMode, InviteSlot } from "../../_hooks/useCoopPveQueue";
 
 type FriendUser = {
@@ -31,8 +31,6 @@ type InviteFriendModalProps = {
   maxInvites: number;
 };
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? "";
-
 export default function InviteFriendModal({
   open,
   onClose,
@@ -44,11 +42,11 @@ export default function InviteFriendModal({
   invites,
   maxInvites,
 }: InviteFriendModalProps) {
+  const layoutSocket = useLayoutSocket();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [socketRef, setSocketRef] = useState<Socket | null>(null);
 
   // Fetch friends list
   const fetchFriends = useCallback(async () => {
@@ -73,32 +71,20 @@ export default function InviteFriendModal({
     }
   }, []);
 
-  // Socket for online check
+  // Listen for online status via layout socket
   useEffect(() => {
-    if (!open) return;
+    if (!open || !layoutSocket) return;
 
-    const token = getToken();
-    if (!token) return;
-
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      autoConnect: false,
-      forceNew: true,
-    });
-
-    socket.on("coop-pve:friends:online-status", (data: { statuses: Record<string, boolean> }) => {
+    const handler = (data: { statuses: Record<string, boolean> }) => {
       setOnlineStatus(data.statuses);
-    });
+    };
 
-    socket.connect();
-    setSocketRef(socket);
+    layoutSocket.on("coop-pve:friends:online-status", handler);
 
     return () => {
-      socket.removeAllListeners();
-      socket.disconnect();
-      setSocketRef(null);
+      layoutSocket.off("coop-pve:friends:online-status", handler);
     };
-  }, [open]);
+  }, [open, layoutSocket]);
 
   // Fetch friends and check online when modal opens
   useEffect(() => {
@@ -106,26 +92,13 @@ export default function InviteFriendModal({
     fetchFriends();
   }, [open, fetchFriends]);
 
-  // Emit online check when friends are loaded AND socket is connected
+  // Emit online check when friends are loaded AND layout socket is available
   useEffect(() => {
-    if (!socketRef || friends.length === 0) return;
+    if (!layoutSocket || !layoutSocket.connected || friends.length === 0 || !open) return;
 
     const userIds = friends.map((f) => f.user.id);
-
-    const emitCheck = () => {
-      socketRef.emit("coop-pve:friends:online-check", { userIds });
-    };
-
-    if (socketRef.connected) {
-      emitCheck();
-    } else {
-      socketRef.once("connect", emitCheck);
-    }
-
-    return () => {
-      socketRef.off("connect", emitCheck);
-    };
-  }, [socketRef, friends]);
+    layoutSocket.emit("coop-pve:friends:online-check", { userIds });
+  }, [layoutSocket, friends, open]);
 
   if (!open) return null;
 
