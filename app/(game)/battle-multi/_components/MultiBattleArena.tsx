@@ -260,7 +260,8 @@ export default function MultiBattleArena({
       const hasHealing = entry.healing !== undefined && entry.healing > 0;
 
       // Collect all VFX into the queue
-      if (entry.skillName && (hasDamage || hasHealing)) {
+      const hasEffect = hasDamage || hasHealing || !!entry.buffApplied || !!entry.debuffApplied || !!entry.statusApplied;
+      if (entry.skillName && hasEffect) {
         if (entry.targetId === playerId) {
           newVfx.push({ skillName: entry.skillName, target: "player" });
         } else if (entry.targetId) {
@@ -296,8 +297,17 @@ export default function MultiBattleArena({
       }
     }
 
-    if (newVfx.length > 0) {
-      setVfxQueue(prev => [...prev, ...newVfx]);
+    // Deduplicate: one VFX per skillName+target combination
+    const seen = new Set<string>();
+    const uniqueVfx = newVfx.filter(v => {
+      const key = `${v.skillName}:${v.target}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (uniqueVfx.length > 0) {
+      setVfxQueue(prev => [...prev, ...uniqueVfx]);
     }
 
     if (hitMobIndices.size > 0) {

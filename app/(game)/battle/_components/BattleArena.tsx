@@ -367,12 +367,13 @@ export default function BattleArena({
       }
 
       // Collect VFX for sequential queue
-      if (entry.skillName && (hasDamage || hasHealing)) {
+      const hasEffect = hasDamage || hasHealing || !!entry.buffApplied || !!entry.debuffApplied || !!entry.statusApplied;
+      if (entry.skillName && hasEffect) {
         let target: "player" | "mob" | undefined;
 
         if (entry.targetId) {
           target = entry.targetId === playerId ? "player" : entry.targetId === mobId ? "mob" : undefined;
-        } else if (hasHealing && entry.actorId) {
+        } else if (entry.actorId) {
           target = entry.actorId === playerId ? "player" : entry.actorId === mobId ? "mob" : undefined;
         }
 
@@ -382,8 +383,17 @@ export default function BattleArena({
       }
     }
 
-    if (newVfx.length > 0) {
-      setVfxQueue(prev => [...prev, ...newVfx]);
+    // Deduplicate: one VFX per skillName+target combination
+    const seen = new Set<string>();
+    const uniqueVfx = newVfx.filter(v => {
+      const key = `${v.skillName}:${v.target}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (uniqueVfx.length > 0) {
+      setVfxQueue(prev => [...prev, ...uniqueVfx]);
     }
 
     const timer = setTimeout(() => {

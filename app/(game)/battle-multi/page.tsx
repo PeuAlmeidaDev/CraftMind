@@ -22,6 +22,8 @@ export type TurnLogEntry = {
   healing?: number;
   statusApplied?: string;
   statusDamage?: number;
+  buffApplied?: { stat: string; value: number; duration: number };
+  debuffApplied?: { stat: string; value: number; duration: number };
   counterTriggered?: boolean;
   missed?: boolean;
   comboStack?: number;

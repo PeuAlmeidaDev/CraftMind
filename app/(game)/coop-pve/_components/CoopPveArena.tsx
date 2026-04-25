@@ -123,7 +123,11 @@ export default function CoopPveArena({
       if (!skillName) continue;
       const hasDamage = damage !== undefined && damage > 0;
       const hasHealing = healing !== undefined && healing > 0;
-      if (!hasDamage && !hasHealing) continue;
+      const buffApplied = entry.buffApplied as unknown;
+      const debuffApplied = entry.debuffApplied as unknown;
+      const statusApplied = entry.statusApplied as unknown;
+      const hasEffect = hasDamage || hasHealing || !!buffApplied || !!debuffApplied || !!statusApplied;
+      if (!hasEffect) continue;
 
       // Check if target is a mob
       const targetMob = mobs.find((m) => m.playerId === targetId);
@@ -140,8 +144,17 @@ export default function CoopPveArena({
       }
     }
 
-    if (newVfx.length > 0) {
-      setVfxQueue((prev) => [...prev, ...newVfx]);
+    // Deduplicate: one VFX per skillName+target combination
+    const seen = new Set<string>();
+    const uniqueVfx = newVfx.filter(v => {
+      const key = `${v.skillName}:${v.target}:${"mobIndex" in v ? v.mobIndex : "playerId" in v ? v.playerId : ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (uniqueVfx.length > 0) {
+      setVfxQueue((prev) => [...prev, ...uniqueVfx]);
     }
   }, [turnEvents, mobs, teammates]);
 
