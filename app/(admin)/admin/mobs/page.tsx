@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useToast } from "../_components/toast";
 import ConfirmModal from "../_components/confirm-modal";
@@ -43,6 +43,10 @@ export default function AdminMobsPage() {
   const [filterTier, setFilterTier] = useState("");
   const [filterAi, setFilterAi] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [previewMob, setPreviewMob] = useState<MobRow | null>(null);
+  const [pendingMobId, setPendingMobId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/mobs")
@@ -75,6 +79,36 @@ export default function AdminMobsPage() {
       showToast("Erro de conexao", "error");
     } finally {
       setDeleteId(null);
+    }
+  }
+
+  async function handleImageUpload(mobId: string, file: File) {
+    setUploadingId(mobId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`/api/admin/mobs/${mobId}/image`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error ?? "Erro ao fazer upload", "error");
+        return;
+      }
+
+      setMobs((prev) =>
+        prev.map((m) =>
+          m.id === mobId ? { ...m, imageUrl: json.data.imageUrl } : m
+        )
+      );
+      showToast("Imagem atualizada", "success");
+    } catch {
+      showToast("Erro de conexao", "error");
+    } finally {
+      setUploadingId(null);
     }
   }
 
@@ -130,10 +164,14 @@ export default function AdminMobsPage() {
                   <img
                     src={mob.imageUrl}
                     alt={mob.name}
-                    className="w-16 h-16 rounded-lg object-cover shrink-0"
+                    className="w-16 h-16 rounded-lg object-cover shrink-0 cursor-pointer hover:opacity-80 transition"
+                    onClick={() => setPreviewMob(mob)}
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center shrink-0">
+                  <div
+                    className="w-16 h-16 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center shrink-0 cursor-pointer hover:opacity-80 transition"
+                    onClick={() => setPreviewMob(mob)}
+                  >
                     <span className="text-xl text-gray-500">{mob.name.charAt(0)}</span>
                   </div>
                 )}
@@ -164,6 +202,17 @@ export default function AdminMobsPage() {
                 </Link>
                 <button
                   type="button"
+                  onClick={() => {
+                    setPendingMobId(mob.id);
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={uploadingId === mob.id}
+                  className="flex-1 text-xs py-1.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition cursor-pointer disabled:opacity-50"
+                >
+                  {uploadingId === mob.id ? "Enviando..." : "Foto"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setDeleteId(mob.id)}
                   className="flex-1 text-xs py-1.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition cursor-pointer"
                 >
@@ -181,6 +230,67 @@ export default function AdminMobsPage() {
         onConfirm={handleDelete}
         title="Deletar Mob"
         message="Tem certeza? O mob e todas as suas skills serao removidos."
+      />
+
+      {previewMob && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewMob(null)}
+        >
+          <div
+            className="relative w-full max-w-xs overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-card)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative h-[400px] w-full overflow-hidden">
+              {previewMob.imageUrl ? (
+                <img
+                  src={previewMob.imageUrl}
+                  alt={previewMob.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center bg-[var(--bg-secondary)]">
+                  <span className="text-6xl text-gray-600">
+                    {previewMob.name.charAt(0)}
+                  </span>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-bold text-lg">
+                    {previewMob.name}
+                  </span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 border border-[var(--border-subtle)] text-gray-300">
+                    T{previewMob.tier}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewMob(null)}
+              className="w-full py-2 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer border-t border-[var(--border-subtle)]"
+            >
+              Fechar preview
+            </button>
+          </div>
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && pendingMobId) {
+            handleImageUpload(pendingMobId, file);
+          }
+          e.target.value = "";
+          setPendingMobId(null);
+        }}
       />
     </div>
   );
