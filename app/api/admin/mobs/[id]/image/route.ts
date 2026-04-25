@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!mob) return apiError("Mob nao encontrado", "NOT_FOUND", 404);
 
     const formData = await request.formData();
-    const file = formData.get("image");
+    const file = formData.get("image") ?? formData.get("file");
 
     if (!file || !(file instanceof File)) {
       return apiError("Imagem nao enviada", "FILE_REQUIRED", 422);
@@ -48,6 +48,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return apiSuccess(updated);
   } catch (error) {
     console.error("[POST /api/admin/mobs/:id/image]", error);
+    return apiError("Erro interno do servidor", "INTERNAL_ERROR", 500);
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+    const mob = await prisma.mob.findUnique({ where: { id } });
+    if (!mob) return apiError("Mob nao encontrado", "NOT_FOUND", 404);
+
+    if (!mob.imageUrl) {
+      return apiError("Mob nao possui imagem", "NO_IMAGE", 422);
+    }
+
+    // Tentar remover do Cloudinary (ignora erro se nao existir)
+    try {
+      await cloudinary.uploader.destroy(`craft-mind/mobs/mob-${id}`);
+    } catch {
+      // Cloudinary destroy pode falhar se a imagem ja foi removida
+    }
+
+    const updated = await prisma.mob.update({
+      where: { id },
+      data: { imageUrl: null },
+    });
+
+    return apiSuccess(updated);
+  } catch (error) {
+    console.error("[DELETE /api/admin/mobs/:id/image]", error);
     return apiError("Erro interno do servidor", "INTERNAL_ERROR", 500);
   }
 }

@@ -99,16 +99,43 @@ export default function AdminMobsPage() {
         return;
       }
 
+      const newUrl = json.data.imageUrl;
       setMobs((prev) =>
         prev.map((m) =>
-          m.id === mobId ? { ...m, imageUrl: json.data.imageUrl } : m
+          m.id === mobId ? { ...m, imageUrl: newUrl } : m
         )
       );
+      // Atualizar preview se aberto
+      setPreviewMob((prev) => (prev?.id === mobId ? { ...prev, imageUrl: newUrl } : prev));
       showToast("Imagem atualizada", "success");
     } catch {
       showToast("Erro de conexao", "error");
     } finally {
       setUploadingId(null);
+    }
+  }
+
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+
+  async function handleImageDelete(mobId: string) {
+    setDeletingImageId(mobId);
+    try {
+      const res = await fetch(`/api/admin/mobs/${mobId}/image`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error ?? "Erro ao remover imagem", "error");
+        return;
+      }
+      setMobs((prev) =>
+        prev.map((m) => (m.id === mobId ? { ...m, imageUrl: null } : m))
+      );
+      // Atualizar preview se aberto
+      setPreviewMob((prev) => (prev?.id === mobId ? { ...prev, imageUrl: null } : prev));
+      showToast("Imagem removida", "success");
+    } catch {
+      showToast("Erro de conexao", "error");
+    } finally {
+      setDeletingImageId(null);
     }
   }
 
@@ -267,13 +294,36 @@ export default function AdminMobsPage() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setPreviewMob(null)}
-              className="w-full py-2 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer border-t border-[var(--border-subtle)]"
-            >
-              Fechar preview
-            </button>
+            <div className="flex border-t border-[var(--border-subtle)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingMobId(previewMob.id);
+                  fileInputRef.current?.click();
+                }}
+                disabled={uploadingId === previewMob.id}
+                className="flex-1 py-2.5 text-xs text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {uploadingId === previewMob.id ? "Enviando..." : "Trocar foto"}
+              </button>
+              {previewMob.imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleImageDelete(previewMob.id)}
+                  disabled={deletingImageId === previewMob.id}
+                  className="flex-1 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 border-l border-[var(--border-subtle)]"
+                >
+                  {deletingImageId === previewMob.id ? "Removendo..." : "Excluir foto"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewMob(null)}
+                className="flex-1 py-2.5 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer border-l border-[var(--border-subtle)]"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
