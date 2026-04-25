@@ -230,10 +230,13 @@ export default function MultiBattleArena({
   const [playerShaking, setPlayerShaking] = useState(false);
   const prevEventsLength = useRef(events.length);
 
-  // VFX state: target can be "player" or a mob index
-  type ActiveVfx = { skillName: string; target: "player" | number } | null;
-  const [activeVfx, setActiveVfx] = useState<ActiveVfx>(null);
-  const handleVfxComplete = useCallback(() => setActiveVfx(null), []);
+  // VFX queue: processes effects sequentially, one at a time
+  type VfxQueueItem = { skillName: string; target: "player" | number };
+  const [vfxQueue, setVfxQueue] = useState<VfxQueueItem[]>([]);
+  const activeVfx = vfxQueue[0] ?? null;
+  const handleVfxComplete = useCallback(() => {
+    setVfxQueue(prev => prev.slice(1));
+  }, []);
 
   // -------------------------------------------------------------------------
   // Detect new damage events and trigger shake
@@ -250,22 +253,20 @@ export default function MultiBattleArena({
 
     const hitMobIndices = new Set<number>();
     let playerHit = false;
-    let vfxSet = false;
+    const newVfx: VfxQueueItem[] = [];
 
     for (const entry of newEntries) {
       const hasDamage = entry.damage !== undefined && entry.damage > 0;
       const hasHealing = entry.healing !== undefined && entry.healing > 0;
 
-      // Set VFX for first event with skillName
-      if (!vfxSet && entry.skillName && (hasDamage || hasHealing)) {
+      // Collect all VFX into the queue
+      if (entry.skillName && (hasDamage || hasHealing)) {
         if (entry.targetId === playerId) {
-          setActiveVfx({ skillName: entry.skillName, target: "player" });
-          vfxSet = true;
+          newVfx.push({ skillName: entry.skillName, target: "player" });
         } else if (entry.targetId) {
           for (const mob of mobs) {
             if (entry.targetId === `mob-${mob.index}` || entry.targetId === String(mob.index) || entry.targetId === mob.playerId) {
-              setActiveVfx({ skillName: entry.skillName, target: mob.index });
-              vfxSet = true;
+              newVfx.push({ skillName: entry.skillName, target: mob.index });
               break;
             }
           }
@@ -293,6 +294,10 @@ export default function MultiBattleArena({
           }
         }
       }
+    }
+
+    if (newVfx.length > 0) {
+      setVfxQueue(prev => [...prev, ...newVfx]);
     }
 
     if (hitMobIndices.size > 0) {
