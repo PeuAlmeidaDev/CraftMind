@@ -764,7 +764,7 @@ function ResultPhase() {
       levelsGained={levelsGained}
       newLevel={newLevel}
       onPlayAgain={playAgain}
-      onGoHome={() => router.push("/dashboard")}
+      onGoHome={() => { window.location.href = "/dashboard"; }}
     />
   );
 }
