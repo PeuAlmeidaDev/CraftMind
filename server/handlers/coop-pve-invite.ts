@@ -372,6 +372,7 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
     // --- Modo 3v5: aceite parcial ---
     if (mode === "3v5") {
       invite.accepted = true;
+      clearTimeout(invite.timer);
 
       const groupInvites = getInvitesByGroup(groupId);
       const allAccepted = groupInvites.every((gi) => gi.accepted);
@@ -380,8 +381,10 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
         // Notificar sender que um dos convites foi aceito parcialmente
         emitToUser(io, senderId, "coop-pve:invite:partial-accept", {
           inviteId,
-          acceptedCount: groupInvites.filter((gi) => gi.accepted).length,
-          totalCount: groupInvites.length,
+          targetUserId: invite.targetId,
+          groupId,
+          accepted: groupInvites.filter((gi) => gi.accepted).length,
+          total: groupInvites.length,
         });
         console.log(
           `[Socket.io] Coop PvE invite ${inviteId} aceito parcialmente (grupo ${groupId})`
@@ -394,8 +397,10 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
         // Sender ainda nao enviou o 2o convite, aguardar
         emitToUser(io, senderId, "coop-pve:invite:partial-accept", {
           inviteId,
-          acceptedCount: 1,
-          totalCount: 1,
+          targetUserId: invite.targetId,
+          groupId,
+          accepted: 1,
+          total: 1,
         });
         return;
       }
