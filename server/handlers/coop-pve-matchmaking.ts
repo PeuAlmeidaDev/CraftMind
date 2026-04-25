@@ -1,4 +1,4 @@
-// server/handlers/coop-pve-matchmaking.ts — Fila e emparelhamento para Coop PvE (2v3/2v5)
+// server/handlers/coop-pve-matchmaking.ts — Fila e emparelhamento para Coop PvE (2v3/2v5/3v5)
 
 import crypto from "node:crypto";
 import type { Server, Socket } from "socket.io";
@@ -34,7 +34,7 @@ import { prisma } from "../lib/prisma";
 const MATCH_ACCEPT_TIMEOUT_MS = 30_000;
 const QUEUE_TIMEOUT_MS = 5 * 60_000;
 
-const VALID_MODES: CoopPveMode[] = ["2v3", "2v5"];
+const VALID_MODES: CoopPveMode[] = ["2v3", "2v5", "3v5"];
 
 // ---------------------------------------------------------------------------
 // Type guards
@@ -203,7 +203,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
       }
     }
 
-    // Matchmaking: calcular tier baseado na media dos levels dos 2 players
+    // Matchmaking: calcular tier baseado na media dos levels dos players
     const mobCount = mode === "2v3" ? 3 : 5;
     const playerChars = await prisma.character.findMany({
       where: { userId: { in: matched.map((e) => e.userId) } },
@@ -306,6 +306,18 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
       imageUrl: mob.imageUrl ?? null,
     }));
 
+    // Escalar stats dos mobs para 3v5 (3 players = mobs mais fortes)
+    if (mode === "3v5") {
+      for (const mob of mobConfigs) {
+        mob.stats = {
+          ...mob.stats,
+          hp: Math.floor(mob.stats.hp * 1.4),
+          physicalAtk: Math.floor(mob.stats.physicalAtk * 1.25),
+          magicAtk: Math.floor(mob.stats.magicAtk * 1.25),
+        };
+      }
+    }
+
     // Criar estado via engine
     const battleId = crypto.randomUUID();
     const battleConfig: CoopPveBattleConfig = {
@@ -322,7 +334,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
 
     const state = initCoopPveBattle(battleConfig);
 
-    // Buscar nomes/avatars/houses dos 2 players
+    // Buscar nomes/avatars/houses dos players
     const users = await prisma.user.findMany({
       where: { id: { in: matched.map((e) => e.userId) } },
       select: { id: true, name: true, avatarUrl: true, house: { select: { name: true } } },
@@ -347,16 +359,18 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
 
     setCoopPveBattle(battleId, session);
 
-    // Emitir coop-pve:match:found para ambos sockets
+    // Emitir coop-pve:match:found para todos os sockets
     for (const entry of matched) {
       const playerSocket = io.sockets.sockets.get(entry.socketId);
       if (playerSocket) {
-        const teammate = users.find((u) => u.id !== entry.userId);
+        const teammates = users
+          .filter((u) => u.id !== entry.userId)
+          .map((u) => ({ userId: u.id, name: u.name }));
+
         playerSocket.emit("coop-pve:match:found", {
           battleId,
-          teammate: teammate
-            ? { userId: teammate.id, name: teammate.name }
-            : null,
+          teammates, // array (1 item para 2v3/2v5, 2 items para 3v5)
+          teammate: teammates[0] ?? null, // compatibilidade com frontend existente
           mobs: mobConfigs.map((m) => ({ name: m.name, tier: m.tier })),
           mode,
           acceptTimeoutMs: MATCH_ACCEPT_TIMEOUT_MS,
@@ -394,7 +408,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
             currentSession.playerSockets.get(acceptedUserId) ?? ""
           );
           acceptedSocket?.emit("coop-pve:match:cancelled", {
-            message: "O outro jogador nao aceitou a tempo. Voce foi devolvido a fila.",
+            message: "Um jogador nao aceitou a tempo. Voce foi devolvido a fila.",
           });
         }
       }
@@ -465,8 +479,9 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
     session.matchAccepted.add(userId);
     session.lastActivityAt = Date.now();
 
-    if (session.matchAccepted.size === 2) {
-      // Ambos aceitaram
+    const requiredAccepts = session.state.mode === "3v5" ? 3 : 2;
+    if (session.matchAccepted.size >= requiredAccepts) {
+      // Todos aceitaram
       if (session.matchTimer) {
         clearTimeout(session.matchTimer);
         session.matchTimer = null;
@@ -481,17 +496,24 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
 
       // Registrar PveBattle no banco ao INICIAR (result null)
       const mobIds = session.mobConfigs.map((m) => m.mobId);
-      for (const [pUserId] of session.playerSockets) {
-        const teammateId = Array.from(session.playerSockets.keys()).find(
-          (id) => id !== pUserId
-        );
+      const modeEnumMap: Record<CoopPveMode, "COOP_2V3" | "COOP_2V5" | "COOP_3V5"> = {
+        "2v3": "COOP_2V3",
+        "2v5": "COOP_2V5",
+        "3v5": "COOP_3V5",
+      };
+      const modeEnum = modeEnumMap[session.state.mode];
+      const allPlayerIds = Array.from(session.playerSockets.keys());
+
+      for (const pUserId of allPlayerIds) {
+        // Primeiro teammate como teamMateId (compatibilidade)
+        const teammateId = allPlayerIds.find((id) => id !== pUserId) ?? null;
         prisma.pveBattle
           .create({
             data: {
               userId: pUserId,
               mobId: session.mobConfigs[0].mobId,
-              mode: session.state.mode === "2v3" ? "COOP_2V3" : "COOP_2V5",
-              teamMateId: teammateId ?? null,
+              mode: modeEnum,
+              teamMateId: teammateId,
               mobIds,
             },
           })
@@ -514,7 +536,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
         "coop-pve:match:accepted",
         {
           accepted: session.matchAccepted.size,
-          total: 2,
+          total: requiredAccepts,
         }
       );
     }
@@ -544,12 +566,12 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
       session.matchTimer = null;
     }
 
-    // Notificar o outro jogador
+    // Notificar os outros jogadores
     for (const [pUserId, pSocketId] of session.playerSockets) {
       if (pUserId === userId) continue;
       const pSocket = io.sockets.sockets.get(pSocketId);
       pSocket?.emit("coop-pve:match:cancelled", {
-        message: "O outro jogador recusou a batalha coop PvE.",
+        message: "Um jogador recusou a batalha coop PvE.",
       });
 
       // Devolver quem aceitou para a fila
@@ -604,7 +626,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
         if (pUserId === userId) continue;
         const pSocket = io.sockets.sockets.get(pSocketId);
         pSocket?.emit("coop-pve:match:cancelled", {
-          message: "O outro jogador desconectou durante a selecao.",
+          message: "Um jogador desconectou durante a selecao.",
         });
 
         if (session.matchAccepted.has(pUserId)) {

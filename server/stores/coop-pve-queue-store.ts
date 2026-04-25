@@ -1,4 +1,4 @@
-// server/stores/coop-pve-queue-store.ts — Store in-memory para fila de batalha coop PvE (2v3/2v5)
+// server/stores/coop-pve-queue-store.ts — Store in-memory para fila de batalha coop PvE (2v3/2v5/3v5)
 
 import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
 import type { CoopPveMode } from "../../lib/battle/coop-pve-types";
@@ -47,9 +47,10 @@ export function isInCoopPveQueue(userId: string): boolean {
 
 export function findCoopPveMatch(mode: CoopPveMode): CoopPveQueueEntry[] | null {
   const queue = queues.get(mode);
-  if (!queue || queue.length < 2) return null;
+  const requiredPlayers = mode === "3v5" ? 3 : 2;
+  if (!queue || queue.length < requiredPlayers) return null;
 
-  const matched = queue.splice(0, 2);
+  const matched = queue.splice(0, requiredPlayers);
   if (queue.length === 0) {
     queues.delete(mode);
   }

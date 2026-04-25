@@ -78,7 +78,7 @@ io.use((socket, next) => {
 | `stores/pvp-store.ts` | Batalhas PvP ativas in-memory (Map battleId -> PvpBattleSession) |
 | `stores/boss-queue-store.ts` | Fila de boss fight in-memory por HabitCategory (Map category -> BossQueueEntry[]) |
 | `stores/boss-battle-store.ts` | Batalhas coop ativas in-memory (Map battleId -> BossBattleSession). TTL 30min, cleanup 5min |
-| `stores/coop-pve-queue-store.ts` | Fila de batalha coop PvE in-memory por modo (Map CoopPveMode -> CoopPveQueueEntry[]). Match de 2 jogadores no mesmo modo |
+| `stores/coop-pve-queue-store.ts` | Fila de batalha coop PvE in-memory por modo (Map CoopPveMode -> CoopPveQueueEntry[]). Match de 2 jogadores (2v3/2v5) ou 3 jogadores (3v5) no mesmo modo |
 | `stores/coop-pve-battle-store.ts` | Batalhas coop PvE ativas in-memory (Map battleId -> CoopPveBattleSession). TTL 30min, cleanup 5min |
 | `stores/coop-pve-invite-store.ts` | Convites pendentes de coop PvE in-memory (Map inviteId -> CoopPveInvite). TTL 30s por convite, 1 por sender |
 
@@ -138,7 +138,7 @@ io.use((socket, next) => {
 
 | Evento | Payload | Descricao |
 |---|---|---|
-| `coop-pve:queue:join` | `{ mode: "2v3" \| "2v5" }` | Entrar na fila de coop PvE |
+| `coop-pve:queue:join` | `{ mode: "2v3" \| "2v5" \| "3v5" }` | Entrar na fila de coop PvE |
 | `coop-pve:queue:leave` | - | Sair da fila de coop PvE |
 | `coop-pve:match:accept` | `{ battleId }` | Aceitar match de coop PvE |
 | `coop-pve:match:decline` | `{ battleId }` | Recusar match de coop PvE |
@@ -153,7 +153,7 @@ io.use((socket, next) => {
 | `coop-pve:queue:error` | `{ message }` | Erro na fila coop PvE |
 | `coop-pve:queue:timeout` | `{ message }` | Tempo na fila expirou (5min) |
 | `coop-pve:queue:left` | `{ message }` | Confirmacao de saida da fila |
-| `coop-pve:match:found` | `{ battleId, teammate, mobs, mode, acceptTimeoutMs }` | Match encontrado |
+| `coop-pve:match:found` | `{ battleId, teammates, teammate, mobs, mode, acceptTimeoutMs }` | Match encontrado (teammates: array, teammate: primeiro para compatibilidade) |
 | `coop-pve:match:accepted` | `{ accepted, total }` | Contagem de aceites |
 | `coop-pve:match:timeout` | `{ message }` | Tempo para aceitar expirou |
 | `coop-pve:match:cancelled` | `{ message }` | Match cancelado (decline/disconnect) |
