@@ -86,18 +86,35 @@ export default function InviteFriendModal({
     };
   }, [open, layoutSocket]);
 
-  // Fetch friends and check online when modal opens
+  // Fetch friends and emit online check when modal opens
   useEffect(() => {
     if (!open) return;
-    fetchFriends();
+
+    // Reset online status so stale data is not shown
+    setOnlineStatus({});
+
+    fetchFriends().then(() => {
+      // online-check will be emitted by the effect below once friends are set
+    });
   }, [open, fetchFriends]);
 
-  // Emit online check when friends are loaded AND layout socket is available
+  // Emit online check whenever friends list or socket changes, and modal is open
   useEffect(() => {
-    if (!layoutSocket || !layoutSocket.connected || friends.length === 0 || !open) return;
+    if (!open || !layoutSocket || friends.length === 0) return;
 
-    const userIds = friends.map((f) => f.user.id);
-    layoutSocket.emit("coop-pve:friends:online-check", { userIds });
+    const emitCheck = () => {
+      const userIds = friends.map((f) => f.user.id);
+      layoutSocket.emit("coop-pve:friends:online-check", { userIds });
+    };
+
+    if (layoutSocket.connected) {
+      emitCheck();
+    } else {
+      layoutSocket.once("connect", emitCheck);
+      return () => {
+        layoutSocket.off("connect", emitCheck);
+      };
+    }
   }, [layoutSocket, friends, open]);
 
   if (!open) return null;
