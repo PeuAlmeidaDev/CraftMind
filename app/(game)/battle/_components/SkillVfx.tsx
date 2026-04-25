@@ -73,11 +73,11 @@ const SKILL_VFX_MAP: Record<string, VfxType> = {
   "Pacto de Resiliencia": "heal",
   "Purificacao": "heal",
 
-  // FIRE
-  "Soco Flamejante": "fire",
-  "Mordida Venenosa": "fire",
-  "Furia do Dragao": "fire",
-  "Furia Latente": "fire",
+  // Physical (previously fire)
+  "Soco Flamejante": "slash",
+  "Mordida Venenosa": "slash",
+  "Furia do Dragao": "slash",
+  "Furia Latente": "heal",
 };
 
 // ---------------------------------------------------------------------------
@@ -134,12 +134,7 @@ function HealMarkup() {
 }
 
 function FireMarkup() {
-  return (
-    <div className="vfx vfx-fire active">
-      <div className="vfx-fire__ball" />
-      <div className="vfx-fire__shock" />
-    </div>
-  );
+  return null;
 }
 
 function SvgMarkup({ src }: { src: string }) {
