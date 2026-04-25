@@ -16,9 +16,10 @@ import { useLayoutSocket } from "./useLayoutSocket";
 // Types
 // ---------------------------------------------------------------------------
 
-export type CoopPveMode = "2v3" | "2v5";
+export type CoopPveMode = "2v3" | "2v5" | "3v5";
 
 type MatchTeammate = { userId: string; name: string };
+type MatchTeammates = MatchTeammate[];
 type MatchMob = { name: string; tier: number };
 
 type SanitizedMobState = {
@@ -79,6 +80,7 @@ type CoopPveQueueState = {
   // Match
   matchBattleId: string | null;
   matchTeammate: MatchTeammate | null;
+  matchTeammates: MatchTeammates;
   matchMobs: MatchMob[];
   matchAcceptTimeout: number;
   matchAcceptedCount: number;
@@ -153,6 +155,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
   // Match
   const [matchBattleId, setMatchBattleId] = useState<string | null>(null);
   const [matchTeammate, setMatchTeammate] = useState<MatchTeammate | null>(null);
+  const [matchTeammates, setMatchTeammates] = useState<MatchTeammates>([]);
   const [matchMobs, setMatchMobs] = useState<MatchMob[]>([]);
   const [matchAcceptTimeout, setMatchAcceptTimeout] = useState(0);
   const [matchAcceptedCount, setMatchAcceptedCount] = useState(0);
@@ -304,7 +307,8 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
       "coop-pve:match:found",
       (data: {
         battleId: string;
-        teammate: MatchTeammate;
+        teammate?: MatchTeammate;
+        teammates?: MatchTeammates;
         mobs: MatchMob[];
         mode: CoopPveMode;
         acceptTimeoutMs: number;
@@ -313,10 +317,16 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
         setPhase("MATCH");
         setMatchBattleId(data.battleId);
         setBattleId(data.battleId);
-        setMatchTeammate(data.teammate);
+
+        // Support both singular teammate and teammates array
+        const allTeammates: MatchTeammates = data.teammates ?? (data.teammate ? [data.teammate] : []);
+        setMatchTeammates(allTeammates);
+        setMatchTeammate(allTeammates[0] ?? null);
+
         setMatchMobs(data.mobs);
         setMatchAcceptedCount(0);
-        setMatchExpectedCount(2);
+        const expectedPlayers = data.mode === "3v5" ? 3 : 2;
+        setMatchExpectedCount(expectedPlayers);
         startMatchTimer(data.acceptTimeoutMs);
       },
     );
@@ -333,6 +343,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
       clearMatchTimer();
       setMatchBattleId(null);
       setMatchTeammate(null);
+      setMatchTeammates([]);
       setMatchMobs([]);
       setMatchAcceptTimeout(0);
       setPhase("IDLE");
@@ -492,6 +503,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     clearMatchTimer();
     setMatchBattleId(null);
     setMatchTeammate(null);
+    setMatchTeammates([]);
     setMatchMobs([]);
     setMatchAcceptTimeout(0);
     setBattleId(null);
@@ -549,6 +561,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     setGracePeriodMs(0);
     setMatchBattleId(null);
     setMatchTeammate(null);
+    setMatchTeammates([]);
     setMatchMobs([]);
     disconnectSocket();
   }, [clearTurnTimer, disconnectSocket]);
@@ -727,6 +740,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     queueTimeRemaining,
     matchBattleId,
     matchTeammate,
+    matchTeammates,
     matchMobs,
     matchAcceptTimeout,
     matchAcceptedCount,

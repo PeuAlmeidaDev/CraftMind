@@ -9,7 +9,7 @@ Componentes Client-side (`"use client"`) usados exclusivamente pela pagina `/coo
 | `CoopPveArena.tsx` | Layout principal da batalha: timer + mobs + team + skills + log. Gerencia targeting state. |
 | `CoopPveSkillBar.tsx` | Grid 2x2 de skills com cooldowns, targeting message e skip turn. |
 | `CoopPveMobRow.tsx` | Row de 3 ou 5 mob cards com HP, tier, status effects. Suporta targeting mode. |
-| `CoopPveTeamPanel.tsx` | Panel com 2 player cards: avatar, HP, casa, status badges. Suporta ally targeting. |
+| `CoopPveTeamPanel.tsx` | Panel com N player cards (2 ou 3 conforme modo): avatar, HP, casa, status badges. Suporta ally targeting. Layout compacto para 3 players. |
 | `CoopPveResult.tsx` | Modal overlay de resultado (vitoria/derrota) com EXP e level up. |
 
 ## Convencoes

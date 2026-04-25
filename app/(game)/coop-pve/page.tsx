@@ -281,19 +281,21 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
             className="mb-2 text-[10px] uppercase tracking-[0.4em]"
             style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
           >
-            Coop · 2 Jogadores
+            {mode === "3v5" ? "Coop · 3 Jogadores" : "Coop · 2 Jogadores"}
           </div>
           <h1
             className="text-[clamp(32px,5vw,48px)] font-medium text-white"
             style={{ fontFamily: "var(--font-cormorant)", lineHeight: 1 }}
           >
-            Reuna seu Aliado
+            {mode === "3v5" ? "Forme seu Esquadrao" : "Reuna seu Aliado"}
           </h1>
           <p
             className="mx-auto mt-2 max-w-md text-[15px] italic"
             style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 67%, transparent)" }}
           >
-            &laquo; Juntos, a jornada e mais leve e o destino mais certo. &raquo;
+            {mode === "3v5"
+              ? <>&laquo; Tres lâminas ferem mais fundo que uma. &raquo;</>
+              : <>&laquo; Juntos, a jornada e mais leve e o destino mais certo. &raquo;</>}
           </p>
         </div>
 
@@ -344,9 +346,9 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
               border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
             }}
           >
-            {/* Aliados (2 pips) */}
+            {/* Aliados */}
             <div className="flex justify-end gap-1">
-              {Array.from({ length: 2 }).map((_, i) => (
+              {Array.from({ length: mode === "3v5" ? 3 : 2 }).map((_, i) => (
                 <span
                   key={i}
                   className="inline-block h-3 w-3 rounded-full"
@@ -382,8 +384,9 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
 
           {/* Difficulty tabs */}
           <div className="mb-4 flex gap-1">
-            {(["2v3", "2v5"] as const).map((m) => {
+            {(["2v3", "2v5", "3v5"] as const).map((m) => {
               const active = mode === m;
+              const subtitle = m === "2v3" ? "Rapido" : m === "2v5" ? "Desafio" : "Esquadrao";
               return (
                 <button
                   key={m}
@@ -410,7 +413,7 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
                       color: active ? "var(--ember)" : "color-mix(in srgb, var(--gold) 47%, transparent)",
                     }}
                   >
-                    {m === "2v3" ? "Rapido" : "Desafio"}
+                    {subtitle}
                   </span>
                 </button>
               );
@@ -427,7 +430,9 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
           >
             {mode === "2v3"
               ? "Junte-se a um aliado contra 3 mobs — partida rapida"
-              : "Junte-se a um aliado contra 5 mobs — desafio maior, mais EXP"}
+              : mode === "2v5"
+              ? "Junte-se a um aliado contra 5 mobs — desafio maior, mais EXP"
+              : "3 jogadores vs 5 mobs — EXP dividido entre 3. Mobs mais fortes."}
           </p>
 
           {/* Reward hint */}
@@ -439,7 +444,7 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
             }}
           >
             <span style={{ color: "var(--ember)" }}>&#10022;</span>
-            {mode === "2v3" ? "EXP x2 bonus" : "EXP x3 bonus"}
+            {mode === "2v3" ? "EXP x2 bonus" : mode === "2v5" ? "EXP x3 bonus" : "EXP x2 bonus (÷3)"}
           </div>
 
           {/* Action buttons */}
@@ -455,7 +460,7 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
                 boxShadow: "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent)",
               }}
             >
-              Buscar Parceiro
+              {mode === "3v5" ? "Buscar Esquadrao" : "Buscar Parceiro"}
             </button>
 
             <button
@@ -587,6 +592,7 @@ function QueuePhase() {
 function MatchPhase() {
   const {
     matchTeammate,
+    matchTeammates,
     matchMobs,
     matchAcceptTimeout,
     matchAcceptedCount,
@@ -602,17 +608,33 @@ function MatchPhase() {
     acceptMatch();
   };
 
+  // Use teammates array; fallback to singular teammate for backward compat
+  const allTeammates = matchTeammates.length > 0 ? matchTeammates : (matchTeammate ? [matchTeammate] : []);
+
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="max-w-md w-full mx-4 bg-[var(--bg-card)] border border-[var(--accent-primary)]/50 rounded-xl p-8 text-center">
-        <h2 className="text-xl font-bold text-white mb-1">Parceiro encontrado!</h2>
+        <h2 className="text-xl font-bold text-white mb-1">
+          {mode === "3v5" ? "Esquadrao formado!" : "Parceiro encontrado!"}
+        </h2>
         <p className="text-sm text-gray-400 mb-4">Modo {mode}</p>
 
-        {/* Teammate info */}
-        {matchTeammate && (
-          <div className="mb-4 p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-subtle)]">
-            <p className="text-sm text-gray-400">Seu parceiro:</p>
-            <p className="text-white font-semibold">{matchTeammate.name}</p>
+        {/* Teammates info */}
+        {allTeammates.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <p className="text-sm text-gray-400">
+              {allTeammates.length === 1 ? "Seu parceiro:" : "Seus aliados:"}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {allTeammates.map((tm) => (
+                <div
+                  key={tm.userId}
+                  className="px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)]"
+                >
+                  <p className="text-white font-semibold text-sm">{tm.name}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -624,7 +646,7 @@ function MatchPhase() {
               {matchMobs.map((mob, i) => (
                 <span
                   key={`${mob.name}-${i}`}
-                  className="px-2 py-1 text-xs rounded bg-[var(--bg-primary)] border border-[var(--border-subtle)] text-gray-300"
+                  className="px-2 py-1 text-xs bg-[var(--bg-primary)] border border-[var(--border-subtle)] text-gray-300"
                 >
                   {mob.name} (T{mob.tier})
                 </span>
@@ -633,7 +655,22 @@ function MatchPhase() {
           </div>
         )}
 
-        {/* Accept counter */}
+        {/* Accept counter with squad slots */}
+        <div className="mb-3 flex justify-center gap-1.5">
+          {Array.from({ length: matchExpectedCount }).map((_, i) => (
+            <div
+              key={i}
+              className="flex h-6 w-6 items-center justify-center border text-[10px] font-bold"
+              style={{
+                borderColor: i < matchAcceptedCount ? "var(--ember)" : "color-mix(in srgb, var(--gold) 30%, transparent)",
+                background: i < matchAcceptedCount ? "color-mix(in srgb, var(--ember) 20%, transparent)" : "transparent",
+                color: i < matchAcceptedCount ? "var(--ember)" : "color-mix(in srgb, var(--gold) 40%, transparent)",
+              }}
+            >
+              {i < matchAcceptedCount ? "\u2713" : "\u2022"}
+            </div>
+          ))}
+        </div>
         <p className="text-xs text-gray-500 mb-2">
           Aceitos: {matchAcceptedCount}/{matchExpectedCount}
         </p>
@@ -649,7 +686,7 @@ function MatchPhase() {
             type="button"
             onClick={declineMatch}
             disabled={accepted}
-            className="flex-1 rounded-lg py-3 font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-3 font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Recusar
           </button>
@@ -657,7 +694,7 @@ function MatchPhase() {
             type="button"
             onClick={handleAccept}
             disabled={accepted}
-            className={`flex-1 rounded-lg py-3 font-semibold transition cursor-pointer disabled:cursor-not-allowed ${
+            className={`flex-1 py-3 font-semibold transition cursor-pointer disabled:cursor-not-allowed ${
               accepted
                 ? "bg-emerald-800/50 text-emerald-300 border border-emerald-500/30"
                 : "text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:brightness-110"
