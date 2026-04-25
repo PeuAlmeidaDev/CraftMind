@@ -9,6 +9,8 @@ export type CoopPveInvite = {
   senderName: string;
   targetId: string;
   mode: CoopPveMode;
+  groupId: string;
+  accepted: boolean;
   createdAt: number;
   timer: ReturnType<typeof setTimeout>;
 };
@@ -47,6 +49,24 @@ export function getInviteByTarget(targetId: string): CoopPveInvite | undefined {
     if (invite.targetId === targetId) return invite;
   }
   return undefined;
+}
+
+/** Busca convites pelo groupId */
+export function getInvitesByGroup(groupId: string): CoopPveInvite[] {
+  const result: CoopPveInvite[] = [];
+  for (const invite of invites.values()) {
+    if (invite.groupId === groupId) result.push(invite);
+  }
+  return result;
+}
+
+/** Busca TODOS convites ativos pelo senderId (pode ter multiplos para 3v5) */
+export function getInvitesBySender(senderId: string): CoopPveInvite[] {
+  const result: CoopPveInvite[] = [];
+  for (const invite of invites.values()) {
+    if (invite.senderId === senderId) result.push(invite);
+  }
+  return result;
 }
 
 /** Remove todos convites onde o userId e sender (cleanup no disconnect) */

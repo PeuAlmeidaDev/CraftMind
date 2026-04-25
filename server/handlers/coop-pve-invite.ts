@@ -25,6 +25,8 @@ import {
   removeInvite,
   getInviteBySender,
   getInviteByTarget,
+  getInvitesByGroup,
+  getInvitesBySender,
   removeInvitesBySender,
   removeInvitesByTarget,
 } from "../stores/coop-pve-invite-store";
@@ -36,7 +38,7 @@ import { prisma } from "../lib/prisma";
 // ---------------------------------------------------------------------------
 
 const INVITE_TTL_MS = 30_000;
-const VALID_MODES: CoopPveMode[] = ["2v3", "2v5"];
+const VALID_MODES: CoopPveMode[] = ["2v3", "2v5", "3v5"];
 const MAX_ONLINE_CHECK_IDS = 50;
 
 // ---------------------------------------------------------------------------
@@ -138,13 +140,34 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       return;
     }
 
-    // Sender nao pode ter convite pendente
-    if (getInviteBySender(userId)) {
+    // Verificar limite de convites por modo
+    const existingInvites = getInvitesBySender(userId);
+    const maxInvites = mode === "3v5" ? 2 : 1;
+
+    if (existingInvites.length >= maxInvites) {
       socket.emit("coop-pve:invite:error", {
-        message: "Voce ja tem um convite pendente",
+        message: "Limite de convites atingido",
       });
       return;
     }
+
+    // Nao convidar o mesmo jogador 2x
+    if (existingInvites.some((inv) => inv.targetId === targetUserId)) {
+      socket.emit("coop-pve:invite:error", {
+        message: "Jogador ja convidado",
+      });
+      return;
+    }
+
+    // Para 3v5 com convite existente, modo deve ser o mesmo
+    if (existingInvites.length > 0 && existingInvites[0].mode !== mode) {
+      socket.emit("coop-pve:invite:error", {
+        message: "Modo diferente do convite existente",
+      });
+      return;
+    }
+
+    const groupId = existingInvites.length > 0 ? existingInvites[0].groupId : crypto.randomUUID();
 
     // Target deve estar online
     if (!isOnline(targetUserId)) {
@@ -222,9 +245,23 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
     const senderName = senderUser.name;
 
     const timer = setTimeout(() => {
-      removeInvite(inviteId);
-      emitToUser(io, userId, "coop-pve:invite:expired", { inviteId });
-      emitToUser(io, targetUserId, "coop-pve:invite:expired", { inviteId });
+      const expiredInvite = getInvite(inviteId);
+      if (!expiredInvite) return;
+
+      if (mode === "3v5") {
+        // Expirar cancela todo o grupo
+        const groupInvites = getInvitesByGroup(groupId);
+        for (const gi of groupInvites) {
+          emitToUser(io, gi.targetId, "coop-pve:invite:expired", { inviteId: gi.inviteId });
+          removeInvite(gi.inviteId);
+        }
+        emitToUser(io, userId, "coop-pve:invite:expired", { inviteId });
+      } else {
+        removeInvite(inviteId);
+        emitToUser(io, userId, "coop-pve:invite:expired", { inviteId });
+        emitToUser(io, targetUserId, "coop-pve:invite:expired", { inviteId });
+      }
+
       console.log(`[Socket.io] Coop PvE invite ${inviteId} expirou (${userId} -> ${targetUserId})`);
     }, INVITE_TTL_MS);
 
@@ -235,6 +272,8 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       senderName,
       targetId: targetUserId,
       mode,
+      groupId,
+      accepted: false,
       createdAt: Date.now(),
       timer,
     });
@@ -328,10 +367,289 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       }
     }
 
-    // Remover convite do store
+    const { senderId, mode, groupId } = invite;
+
+    // --- Modo 3v5: aceite parcial ---
+    if (mode === "3v5") {
+      invite.accepted = true;
+
+      const groupInvites = getInvitesByGroup(groupId);
+      const allAccepted = groupInvites.every((gi) => gi.accepted);
+
+      if (!allAccepted) {
+        // Notificar sender que um dos convites foi aceito parcialmente
+        emitToUser(io, senderId, "coop-pve:invite:partial-accept", {
+          inviteId,
+          acceptedCount: groupInvites.filter((gi) => gi.accepted).length,
+          totalCount: groupInvites.length,
+        });
+        console.log(
+          `[Socket.io] Coop PvE invite ${inviteId} aceito parcialmente (grupo ${groupId})`
+        );
+        return;
+      }
+
+      // Todos aceitaram — aguardando ambos convites do grupo
+      if (groupInvites.length < 2) {
+        // Sender ainda nao enviou o 2o convite, aguardar
+        emitToUser(io, senderId, "coop-pve:invite:partial-accept", {
+          inviteId,
+          acceptedCount: 1,
+          totalCount: 1,
+        });
+        return;
+      }
+
+      // Remover todos convites do grupo
+      for (const gi of groupInvites) {
+        removeInvite(gi.inviteId);
+      }
+
+      // Coletar todos player IDs: sender + 2 targets
+      const allPlayerIds = [senderId, ...groupInvites.map((gi) => gi.targetId)];
+
+      // Verificar se todos ainda estao disponiveis
+      for (const pId of allPlayerIds) {
+        if (pId !== senderId && isPlayerBusy(pId)) {
+          for (const pid2 of allPlayerIds) {
+            emitToUser(io, pid2, "coop-pve:invite:error", {
+              message: "Um dos jogadores esta ocupado agora",
+            });
+          }
+          return;
+        }
+      }
+
+      const mobCount = 5;
+
+      // Buscar characters dos 3 players com skills
+      const characters = await prisma.character.findMany({
+        where: { userId: { in: allPlayerIds } },
+        select: {
+          id: true,
+          userId: true,
+          physicalAtk: true,
+          physicalDef: true,
+          magicAtk: true,
+          magicDef: true,
+          hp: true,
+          speed: true,
+          level: true,
+          characterSkills: CHARACTER_SKILLS_SELECT,
+        },
+      });
+
+      if (characters.length !== 3) {
+        for (const pId of allPlayerIds) {
+          emitToUser(io, pId, "coop-pve:invite:error", {
+            message: "Um dos jogadores nao tem personagem",
+          });
+        }
+        return;
+      }
+
+      for (const char of characters) {
+        if (char.characterSkills.length === 0) {
+          for (const pId of allPlayerIds) {
+            emitToUser(io, pId, "coop-pve:invite:error", {
+              message: "Um dos jogadores nao tem skills equipadas",
+            });
+          }
+          return;
+        }
+      }
+
+      // Calcular tier
+      const avgLevel = Math.round(
+        characters.reduce((sum, c) => sum + c.level, 0) / characters.length
+      );
+      const playerTier = Math.max(1, Math.min(5, Math.ceil(avgLevel / 10)));
+
+      // Buscar mobs do tier
+      let allMobs = await prisma.mob.findMany({
+        where: { tier: playerTier },
+        include: {
+          skills: {
+            orderBy: { slotIndex: "asc" },
+            include: {
+              skill: {
+                select: {
+                  id: true, name: true, description: true, tier: true,
+                  cooldown: true, target: true, damageType: true,
+                  basePower: true, hits: true, accuracy: true,
+                  effects: true, mastery: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (allMobs.length === 0) {
+        const fallbackTier = playerTier > 1 ? playerTier - 1 : playerTier + 1;
+        allMobs = await prisma.mob.findMany({
+          where: { tier: fallbackTier },
+          include: {
+            skills: {
+              orderBy: { slotIndex: "asc" },
+              include: {
+                skill: {
+                  select: {
+                    id: true, name: true, description: true, tier: true,
+                    cooldown: true, target: true, damageType: true,
+                    basePower: true, hits: true, accuracy: true,
+                    effects: true, mastery: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      if (allMobs.length === 0) {
+        for (const pId of allPlayerIds) {
+          emitToUser(io, pId, "coop-pve:invite:error", {
+            message: "Nenhum mob disponivel para batalha no momento",
+          });
+        }
+        return;
+      }
+
+      // Shuffle Fisher-Yates
+      const shuffled = [...allMobs];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      const selectedMobs = shuffled.slice(0, Math.min(mobCount, shuffled.length));
+      while (selectedMobs.length < mobCount) {
+        selectedMobs.push(allMobs[Math.floor(Math.random() * allMobs.length)]);
+      }
+
+      const mobConfigs: CoopPveMobConfig[] = selectedMobs.map((mob) => ({
+        mobId: mob.id,
+        name: mob.name,
+        tier: mob.tier,
+        aiProfile: mob.aiProfile as AiProfile,
+        stats: extractBaseStats(mob),
+        skills: convertToEquippedSkills(mob.skills),
+        imageUrl: mob.imageUrl ?? null,
+      }));
+
+      // Scaling de stats para 3v5
+      for (const mob of mobConfigs) {
+        mob.stats = {
+          ...mob.stats,
+          hp: Math.floor(mob.stats.hp * 1.4),
+          physicalAtk: Math.floor(mob.stats.physicalAtk * 1.25),
+          magicAtk: Math.floor(mob.stats.magicAtk * 1.25),
+        };
+      }
+
+      const battleId = crypto.randomUUID();
+      const team = characters.map((char) => ({
+        userId: char.userId,
+        characterId: char.id,
+        stats: extractBaseStats(char) as BaseStats,
+        skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
+      }));
+
+      const battleConfig: CoopPveBattleConfig = {
+        battleId,
+        team,
+        mobs: mobConfigs,
+        mode,
+      };
+
+      const state = initCoopPveBattle(battleConfig);
+
+      const users = await prisma.user.findMany({
+        where: { id: { in: allPlayerIds } },
+        select: { id: true, name: true, avatarUrl: true, house: { select: { name: true } } },
+      });
+
+      // Construir playerSockets para os 3 jogadores
+      const playerSocketsMap = new Map<string, string>();
+      for (const pId of allPlayerIds) {
+        const sids = getSocketIds(pId);
+        const sid = sids ? Array.from(sids)[0] : undefined;
+        if (sid) playerSocketsMap.set(pId, sid);
+      }
+
+      const session: CoopPveBattleSession = {
+        battleId,
+        state,
+        mobConfigs,
+        playerSockets: playerSocketsMap,
+        playerNames: new Map(users.map((u) => [u.id, u.name])),
+        playerAvatars: new Map(users.map((u) => [u.id, u.avatarUrl])),
+        playerHouses: new Map(users.map((u) => [u.id, u.house?.name ?? ""])),
+        pendingActions: new Map(),
+        turnTimer: null,
+        matchAccepted: new Set(allPlayerIds),
+        matchTimer: null,
+        disconnectedPlayers: new Map(),
+        lastActivityAt: Date.now(),
+      };
+
+      setCoopPveBattle(battleId, session);
+
+      // Persistir PveBattle records
+      const mobIds = mobConfigs.map((m) => m.mobId);
+      for (const pUserId of allPlayerIds) {
+        const teamMateIds = allPlayerIds.filter((id) => id !== pUserId);
+        prisma.pveBattle
+          .create({
+            data: {
+              userId: pUserId,
+              mobId: mobConfigs[0].mobId,
+              mode: "COOP_3V5",
+              teamMateId: teamMateIds[0],
+              mobIds,
+            },
+          })
+          .catch((err) => {
+            console.log(
+              `[Socket.io] Erro ao criar PveBattle para ${pUserId} na coop PvE invite ${battleId}: ${String(err)}`
+            );
+          });
+      }
+
+      // Join sockets na room
+      const roomName = `coop-pve-battle:${battleId}`;
+      for (const pId of allPlayerIds) {
+        const sids = getSocketIds(pId);
+        if (sids) {
+          for (const sid of sids) {
+            io.sockets.sockets.get(sid)?.join(roomName);
+          }
+        }
+      }
+
+      const sanitized = sanitizeCoopPveStateForTeam(
+        state,
+        Object.fromEntries(session.playerNames),
+        Object.fromEntries(session.playerAvatars),
+        Object.fromEntries(session.playerHouses),
+        mobConfigs,
+      );
+
+      io.to(roomName).emit("coop-pve:battle:start", {
+        battleId,
+        state: sanitized,
+      });
+
+      console.log(
+        `[Socket.io] Coop PvE battle ${battleId} iniciada via invite 3v5 (${allPlayerIds.join(" + ")})`
+      );
+      return;
+    }
+
+    // --- Modo 2v3/2v5: comportamento original ---
     removeInvite(inviteId);
 
-    const { senderId, mode } = invite;
     const mobCount = mode === "2v3" ? 3 : 5;
 
     // Buscar characters dos 2 players com skills
@@ -610,10 +928,20 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       return;
     }
 
-    removeInvite(inviteId);
-
-    // Notificar sender
-    emitToUser(io, invite.senderId, "coop-pve:invite:declined", { inviteId });
+    if (invite.mode === "3v5") {
+      // Cancelar todo o grupo
+      const groupInvites = getInvitesByGroup(invite.groupId);
+      for (const gi of groupInvites) {
+        if (gi.inviteId !== inviteId) {
+          emitToUser(io, gi.targetId, "coop-pve:invite:expired", { inviteId: gi.inviteId });
+        }
+        removeInvite(gi.inviteId);
+      }
+      emitToUser(io, invite.senderId, "coop-pve:invite:declined", { inviteId });
+    } else {
+      removeInvite(inviteId);
+      emitToUser(io, invite.senderId, "coop-pve:invite:declined", { inviteId });
+    }
 
     console.log(
       `[Socket.io] Coop PvE invite ${inviteId} recusado por ${userId}`
@@ -647,22 +975,38 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
   // -------------------------------------------------------------------------
 
   socket.on("disconnect", () => {
-    // Se sender tem convite pendente: notificar target
-    const senderInvite = getInviteBySender(userId);
-    if (senderInvite) {
-      emitToUser(io, senderInvite.targetId, "coop-pve:invite:expired", {
-        inviteId: senderInvite.inviteId,
+    // Se sender tem convites pendentes: notificar targets e remover
+    const senderInvites = getInvitesBySender(userId);
+    for (const inv of senderInvites) {
+      emitToUser(io, inv.targetId, "coop-pve:invite:expired", {
+        inviteId: inv.inviteId,
       });
     }
     removeInvitesBySender(userId);
 
-    // Se target tem convite pendente: notificar sender
+    // Se target tem convite pendente: cancelar grupo inteiro se 3v5
     const targetInvite = getInviteByTarget(userId);
     if (targetInvite) {
-      emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
-        inviteId: targetInvite.inviteId,
-      });
+      if (targetInvite.mode === "3v5") {
+        // Cancelar todo o grupo
+        const groupInvites = getInvitesByGroup(targetInvite.groupId);
+        for (const gi of groupInvites) {
+          if (gi.targetId !== userId) {
+            emitToUser(io, gi.targetId, "coop-pve:invite:expired", {
+              inviteId: gi.inviteId,
+            });
+          }
+          removeInvite(gi.inviteId);
+        }
+        emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
+          inviteId: targetInvite.inviteId,
+        });
+      } else {
+        emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
+          inviteId: targetInvite.inviteId,
+        });
+        removeInvitesByTarget(userId);
+      }
     }
-    removeInvitesByTarget(userId);
   });
 }
