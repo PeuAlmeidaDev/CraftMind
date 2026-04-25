@@ -54,9 +54,7 @@ export default function GameLayout({
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [searchedPlayer, setSearchedPlayer] = useState<PlayerPublicProfile | null>(null);
   const layoutSocketRef = useRef<Socket | null>(null);
-  const layoutSocketCreated = useRef(false);
   const [layoutSocket, setLayoutSocket] = useState<Socket | null>(null);
-  const refreshFriendsRef = useRef<() => void>(() => {});
 
   const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight")) ? "battle" : "ambient";
   const music = useMusicPlayer(musicContext);
@@ -128,56 +126,25 @@ export default function GameLayout({
     return () => controller.abort();
   }, [fetchProfile]);
 
-  // Manter ref atualizada sem causar re-render do socket
-  refreshFriendsRef.current = refreshFriends;
-
   // Socket.io para eventos de amizade em tempo real
   useEffect(() => {
-    // Evitar recriar se ja foi criado
-    if (layoutSocketCreated.current) return;
-
     const token = localStorage.getItem("access_token");
-    console.log("[Layout] Socket useEffect - token:", !!token);
     if (!token) return;
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-    console.log("[Layout] Socket useEffect - socketUrl:", socketUrl);
     if (!socketUrl) return;
-
-    layoutSocketCreated.current = true;
-    console.log("[Layout] Criando socket para:", socketUrl);
 
     const socket: Socket = io(socketUrl, {
       auth: { token },
       autoConnect: false,
-      forceNew: true,
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-
-    socket.on("connect", () => {
-      console.log("[Layout] Socket conectado:", socket.id);
-    });
-
-    socket.on("disconnect", (reason) => {
-      console.log("[Layout] Socket desconectado:", reason);
-      if (reason === "io server disconnect") {
-        socket.connect();
-      }
-    });
-
-    socket.on("connect_error", (err) => {
-      console.log("[Layout] Socket connect_error:", err.message);
     });
 
     socket.on("friend:request-received", () => {
-      refreshFriendsRef.current();
+      refreshFriends();
     });
 
     socket.on("friend:request-accepted", () => {
-      refreshFriendsRef.current();
+      refreshFriends();
     });
 
     socket.connect();
@@ -185,12 +152,11 @@ export default function GameLayout({
     setLayoutSocket(socket);
 
     return () => {
-      layoutSocketCreated.current = false;
       socket.disconnect();
       layoutSocketRef.current = null;
       setLayoutSocket(null);
     };
-  }, [user]); // re-rodar quando user mudar (para pegar o token)
+  }, [refreshFriends]);
 
   async function handleLogout() {
     try {
