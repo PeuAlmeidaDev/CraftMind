@@ -24,20 +24,12 @@ type MultiMobCardProps = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const TIER_BADGE_COLORS: Record<number, string> = {
-  1: "bg-gray-500/20 text-gray-400 border-gray-500/30",
-  2: "bg-green-500/20 text-green-400 border-green-500/30",
-  3: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  4: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  5: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-};
-
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  STUN: { label: "Atordoado", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  FROZEN: { label: "Congelado", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" },
-  BURN: { label: "Queimando", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  POISON: { label: "Envenenado", color: "bg-green-500/20 text-green-400 border-green-500/30" },
-  SLOW: { label: "Lento", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+const STATUS_CONFIG: Record<string, { label: string; hex: string }> = {
+  STUN: { label: "Atordoado", hex: "#e0c85c" },
+  FROZEN: { label: "Congelado", hex: "#67e8f9" },
+  BURN: { label: "Queimando", hex: "#ff8a70" },
+  POISON: { label: "Envenenado", hex: "#7acf8a" },
+  SLOW: { label: "Lento", hex: "#60a5fa" },
 };
 
 // ---------------------------------------------------------------------------
@@ -52,14 +44,32 @@ function MobStatusBadges({ effects }: { effects: ActiveStatusEffect[] }) {
       {effects.map((effect) => {
         const config = STATUS_CONFIG[effect.status];
         const label = config?.label ?? effect.status;
-        const color = config?.color ?? "bg-gray-500/20 text-gray-400 border-gray-500/30";
+        const hex = config?.hex ?? "#9ca3af";
 
         return (
           <span
             key={effect.status}
-            className={`text-[9px] rounded-full px-1.5 py-0.5 border ${color}`}
+            className="flex items-center gap-[3px] uppercase"
+            style={{
+              fontFamily: "var(--font-jetbrains)",
+              fontSize: 8,
+              letterSpacing: "0.18em",
+              padding: "1px 5px",
+              border: `1px solid color-mix(in srgb, ${hex} 40%, transparent)`,
+              background: `color-mix(in srgb, ${hex} 8%, transparent)`,
+              color: hex,
+            }}
           >
-            {label} ({effect.remainingTurns})
+            <span
+              className="rounded-full shrink-0"
+              style={{
+                width: 4,
+                height: 4,
+                background: hex,
+                boxShadow: `0 0 4px ${hex}`,
+              }}
+            />
+            {label} {effect.remainingTurns}t
           </span>
         );
       })}
@@ -71,15 +81,43 @@ function MobHpBar({ current, max }: { current: number; max: number }) {
   const percent = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
 
   return (
-    <div>
-      <div className="w-full h-2 sm:h-2.5 rounded-full bg-red-950/30 overflow-hidden">
+    <div className="w-full">
+      <div
+        className="w-full h-[4px] overflow-hidden relative"
+        style={{
+          border: "1px solid color-mix(in srgb, #b82b24 27%, transparent)",
+        }}
+      >
         <div
-          className="h-full rounded-full bg-red-500 transition-all duration-500"
-          style={{ width: `${percent}%` }}
+          className="h-full relative"
+          style={{
+            width: `${percent}%`,
+            background: "linear-gradient(90deg, #b82b24, #ff6a52)",
+            boxShadow: "inset 0 0 4px color-mix(in srgb, #b82b24 53%, transparent)",
+            transition: "width 500ms cubic-bezier(.2,.8,.2,1)",
+          }}
+        />
+        {/* Mid-tick */}
+        <span
+          className="absolute top-0 bottom-0"
+          style={{
+            left: "50%",
+            width: 1,
+            background: "color-mix(in srgb, var(--gold) 13%, transparent)",
+          }}
         />
       </div>
-      <p className="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">
-        HP: {current} / {max}
+      <p
+        className="text-center"
+        style={{
+          fontFamily: "var(--font-jetbrains)",
+          fontSize: 8,
+          letterSpacing: "0.12em",
+          color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+          marginTop: 3,
+        }}
+      >
+        {current}/{max}
       </p>
     </div>
   );
@@ -92,7 +130,13 @@ function MobHpBar({ current, max }: { current: number; max: number }) {
 function CompactMobThumb({ mob }: { mob: MultiMobInfo }) {
   if (mob.imageUrl) {
     return (
-      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[var(--bg-secondary)] overflow-hidden relative shrink-0">
+      <div
+        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden relative shrink-0"
+        style={{
+          background: "var(--bg-secondary)",
+          border: "1px solid color-mix(in srgb, #b82b24 40%, transparent)",
+        }}
+      >
         <Image
           src={mob.imageUrl}
           alt={mob.name}
@@ -105,8 +149,16 @@ function CompactMobThumb({ mob }: { mob: MultiMobInfo }) {
   }
 
   return (
-    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center shrink-0">
-      <span className="text-[10px] sm:text-xs text-white/30">{mob.name.charAt(0).toUpperCase()}</span>
+    <div
+      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0"
+      style={{
+        background: "var(--bg-secondary)",
+        border: "1px solid color-mix(in srgb, #b82b24 40%, transparent)",
+      }}
+    >
+      <span className="text-[10px] sm:text-xs text-white/30">
+        {mob.name.charAt(0).toUpperCase()}
+      </span>
     </div>
   );
 }
@@ -126,26 +178,50 @@ export default function MultiMobCard({
   onVfxComplete,
 }: MultiMobCardProps) {
   const isTargetable = targeting && !mob.defeated;
-  const tierBadge = TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1];
 
   // Defeated state
   if (mob.defeated) {
     return (
       <div
-        className={`relative rounded-xl border border-[var(--border-subtle)] overflow-hidden opacity-40 grayscale pointer-events-none ${
-          compact ? "p-1.5 sm:p-2" : ""
+        className={`relative overflow-hidden pointer-events-none ${
+          compact ? "p-[12px_10px]" : ""
         }`}
-        style={{ background: "var(--bg-card)" }}
+        style={{
+          background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+          border: "1px solid color-mix(in srgb, #b82b24 20%, transparent)",
+          opacity: 0.35,
+          filter: "grayscale(1)",
+        }}
       >
         {!compact && <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />}
-        <div className={compact ? "flex items-center gap-2" : "p-3"}>
+        <div
+          className={
+            compact
+              ? "flex items-center gap-2"
+              : "flex flex-col gap-[8px] items-center p-[12px_10px]"
+          }
+        >
           {compact && <CompactMobThumb mob={mob} />}
-          <div className={compact ? "flex-1 min-w-0" : ""}>
-            <div className="flex items-center gap-1">
-              <span className={`font-semibold text-white truncate ${compact ? "text-[11px] sm:text-xs" : "text-sm"}`}>
+          <div className={compact ? "flex-1 min-w-0" : "w-full"}>
+            <div className="flex items-center gap-1 justify-center">
+              <span
+                className="text-white truncate"
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: compact ? 13 : 15,
+                }}
+              >
                 {mob.name}
               </span>
-              <span className={`font-semibold rounded-full py-0.5 border shrink-0 ${compact ? "text-[8px] sm:text-[9px] px-1 sm:px-1.5" : "text-[9px] px-1.5"} ${tierBadge}`}>
+              <span
+                className="shrink-0"
+                style={{
+                  fontFamily: "var(--font-jetbrains)",
+                  fontSize: 8,
+                  letterSpacing: "0.18em",
+                  color: "#ff8a70",
+                }}
+              >
                 T{mob.tier}
               </span>
             </div>
@@ -154,7 +230,15 @@ export default function MultiMobCard({
         </div>
         {/* Defeated overlay */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-          <span className="text-2xl">&#128128;</span>
+          <span
+            style={{
+              fontFamily: "var(--font-cormorant)",
+              fontSize: 36,
+              color: "color-mix(in srgb, var(--gold) 67%, transparent)",
+            }}
+          >
+            &#x2020;
+          </span>
         </div>
       </div>
     );
@@ -173,25 +257,73 @@ export default function MultiMobCard({
             }
           : undefined
       }
-      className={`relative rounded-xl border overflow-hidden transition-all duration-200 ${
-        shaking ? "animate-mob-shake" : ""
-      } ${
-        isTargetable
-          ? "border-[var(--accent-secondary)] cursor-pointer hover:shadow-[0_0_12px_var(--accent-secondary)] animate-pulse-border"
-          : "border-[var(--border-subtle)]"
-      } ${compact ? "p-1.5 sm:p-2" : ""}`}
-      style={{ background: "var(--bg-card)" }}
+      className={`relative overflow-hidden ${shaking ? "animate-mob-shake" : ""} ${
+        isTargetable ? "cursor-pointer animate-pulse-border" : ""
+      }`}
+      style={{
+        background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+        border: isTargetable
+          ? "1px solid var(--ember)"
+          : "1px solid color-mix(in srgb, #b82b24 20%, transparent)",
+        transform: isTargetable ? "translateY(-2px)" : "none",
+        boxShadow: isTargetable
+          ? "0 0 18px color-mix(in srgb, var(--ember) 27%, transparent)"
+          : "none",
+        transition: "all 180ms",
+      }}
     >
+      {/* ALVO badge */}
+      {isTargetable && (
+        <span
+          style={{
+            position: "absolute",
+            top: -8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontFamily: "var(--font-cinzel)",
+            fontSize: 8,
+            letterSpacing: "0.3em",
+            color: "var(--ember)",
+            padding: "2px 6px",
+            background: "var(--bg-primary)",
+            border: "1px solid var(--ember)",
+            zIndex: 10,
+          }}
+        >
+          ALVO
+        </span>
+      )}
+
       {!compact && <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />}
 
-      <div className={compact ? "flex items-center gap-2" : "p-3"}>
+      <div
+        className={
+          compact
+            ? "flex items-center gap-2 p-[12px_10px]"
+            : "flex flex-col gap-[8px] items-center p-[12px_10px]"
+        }
+      >
         {compact && <CompactMobThumb mob={mob} />}
-        <div className={compact ? "flex-1 min-w-0" : ""}>
-          <div className="flex items-center gap-1">
-            <span className={`font-semibold text-white truncate ${compact ? "text-[11px] sm:text-xs" : "text-sm"}`}>
+        <div className={compact ? "flex-1 min-w-0" : "w-full"}>
+          <div className="flex items-center gap-1 justify-center">
+            <span
+              className="text-white truncate"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                fontSize: compact ? 13 : 15,
+              }}
+            >
               {mob.name}
             </span>
-            <span className={`font-semibold rounded-full py-0.5 border shrink-0 ${compact ? "text-[8px] sm:text-[9px] px-1 sm:px-1.5" : "text-[9px] px-1.5"} ${tierBadge}`}>
+            <span
+              className="shrink-0"
+              style={{
+                fontFamily: "var(--font-jetbrains)",
+                fontSize: 8,
+                letterSpacing: "0.18em",
+                color: "#ff8a70",
+              }}
+            >
               T{mob.tier}
             </span>
           </div>
@@ -212,7 +344,15 @@ export default function MultiMobCard({
       {/* Targeting indicator */}
       {isTargetable && (
         <div className="absolute top-2 right-2">
-          <span className="text-xs text-[var(--accent-secondary)] animate-pulse">&#127919;</span>
+          <span
+            className="block animate-target-pulse"
+            style={{
+              width: 8,
+              height: 8,
+              background: "var(--ember)",
+              boxShadow: "0 0 6px var(--ember)",
+            }}
+          />
         </div>
       )}
 
@@ -225,14 +365,21 @@ export default function MultiMobCard({
           80% { transform: translateX(3px); }
         }
         @keyframes pulseBorder {
-          0%, 100% { border-color: var(--accent-secondary); }
+          0%, 100% { border-color: var(--ember); }
           50% { border-color: var(--accent-primary); }
+        }
+        @keyframes targetPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
         :global(.animate-mob-shake) {
           animation: mobShake 0.4s ease-in-out;
         }
         :global(.animate-pulse-border) {
           animation: pulseBorder 1.2s ease-in-out infinite;
+        }
+        :global(.animate-target-pulse) {
+          animation: targetPulse 1.2s ease-in-out infinite;
         }
       `}</style>
     </div>
