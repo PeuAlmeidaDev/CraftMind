@@ -67,6 +67,13 @@ type CoopPvePhase = "IDLE" | "QUEUE" | "MATCH" | "BATTLE" | "RESULT";
 
 export type CoopPveInvitePhase = "IDLE" | "SENDING" | "WAITING" | "DECLINED" | "EXPIRED";
 
+export type InviteSlot = {
+  inviteId: string | null;
+  targetUserId: string;
+  targetName: string;
+  phase: "SENDING" | "WAITING" | "ACCEPTED" | "DECLINED" | "EXPIRED";
+};
+
 type CoopPveQueueState = {
   // Phase
   phase: CoopPvePhase;
@@ -106,6 +113,8 @@ type CoopPveQueueState = {
   // Invite (sender side)
   invitePhase: CoopPveInvitePhase;
   inviteTargetName: string | null;
+  invites: InviteSlot[];
+  maxInvites: number;
 
   // Actions
   setMode: (mode: CoopPveMode) => void;
@@ -119,6 +128,7 @@ type CoopPveQueueState = {
   getSocket: () => Socket | null;
   reconnectSocket: () => Promise<Socket>;
   sendInvite: (targetUserId: string, targetName: string) => void;
+  cancelInvites: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -181,6 +191,8 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
   // Invite (sender side)
   const [invitePhase, setInvitePhase] = useState<CoopPveInvitePhase>("IDLE");
   const [inviteTargetName, setInviteTargetName] = useState<string | null>(null);
+  const [invites, setInvites] = useState<InviteSlot[]>([]);
+  const maxInvites = mode === "3v5" ? 2 : 1;
 
   // -------------------------------------------------------------------------
   // Timer helpers
@@ -361,6 +373,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
         setActedPlayers(new Set());
         setInvitePhase("IDLE");
         setInviteTargetName(null);
+        setInvites([]);
         startTurnTimer();
       },
     );
@@ -424,29 +437,67 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
 
     // --- Invite events (sender side) ---
 
-    socket.on("coop-pve:invite:sent", (_data: { inviteId: string; targetUserId: string; mode: string }) => {
+    socket.on("coop-pve:invite:sent", (data: { inviteId: string; targetUserId: string; mode: string }) => {
+      // Update slot with the inviteId from server
+      setInvites((prev) =>
+        prev.map((slot) =>
+          slot.targetUserId === data.targetUserId && slot.phase === "SENDING"
+            ? { ...slot, inviteId: data.inviteId, phase: "WAITING" as const }
+            : slot,
+        ),
+      );
+      // Backward compat: derive invitePhase from first slot
       setInvitePhase("WAITING");
     });
 
-    socket.on("coop-pve:invite:declined", (_data: { inviteId: string }) => {
+    socket.on("coop-pve:invite:partial-accept", (data: { inviteId: string; targetUserId: string }) => {
+      setInvites((prev) =>
+        prev.map((slot) =>
+          (slot.inviteId === data.inviteId || slot.targetUserId === data.targetUserId)
+            ? { ...slot, phase: "ACCEPTED" as const }
+            : slot,
+        ),
+      );
+    });
+
+    socket.on("coop-pve:invite:declined", (data: { inviteId: string }) => {
+      // Mark the declined slot and cancel all invites in the group
+      setInvites((prev) =>
+        prev.map((slot) =>
+          slot.inviteId === data.inviteId
+            ? { ...slot, phase: "DECLINED" as const }
+            : { ...slot, phase: "DECLINED" as const },
+        ),
+      );
       setInvitePhase("DECLINED");
       setTimeout(() => {
         setInvitePhase("IDLE");
         setInviteTargetName(null);
+        setInvites([]);
       }, 2000);
     });
 
-    socket.on("coop-pve:invite:expired", (_data: { inviteId: string }) => {
+    socket.on("coop-pve:invite:expired", (data: { inviteId: string }) => {
+      // Mark the expired slot and cancel all invites in the group
+      setInvites((prev) =>
+        prev.map((slot) =>
+          slot.inviteId === data.inviteId
+            ? { ...slot, phase: "EXPIRED" as const }
+            : { ...slot, phase: "EXPIRED" as const },
+        ),
+      );
       setInvitePhase("EXPIRED");
       setTimeout(() => {
         setInvitePhase("IDLE");
         setInviteTargetName(null);
+        setInvites([]);
       }, 2000);
     });
 
     socket.on("coop-pve:invite:error", (_data: { message: string }) => {
       setInvitePhase("IDLE");
       setInviteTargetName(null);
+      setInvites([]);
     });
 
     socketRef.current = socket;
@@ -542,9 +593,26 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
   const sendInvite = useCallback((targetUserId: string, targetName: string) => {
     const socket = getSocket();
     socket.emit("coop-pve:invite:send", { targetUserId, mode });
+
+    const newSlot: InviteSlot = {
+      inviteId: null,
+      targetUserId,
+      targetName,
+      phase: "SENDING",
+    };
+
+    setInvites((prev) => [...prev, newSlot]);
+
+    // Backward compat: set invitePhase/inviteTargetName from first invite
     setInvitePhase("SENDING");
-    setInviteTargetName(targetName);
+    setInviteTargetName((prev) => prev ?? targetName);
   }, [getSocket, mode]);
+
+  const cancelInvites = useCallback(() => {
+    setInvites([]);
+    setInvitePhase("IDLE");
+    setInviteTargetName(null);
+  }, []);
 
   const playAgain = useCallback(() => {
     clearTurnTimer();
@@ -563,6 +631,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     setMatchTeammate(null);
     setMatchTeammates([]);
     setMatchMobs([]);
+    setInvites([]);
     disconnectSocket();
   }, [clearTurnTimer, disconnectSocket]);
 
@@ -758,6 +827,8 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     newLevel,
     invitePhase,
     inviteTargetName,
+    invites,
+    maxInvites,
     setMode,
     joinQueue,
     leaveQueue,
@@ -769,6 +840,7 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     getSocket: getSocketRef,
     reconnectSocket,
     sendInvite,
+    cancelInvites,
   };
 
   return (

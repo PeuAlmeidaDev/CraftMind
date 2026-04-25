@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { io, type Socket } from "socket.io-client";
 import { getToken, authFetchOptions } from "@/lib/client-auth";
-import type { CoopPveMode } from "../../_hooks/useCoopPveQueue";
+import type { CoopPveMode, InviteSlot } from "../../_hooks/useCoopPveQueue";
 
 type FriendUser = {
   id: string;
@@ -24,8 +24,11 @@ type InviteFriendModalProps = {
   onClose: () => void;
   mode: CoopPveMode;
   onInvite: (targetUserId: string, targetName: string) => void;
+  onCancelInvites: () => void;
   invitePhase: InvitePhase;
   inviteTargetName: string | null;
+  invites: InviteSlot[];
+  maxInvites: number;
 };
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? "";
@@ -35,8 +38,11 @@ export default function InviteFriendModal({
   onClose,
   mode,
   onInvite,
+  onCancelInvites,
   invitePhase,
   inviteTargetName,
+  invites,
+  maxInvites,
 }: InviteFriendModalProps) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
@@ -123,7 +129,7 @@ export default function InviteFriendModal({
 
   if (!open) return null;
 
-  const modeLabel = mode === "2v3" ? "2v3" : "2v5";
+  const modeLabel = mode === "2v3" ? "2v3" : mode === "2v5" ? "2v5" : "3v5";
 
   // Sort: online first
   const sortedFriends = [...friends].sort((a, b) => {
@@ -132,8 +138,47 @@ export default function InviteFriendModal({
     return bOnline - aOnline;
   });
 
-  const isWaiting = invitePhase === "WAITING" || invitePhase === "SENDING";
-  const showFeedback = invitePhase === "DECLINED" || invitePhase === "EXPIRED";
+  // IDs already invited (to disable in list)
+  const invitedUserIds = new Set(invites.map((s) => s.targetUserId));
+
+  // For single-invite modes, use legacy behavior
+  const isSingleInviteMode = maxInvites === 1;
+
+  // Determine modal state
+  const allInvitesSent = invites.length >= maxInvites;
+  const anyDeclinedOrExpired = invites.some((s) => s.phase === "DECLINED" || s.phase === "EXPIRED");
+  const allAccepted = invites.length >= maxInvites && invites.every((s) => s.phase === "ACCEPTED");
+  const isWaitingAny = invites.some((s) => s.phase === "SENDING" || s.phase === "WAITING");
+
+  // Legacy compat for single-invite
+  const legacyIsWaiting = isSingleInviteMode && (invitePhase === "WAITING" || invitePhase === "SENDING");
+  const legacyShowFeedback = isSingleInviteMode && (invitePhase === "DECLINED" || invitePhase === "EXPIRED");
+
+  // Should show friend list?
+  const showFriendList = isSingleInviteMode
+    ? !legacyIsWaiting && !legacyShowFeedback
+    : !allInvitesSent && !anyDeclinedOrExpired;
+
+  // Phase label helper
+  const phaseLabel = (phase: InviteSlot["phase"]): string => {
+    switch (phase) {
+      case "SENDING": return "Enviando...";
+      case "WAITING": return "Aguardando...";
+      case "ACCEPTED": return "Aceito";
+      case "DECLINED": return "Recusado";
+      case "EXPIRED": return "Expirado";
+    }
+  };
+
+  const phaseColor = (phase: InviteSlot["phase"]): string => {
+    switch (phase) {
+      case "SENDING":
+      case "WAITING": return "color-mix(in srgb, var(--gold) 80%, transparent)";
+      case "ACCEPTED": return "var(--ember)";
+      case "DECLINED": return "#f87171";
+      case "EXPIRED": return "#facc15";
+    }
+  };
 
   return (
     <>
@@ -144,19 +189,34 @@ export default function InviteFriendModal({
       >
         {/* Modal card */}
         <div
-          className="relative w-full max-w-md mx-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl animate-modalIn"
+          className="relative w-full max-w-md mx-4 border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl animate-modalIn"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <div>
-              <h2 className="text-lg font-bold text-white">Convidar Amigo</h2>
-              <p className="text-xs text-gray-500">Modo {modeLabel}</p>
+              <h2
+                className="text-lg font-bold text-white"
+                style={{ fontFamily: "var(--font-cormorant)" }}
+              >
+                {maxInvites === 2 ? "Convidar Aliados" : "Convidar Amigo"}
+              </h2>
+              <p
+                className="text-xs"
+                style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
+              >
+                Modo {modeLabel}
+                {maxInvites === 2 && (
+                  <span className="ml-2">
+                    ({invites.length}/{maxInvites} convites)
+                  </span>
+                )}
+              </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-[var(--bg-primary)] transition cursor-pointer"
+              className="p-1.5 text-gray-400 hover:text-white hover:bg-[var(--bg-primary)] transition cursor-pointer"
               aria-label="Fechar"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -168,19 +228,23 @@ export default function InviteFriendModal({
 
           {/* Content */}
           <div className="px-5 pb-5">
-            {/* Waiting state */}
-            {isWaiting && inviteTargetName && (
+            {/* === SINGLE-INVITE MODE: legacy behavior === */}
+            {isSingleInviteMode && legacyIsWaiting && inviteTargetName && (
               <div className="flex flex-col items-center py-8">
                 <div className="w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-sm text-white font-medium">
                   Aguardando resposta de {inviteTargetName}...
                 </p>
-                <p className="text-xs text-gray-500 mt-1">O convite expira em 30 segundos</p>
+                <p
+                  className="text-xs mt-1"
+                  style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 50%, transparent)" }}
+                >
+                  O convite expira em 30 segundos
+                </p>
               </div>
             )}
 
-            {/* Feedback state */}
-            {showFeedback && (
+            {isSingleInviteMode && legacyShowFeedback && (
               <div className="flex flex-col items-center py-8">
                 {invitePhase === "DECLINED" ? (
                   <>
@@ -206,8 +270,133 @@ export default function InviteFriendModal({
               </div>
             )}
 
-            {/* Friends list */}
-            {!isWaiting && !showFeedback && (
+            {/* === MULTI-INVITE MODE (3v5): invite slots banner === */}
+            {!isSingleInviteMode && invites.length > 0 && !anyDeclinedOrExpired && (
+              <div className="mb-4 space-y-2">
+                {invites.map((slot, idx) => (
+                  <div
+                    key={slot.targetUserId}
+                    className="flex items-center justify-between p-3"
+                    style={{
+                      background: "color-mix(in srgb, var(--bg-primary) 80%, transparent)",
+                      border: `1px solid ${slot.phase === "ACCEPTED" ? "var(--ember)" : "color-mix(in srgb, var(--gold) 20%, transparent)"}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Slot indicator */}
+                      <div
+                        className="flex h-6 w-6 items-center justify-center text-[10px] font-bold"
+                        style={{
+                          border: `1px solid ${phaseColor(slot.phase)}`,
+                          background: slot.phase === "ACCEPTED" ? "color-mix(in srgb, var(--ember) 20%, transparent)" : "transparent",
+                          color: phaseColor(slot.phase),
+                        }}
+                      >
+                        {slot.phase === "ACCEPTED" ? "\u2713" : idx + 1}
+                      </div>
+                      <div>
+                        <p
+                          className="text-sm font-medium text-white"
+                          style={{ fontFamily: "var(--font-cormorant)" }}
+                        >
+                          {slot.targetName}
+                        </p>
+                        <p
+                          className="text-[11px]"
+                          style={{ fontFamily: "var(--font-garamond)", color: phaseColor(slot.phase) }}
+                        >
+                          {phaseLabel(slot.phase)}
+                        </p>
+                      </div>
+                    </div>
+                    {(slot.phase === "SENDING" || slot.phase === "WAITING") && (
+                      <div className="w-4 h-4 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </div>
+                ))}
+
+                {/* Hint for second invite */}
+                {invites.length === 1 && !allInvitesSent && (
+                  <p
+                    className="text-center text-xs italic mt-2"
+                    style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
+                  >
+                    Selecione o segundo aliado abaixo
+                  </p>
+                )}
+
+                {/* All sent — waiting for both */}
+                {allInvitesSent && !allAccepted && (
+                  <div className="mt-3 text-center">
+                    <p
+                      className="text-xs italic"
+                      style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
+                    >
+                      Aguardando todos os aliados aceitarem...
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCancelInvites();
+                        onClose();
+                      }}
+                      className="mt-3 w-full cursor-pointer py-2 text-[11px] uppercase tracking-[0.2em] text-red-400 transition hover:bg-red-500/10"
+                      style={{
+                        fontFamily: "var(--font-cinzel)",
+                        border: "1px solid color-mix(in srgb, #f87171 30%, transparent)",
+                        background: "transparent",
+                      }}
+                    >
+                      Cancelar convites
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* === MULTI-INVITE MODE: Declined/Expired feedback === */}
+            {!isSingleInviteMode && anyDeclinedOrExpired && (
+              <div className="flex flex-col items-center py-8">
+                {invites.some((s) => s.phase === "DECLINED") ? (
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-3">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-red-400 font-medium">
+                      {invites.find((s) => s.phase === "DECLINED")?.targetName ?? "Aliado"} recusou o convite
+                    </p>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 50%, transparent)" }}
+                    >
+                      Todos os convites do grupo foram cancelados
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center mb-3">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-yellow-400">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-yellow-400 font-medium">Convite expirou</p>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 50%, transparent)" }}
+                    >
+                      Todos os convites do grupo foram cancelados
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* === Friends list (shared for both modes) === */}
+            {showFriendList && (
               <>
                 {loading ? (
                   <div className="flex justify-center py-8">
@@ -233,10 +422,18 @@ export default function InviteFriendModal({
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                     {sortedFriends.map((friend) => {
                       const isOnline = onlineStatus[friend.user.id] ?? false;
+                      const alreadyInvited = invitedUserIds.has(friend.user.id);
+                      const isDisabled = !isOnline || alreadyInvited;
+
                       return (
                         <div
                           key={friend.friendshipId}
-                          className="flex items-center justify-between rounded-lg p-3 bg-[var(--bg-primary)] border border-[var(--border-subtle)]"
+                          className="flex items-center justify-between p-3"
+                          style={{
+                            background: "var(--bg-primary)",
+                            border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+                            opacity: alreadyInvited ? 0.5 : 1,
+                          }}
                         >
                           <div className="flex items-center gap-3">
                             {/* Online indicator */}
@@ -246,11 +443,19 @@ export default function InviteFriendModal({
                               }`}
                             />
                             <div>
-                              <p className="text-sm font-medium text-white">{friend.user.name}</p>
-                              <p className="text-xs text-gray-500">
+                              <p
+                                className="text-sm font-medium text-white"
+                                style={{ fontFamily: "var(--font-cormorant)" }}
+                              >
+                                {friend.user.name}
+                              </p>
+                              <p
+                                className="text-xs"
+                                style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 50%, transparent)" }}
+                              >
                                 Nv. {friend.user.level}
                                 {friend.user.houseName && (
-                                  <span className="ml-1.5 text-[var(--accent-primary)]">
+                                  <span className="ml-1.5" style={{ color: "var(--accent-primary)" }}>
                                     {friend.user.houseName}
                                   </span>
                                 )}
@@ -261,14 +466,24 @@ export default function InviteFriendModal({
                           <button
                             type="button"
                             onClick={() => onInvite(friend.user.id, friend.user.name)}
-                            disabled={!isOnline}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
-                              isOnline
-                                ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 hover:bg-[var(--accent-primary)]/25"
-                                : "bg-gray-800/50 text-gray-600 border border-gray-700/50 cursor-not-allowed"
-                            }`}
+                            disabled={isDisabled}
+                            className="px-3 py-1.5 text-xs font-medium transition cursor-pointer"
+                            style={{
+                              fontFamily: "var(--font-cinzel)",
+                              letterSpacing: "0.1em",
+                              background: isDisabled
+                                ? "color-mix(in srgb, var(--bg-secondary) 50%, transparent)"
+                                : "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
+                              border: `1px solid ${isDisabled ? "color-mix(in srgb, var(--gold) 14%, transparent)" : "color-mix(in srgb, var(--accent-primary) 30%, transparent)"}`,
+                              color: alreadyInvited
+                                ? "color-mix(in srgb, var(--gold) 40%, transparent)"
+                                : isOnline
+                                  ? "var(--accent-primary)"
+                                  : "color-mix(in srgb, var(--gold) 30%, transparent)",
+                              cursor: isDisabled ? "not-allowed" : "pointer",
+                            }}
                           >
-                            {isOnline ? "Convidar" : "Offline"}
+                            {alreadyInvited ? "Convidado" : isOnline ? "Convidar" : "Offline"}
                           </button>
                         </div>
                       );

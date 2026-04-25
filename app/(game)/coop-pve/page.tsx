@@ -255,7 +255,7 @@ function CoopPveInner() {
 // ---------------------------------------------------------------------------
 
 function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | null; house: { name: string } | null } | null }) {
-  const { mode, setMode, joinQueue, sendInvite, invitePhase, inviteTargetName } = useCoopPveQueue();
+  const { mode, setMode, joinQueue, sendInvite, cancelInvites, invitePhase, inviteTargetName, invites, maxInvites } = useCoopPveQueue();
   const router = useRouter();
   const [showInviteModal, setShowInviteModal] = useState(false);
 
@@ -515,8 +515,11 @@ function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | n
           onClose={() => setShowInviteModal(false)}
           mode={mode}
           onInvite={handleInvite}
+          onCancelInvites={cancelInvites}
           invitePhase={invitePhase}
           inviteTargetName={inviteTargetName}
+          invites={invites}
+          maxInvites={maxInvites}
         />
       )}
     </div>
