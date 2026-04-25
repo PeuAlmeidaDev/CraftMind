@@ -44,11 +44,11 @@ type BattleArenaProps = {
 // ---------------------------------------------------------------------------
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  STUN: { label: "Atordoado", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  FROZEN: { label: "Congelado", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" },
-  BURN: { label: "Queimando", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  POISON: { label: "Envenenado", color: "bg-green-500/20 text-green-400 border-green-500/30" },
-  SLOW: { label: "Lento", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+  STUN: { label: "Atordoado", color: "#e0c85c" },
+  FROZEN: { label: "Congelado", color: "#67e8f9" },
+  BURN: { label: "Queimando", color: "#ff8a70" },
+  POISON: { label: "Envenenado", color: "#7acf8a" },
+  SLOW: { label: "Lento", color: "#60a5fa" },
 };
 
 const TIER_BADGE_COLORS: Record<number, string> = {
@@ -65,20 +65,24 @@ const TIER_BADGE_COLORS: Record<number, string> = {
 
 const STATUS_BORDER_PRIORITY = ["STUN", "FROZEN", "BURN", "POISON", "SLOW"] as const;
 const STATUS_BORDER_COLOR: Record<string, string> = {
-  BURN: "border-orange-500",
-  FROZEN: "border-cyan-400",
-  POISON: "border-green-500",
-  STUN: "border-amber-400",
-  SLOW: "border-blue-500",
+  BURN: "#ff8a70",
+  FROZEN: "#67e8f9",
+  POISON: "#7acf8a",
+  STUN: "#e0c85c",
+  SLOW: "#60a5fa",
 };
 
-function getStatusBorderClass(effects: ActiveStatusEffect[]): string {
+function getStatusBorderStyle(effects: ActiveStatusEffect[]): string {
   for (const s of STATUS_BORDER_PRIORITY) {
     if (effects.some((e) => e.status === s)) {
-      return `${STATUS_BORDER_COLOR[s]} animate-status-pulse`;
+      return `1px solid color-mix(in srgb, ${STATUS_BORDER_COLOR[s]} 40%, transparent)`;
     }
   }
-  return "border-[var(--border-subtle)]";
+  return "1px solid color-mix(in srgb, var(--gold) 13%, transparent)";
+}
+
+function hasActiveStatus(effects: ActiveStatusEffect[]): boolean {
+  return STATUS_BORDER_PRIORITY.some((s) => effects.some((e) => e.status === s));
 }
 
 // ---------------------------------------------------------------------------
@@ -93,14 +97,32 @@ function StatusBadges({ effects }: { effects: ActiveStatusEffect[] }) {
       {effects.map((effect) => {
         const config = STATUS_CONFIG[effect.status];
         const label = config?.label ?? effect.status;
-        const color = config?.color ?? "bg-gray-500/20 text-gray-400 border-gray-500/30";
+        const hexColor = config?.color ?? "#999";
 
         return (
           <span
             key={effect.status}
-            className={`text-[10px] rounded-full px-2 py-0.5 border animate-pulse ${color}`}
+            className="inline-flex items-center gap-[4px] uppercase animate-status-pulse"
+            style={{
+              fontFamily: "var(--font-jetbrains)",
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              color: hexColor,
+              padding: "2px 6px",
+              border: `1px solid color-mix(in srgb, ${hexColor} 40%, transparent)`,
+              background: `color-mix(in srgb, ${hexColor} 8%, transparent)`,
+            }}
           >
-            {label} ({effect.remainingTurns})
+            <span
+              className="rounded-full shrink-0"
+              style={{
+                width: 4,
+                height: 4,
+                background: hexColor,
+                boxShadow: `0 0 3px ${hexColor}`,
+              }}
+            />
+            {label} {effect.remainingTurns}t
           </span>
         );
       })}
@@ -117,25 +139,113 @@ function HpBar({
   current: number;
   max: number;
   variant: "player" | "mob";
-  size?: "normal" | "compact";
+  size?: "normal" | "compact" | "lg";
 }) {
   const percent = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
-  const barColor = variant === "player" ? "bg-emerald-500" : "bg-red-500";
-  const trackColor = variant === "player" ? "bg-emerald-950/30" : "bg-red-950/30";
-  const barHeight = size === "compact" ? "h-2.5" : "h-3";
+  const pct01 = percent / 100;
+  const low = pct01 <= 0.25 && pct01 > 0;
+  const isPlayer = variant === "player";
+
+  const fill = isPlayer
+    ? "linear-gradient(90deg, #10b981 0%, #34d399 100%)"
+    : "linear-gradient(90deg, #b82b24 0%, #ff6a52 100%)";
+
+  const trackBorder = isPlayer
+    ? "1px solid color-mix(in srgb, #10b981 27%, transparent)"
+    : "1px solid color-mix(in srgb, #b82b24 27%, transparent)";
+
+  const innerGlow = isPlayer
+    ? "inset 0 0 4px rgba(16, 185, 129, 0.53)"
+    : "inset 0 0 4px rgba(184, 43, 36, 0.53)";
+
+  const height = size === "lg" ? 10 : size === "compact" ? 4 : 6;
+  const hideLabel = size === "compact";
 
   return (
-    <div>
-      <div className={`w-full ${barHeight} rounded-full ${trackColor} overflow-hidden`}>
+    <div style={{ width: "100%" }}>
+      {!hideLabel && (
         <div
-          className={`h-full rounded-full ${barColor} transition-all duration-500`}
-          style={{ width: `${percent}%` }}
+          className="flex justify-between uppercase"
+          style={{
+            fontFamily: "var(--font-jetbrains)",
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            marginBottom: 4,
+          }}
+        >
+          <span style={{ color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}>HP</span>
+          <span style={{ color: isPlayer ? "#7acf8a" : "#ff8a70" }}>
+            {current} / {max}
+          </span>
+        </div>
+      )}
+      <div
+        style={{
+          position: "relative",
+          height,
+          border: trackBorder,
+          overflow: "hidden",
+          background: "var(--bg-primary)",
+        }}
+      >
+        <div
+          className={low ? "animate-hp-low" : ""}
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: `${percent}%`,
+            background: fill,
+            boxShadow: innerGlow,
+            transition: "width 500ms cubic-bezier(.2,.8,.2,1)",
+          }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: "50%",
+            width: 1,
+            background: "color-mix(in srgb, var(--gold) 13%, transparent)",
+          }}
         />
       </div>
-      <p className="text-xs text-gray-500 mt-1">
-        HP: {current} / {max}
-      </p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Corner ticks decorator
+// ---------------------------------------------------------------------------
+
+function CornerTicks() {
+  const tickStyle = "absolute w-[12px] h-[12px] pointer-events-none";
+  const borderColor = "color-mix(in srgb, var(--gold) 40%, transparent)";
+  return (
+    <>
+      {/* top-left */}
+      <span
+        className={`${tickStyle} top-0 left-0`}
+        style={{ borderTop: `1px solid ${borderColor}`, borderLeft: `1px solid ${borderColor}` }}
+      />
+      {/* top-right */}
+      <span
+        className={`${tickStyle} top-0 right-0`}
+        style={{ borderTop: `1px solid ${borderColor}`, borderRight: `1px solid ${borderColor}` }}
+      />
+      {/* bottom-left */}
+      <span
+        className={`${tickStyle} bottom-0 left-0`}
+        style={{ borderBottom: `1px solid ${borderColor}`, borderLeft: `1px solid ${borderColor}` }}
+      />
+      {/* bottom-right */}
+      <span
+        className={`${tickStyle} bottom-0 right-0`}
+        style={{ borderBottom: `1px solid ${borderColor}`, borderRight: `1px solid ${borderColor}` }}
+      />
+    </>
   );
 }
 
@@ -284,21 +394,25 @@ export default function BattleArena({
   return (
     <div className="mx-auto max-w-4xl lg:max-w-6xl px-4 py-6">
       {/* ================================================================= */}
-      {/* DESKTOP — player panel + mob card vertical                        */}
+      {/* DESKTOP — player panel + mob card                                 */}
       {/* ================================================================= */}
       <div className="hidden lg:flex lg:flex-row lg:gap-4">
         {/* --- Player Panel (esquerda ~45%) --- */}
         <div className="flex flex-col gap-3 w-[45%]">
           {/* Player info card */}
           <div
-            className={`relative rounded-[14px] border ${getStatusBorderClass(playerStatusEffects)} overflow-hidden ${
-              playerShaking ? "animate-shake" : ""
-            }`}
+            className={`relative overflow-hidden ${playerShaking ? "animate-shake" : ""}`}
             style={{
-              background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
+              background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+              border: hasActiveStatus(playerStatusEffects)
+                ? getStatusBorderStyle(playerStatusEffects)
+                : "1px solid color-mix(in srgb, var(--gold) 13%, transparent)",
+              padding: 18,
             }}
           >
-            {/* Bandeira da casa como background do card inteiro */}
+            <CornerTicks />
+
+            {/* Bandeira da casa como background */}
             {houseAssets && (
               <Image
                 src={houseAssets.bandeira}
@@ -311,8 +425,16 @@ export default function BattleArena({
             )}
 
             {/* Player header: avatar + name + house */}
-            <div className="relative z-10 flex items-center gap-3 p-4">
-              <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-[var(--bg-secondary)]">
+            <div className="relative z-10 flex items-center gap-[14px]">
+              <div
+                className="relative shrink-0 rounded-full overflow-hidden"
+                style={{
+                  width: 60,
+                  height: 60,
+                  border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+                  background: "var(--bg-secondary)",
+                }}
+              >
                 {profile.avatarUrl ? (
                   <img
                     src={profile.avatarUrl}
@@ -322,8 +444,11 @@ export default function BattleArena({
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <span
-                      className="text-2xl text-white/30"
-                      style={{ fontFamily: "var(--font-cinzel)" }}
+                      className="text-2xl"
+                      style={{
+                        fontFamily: "var(--font-cinzel)",
+                        color: "color-mix(in srgb, #fff 30%, transparent)",
+                      }}
                     >
                       {playerInitial}
                     </span>
@@ -331,16 +456,33 @@ export default function BattleArena({
                 )}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-white font-semibold text-sm truncate">{profile.name}</span>
-                {profile.house && (
-                  <span className="text-[11px] text-gray-400 truncate">{profile.house.name}</span>
-                )}
+                <span
+                  className="uppercase"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 9,
+                    letterSpacing: "0.3em",
+                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                  }}
+                >
+                  {profile.house?.name ?? "Casa"} . Nv {profile.level ?? "?"}
+                </span>
+                <span
+                  className="text-white truncate"
+                  style={{
+                    fontFamily: "var(--font-cormorant)",
+                    fontSize: 26,
+                    lineHeight: 1,
+                  }}
+                >
+                  {profile.name}
+                </span>
               </div>
             </div>
 
             {/* HP + Status */}
-            <div className="relative z-10 px-4 pb-4 space-y-2">
-              <HpBar current={playerHp} max={playerMaxHp} variant="player" />
+            <div className="relative z-10 mt-[14px] flex flex-col gap-[10px]">
+              <HpBar current={playerHp} max={playerMaxHp} variant="player" size="lg" />
               <StatusBadges effects={playerStatusEffects} />
             </div>
 
@@ -348,11 +490,19 @@ export default function BattleArena({
             {playerFloats.map((f) => (
               <span
                 key={f.id}
-                className={`absolute top-4 left-1/2 -translate-x-1/2 font-bold text-lg pointer-events-none z-30 animate-float-number ${
-                  f.type === "damage" ? "text-red-400" : "text-emerald-400"
-                }`}
+                className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none z-30 animate-float-number italic"
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 36,
+                  fontWeight: 500,
+                  color: f.type === "damage" ? "#ff8a70" : "#7acf8a",
+                  textShadow:
+                    f.type === "damage"
+                      ? "0 2px 8px rgba(255,138,112,0.53), 0 0 14px rgba(255,138,112,0.27)"
+                      : "0 2px 8px rgba(122,207,138,0.53), 0 0 14px rgba(122,207,138,0.27)",
+                }}
               >
-                {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
+                {f.type === "damage" ? `\u2212${f.value}` : `+${f.value}`}
               </span>
             ))}
 
@@ -363,10 +513,13 @@ export default function BattleArena({
             />
           </div>
 
-          {/* Skills */}
+          {/* Skills container */}
           <div
-            className="rounded-[14px] border border-[var(--border-subtle)] p-4"
-            style={{ background: "var(--bg-card)" }}
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid color-mix(in srgb, var(--gold) 13%, transparent)",
+              padding: 16,
+            }}
           >
             <SkillBar
               skills={availableSkills}
@@ -378,7 +531,17 @@ export default function BattleArena({
               type="button"
               onClick={onForfeit}
               disabled={acting}
-              className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-2 w-full py-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                fontFamily: "var(--font-garamond)",
+                fontStyle: "italic",
+                fontSize: 12,
+                color: "#d96a52",
+                textDecoration: "underline",
+                textDecorationColor: "#d96a5244",
+                background: "transparent",
+                border: "none",
+              }}
             >
               Desistir da batalha
             </button>
@@ -396,26 +559,43 @@ export default function BattleArena({
 
         {/* --- Mob Card vertical/tall (direita ~55%) --- */}
         <div
-          className={`relative rounded-[14px] border ${getStatusBorderClass(mobStatusEffects)} overflow-hidden w-[55%] flex flex-col ${
+          className={`relative overflow-hidden w-[55%] flex flex-col ${
             mobShaking ? "animate-shake" : ""
           }`}
           style={{
-            background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
+            background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+            border: hasActiveStatus(mobStatusEffects)
+              ? getStatusBorderStyle(mobStatusEffects)
+              : "1px solid color-mix(in srgb, #b82b24 20%, transparent)",
           }}
         >
-          {/* Mob portrait — tall image */}
+          {/* Mob portrait */}
           <div className="relative h-[420px] overflow-hidden">
             <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />
-            {/* Gradient overlay for name readability */}
+            {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
             {/* Name + tier badge at bottom of image */}
             <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
               <div className="flex items-center gap-2">
-                <span className="text-white font-bold text-xl drop-shadow-lg">{mob.name}</span>
                 <span
-                  className={`text-[11px] font-semibold rounded-full px-2.5 py-0.5 border backdrop-blur-sm ${
-                    TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1]
-                  }`}
+                  className="text-white font-medium drop-shadow-lg"
+                  style={{
+                    fontFamily: "var(--font-cormorant)",
+                    fontSize: 24,
+                  }}
+                >
+                  {mob.name}
+                </span>
+                <span
+                  className="shrink-0 uppercase"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 10,
+                    letterSpacing: "0.3em",
+                    color: "#ff8a70",
+                    padding: "2px 6px",
+                    border: "1px solid #ff8a7066",
+                  }}
                 >
                   T{mob.tier}
                 </span>
@@ -424,8 +604,8 @@ export default function BattleArena({
           </div>
 
           {/* HP + Status below image */}
-          <div className="p-4 space-y-2">
-            <HpBar current={mobHp} max={mobMaxHp} variant="mob" />
+          <div className="p-4 flex flex-col gap-[10px]">
+            <HpBar current={mobHp} max={mobMaxHp} variant="mob" size="lg" />
             <StatusBadges effects={mobStatusEffects} />
           </div>
 
@@ -433,11 +613,19 @@ export default function BattleArena({
           {mobFloats.map((f) => (
             <span
               key={f.id}
-              className={`absolute top-4 left-1/2 -translate-x-1/2 font-bold text-lg pointer-events-none z-30 animate-float-number ${
-                f.type === "damage" ? "text-red-400" : "text-emerald-400"
-              }`}
+              className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none z-30 animate-float-number italic"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                fontSize: 36,
+                fontWeight: 500,
+                color: f.type === "damage" ? "#ff8a70" : "#7acf8a",
+                textShadow:
+                  f.type === "damage"
+                    ? "0 2px 8px rgba(255,138,112,0.53), 0 0 14px rgba(255,138,112,0.27)"
+                    : "0 2px 8px rgba(122,207,138,0.53), 0 0 14px rgba(122,207,138,0.27)",
+              }}
             >
-              {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
+              {f.type === "damage" ? `\u2212${f.value}` : `+${f.value}`}
             </span>
           ))}
 
@@ -455,15 +643,30 @@ export default function BattleArena({
       <div className="flex flex-col gap-3 lg:hidden">
         {/* --- Player compact bar + skills --- */}
         <div
-          className={`relative bg-[var(--bg-card)] border ${getStatusBorderClass(playerStatusEffects)} rounded-lg p-3 ${
-            playerShaking ? "animate-shake" : ""
-          }`}
+          className={`relative ${playerShaking ? "animate-shake" : ""}`}
+          style={{
+            background: "var(--bg-card)",
+            border: hasActiveStatus(playerStatusEffects)
+              ? getStatusBorderStyle(playerStatusEffects)
+              : "1px solid color-mix(in srgb, var(--gold) 13%, transparent)",
+            padding: 12,
+          }}
         >
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-white truncate">{profile.name}</span>
+            <span
+              className="text-white truncate"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                fontSize: 18,
+              }}
+            >
+              {profile.name}
+            </span>
           </div>
           <HpBar current={playerHp} max={playerMaxHp} variant="player" size="compact" />
-          <StatusBadges effects={playerStatusEffects} />
+          <div className="mt-1">
+            <StatusBadges effects={playerStatusEffects} />
+          </div>
           <div className="mt-3">
             <SkillBar
               skills={availableSkills}
@@ -475,7 +678,17 @@ export default function BattleArena({
               type="button"
               onClick={onForfeit}
               disabled={acting}
-              className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-2 w-full py-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                fontFamily: "var(--font-garamond)",
+                fontStyle: "italic",
+                fontSize: 12,
+                color: "#d96a52",
+                textDecoration: "underline",
+                textDecorationColor: "#d96a5244",
+                background: "transparent",
+                border: "none",
+              }}
             >
               Desistir da batalha
             </button>
@@ -483,11 +696,19 @@ export default function BattleArena({
           {playerFloats.map((f) => (
             <span
               key={f.id}
-              className={`absolute top-2 left-1/2 -translate-x-1/2 font-bold text-lg pointer-events-none z-30 animate-float-number ${
-                f.type === "damage" ? "text-red-400" : "text-emerald-400"
-              }`}
+              className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none z-30 animate-float-number italic"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                fontSize: 28,
+                fontWeight: 500,
+                color: f.type === "damage" ? "#ff8a70" : "#7acf8a",
+                textShadow:
+                  f.type === "damage"
+                    ? "0 2px 8px rgba(255,138,112,0.53), 0 0 14px rgba(255,138,112,0.27)"
+                    : "0 2px 8px rgba(122,207,138,0.53), 0 0 14px rgba(122,207,138,0.27)",
+              }}
             >
-              {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
+              {f.type === "damage" ? `\u2212${f.value}` : `+${f.value}`}
             </span>
           ))}
 
@@ -498,37 +719,68 @@ export default function BattleArena({
           />
         </div>
 
-        {/* --- Mob compact bar --- */}
+        {/* --- Mob compact card --- */}
         <div
-          className={`relative bg-[var(--bg-card)] border ${getStatusBorderClass(mobStatusEffects)} rounded-lg p-0 pb-3 ${
-            mobShaking ? "animate-shake" : ""
-          }`}
+          className={`relative overflow-hidden ${mobShaking ? "animate-shake" : ""}`}
+          style={{
+            background: "var(--bg-card)",
+            border: hasActiveStatus(mobStatusEffects)
+              ? getStatusBorderStyle(mobStatusEffects)
+              : "1px solid color-mix(in srgb, #b82b24 20%, transparent)",
+          }}
         >
-          <div className="relative h-[180px] w-full overflow-hidden rounded-t-lg">
+          <div className="relative h-[180px] w-full overflow-hidden">
             <MobPlaceholder name={mob.name} tier={mob.tier} imageUrl={mob.imageUrl} />
-          </div>
-          <div className="px-3">
-            <div className="flex items-center gap-2 mb-1 mt-2">
-              <span className="text-sm font-semibold text-white truncate">{mob.name}</span>
-              <span
-                className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border shrink-0 ${
-                  TIER_BADGE_COLORS[mob.tier] ?? TIER_BADGE_COLORS[1]
-                }`}
-              >
-                T{mob.tier}
-              </span>
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+            {/* Name + tier at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 px-3 pb-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-white font-medium"
+                  style={{
+                    fontFamily: "var(--font-cormorant)",
+                    fontSize: 18,
+                  }}
+                >
+                  {mob.name}
+                </span>
+                <span
+                  className="shrink-0 uppercase"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 9,
+                    letterSpacing: "0.3em",
+                    color: "#ff8a70",
+                    padding: "1px 4px",
+                    border: "1px solid #ff8a7066",
+                  }}
+                >
+                  T{mob.tier}
+                </span>
+              </div>
             </div>
+          </div>
+          <div className="px-3 py-3 flex flex-col gap-[6px]">
             <HpBar current={mobHp} max={mobMaxHp} variant="mob" size="compact" />
             <StatusBadges effects={mobStatusEffects} />
           </div>
           {mobFloats.map((f) => (
             <span
               key={f.id}
-              className={`absolute top-2 left-1/2 -translate-x-1/2 font-bold text-lg pointer-events-none z-30 animate-float-number ${
-                f.type === "damage" ? "text-red-400" : "text-emerald-400"
-              }`}
+              className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none z-30 animate-float-number italic"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                fontSize: 28,
+                fontWeight: 500,
+                color: f.type === "damage" ? "#ff8a70" : "#7acf8a",
+                textShadow:
+                  f.type === "damage"
+                    ? "0 2px 8px rgba(255,138,112,0.53), 0 0 14px rgba(255,138,112,0.27)"
+                    : "0 2px 8px rgba(122,207,138,0.53), 0 0 14px rgba(122,207,138,0.27)",
+              }}
             >
-              {f.type === "damage" ? `-${f.value}` : `+${f.value}`}
+              {f.type === "damage" ? `\u2212${f.value}` : `+${f.value}`}
             </span>
           ))}
 
@@ -549,7 +801,7 @@ export default function BattleArena({
         />
       </div>
 
-      {/* Shake keyframes */}
+      {/* Keyframes */}
       <style jsx>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
@@ -574,7 +826,14 @@ export default function BattleArena({
           50% { opacity: 0.5; }
         }
         :global(.animate-status-pulse) {
-          animation: statusPulse 1.5s ease-in-out infinite;
+          animation: statusPulse 2s ease-in-out infinite;
+        }
+        @keyframes hpLowPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        :global(.animate-hp-low) {
+          animation: hpLowPulse 0.9s ease-in-out infinite;
         }
       `}</style>
     </div>
