@@ -28,10 +28,15 @@ export default function CoopPveArena({
   const [targetingMode, setTargetingMode] = useState<"SINGLE_ENEMY" | "SINGLE_ALLY" | null>(null);
   const [pendingSkillId, setPendingSkillId] = useState<string | null>(null);
 
-  // VFX state
-  type ActiveVfx = { skillName: string; target: "mob"; mobIndex: number } | { skillName: string; target: "player"; playerId: string } | null;
-  const [activeVfx, setActiveVfx] = useState<ActiveVfx>(null);
-  const handleVfxComplete = useCallback(() => setActiveVfx(null), []);
+  // VFX queue — sequential playback
+  type VfxQueueItem =
+    | { skillName: string; target: "mob"; mobIndex: number }
+    | { skillName: string; target: "player"; playerId: string };
+  const [vfxQueue, setVfxQueue] = useState<VfxQueueItem[]>([]);
+  const activeVfx = vfxQueue[0] ?? null;
+  const handleVfxComplete = useCallback(() => {
+    setVfxQueue((prev) => prev.slice(1));
+  }, []);
   const prevTurnEventsLength = useRef(turnEvents.length);
 
   // Derive current player state
@@ -106,6 +111,8 @@ export default function CoopPveArena({
     const newEntries = turnEvents.slice(prevTurnEventsLength.current);
     prevTurnEventsLength.current = turnEvents.length;
 
+    const newVfx: VfxQueueItem[] = [];
+
     for (const rawEntry of newEntries) {
       const entry = rawEntry as Record<string, unknown>;
       const skillName = entry.skillName as string | undefined;
@@ -121,16 +128,20 @@ export default function CoopPveArena({
       // Check if target is a mob
       const targetMob = mobs.find((m) => m.playerId === targetId);
       if (targetMob) {
-        setActiveVfx({ skillName, target: "mob", mobIndex: targetMob.index });
-        break;
+        newVfx.push({ skillName, target: "mob", mobIndex: targetMob.index });
+        continue;
       }
 
       // Check if target is a teammate
       const targetTeammate = teammates.find((t) => t.playerId === targetId);
       if (targetTeammate) {
-        setActiveVfx({ skillName, target: "player", playerId: targetTeammate.playerId });
-        break;
+        newVfx.push({ skillName, target: "player", playerId: targetTeammate.playerId });
+        continue;
       }
+    }
+
+    if (newVfx.length > 0) {
+      setVfxQueue((prev) => [...prev, ...newVfx]);
     }
   }, [turnEvents, mobs, teammates]);
 
