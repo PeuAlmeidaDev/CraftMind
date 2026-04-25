@@ -80,45 +80,73 @@ export default function LoginPage() {
     <div className="flex flex-col items-center px-4">
       {/* Titulo e subtitulo */}
       <div className="animate-fade-in-up text-center">
-        <h1
-          className="mb-2 text-4xl font-bold sm:text-5xl"
+        {/* Eyebrow */}
+        <p
+          className="mb-3 text-[9px] uppercase"
           style={{
-            background: "linear-gradient(135deg, var(--accent-primary), #a78bfa)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            fontFamily: "var(--font-cinzel)",
+            letterSpacing: "0.4em",
+            color: "color-mix(in srgb, var(--gold) 50%, transparent)",
           }}
         >
-          Craft Mind
+          FORJA DO DESTINO
+        </p>
+
+        <h1 className="mb-2 text-5xl sm:text-6xl" style={{ fontFamily: "var(--font-cormorant)", fontStyle: "italic" }}>
+          <span style={{ color: "var(--ember)" }}>Craft</span>{" "}
+          <span className="text-white">Mind</span>
         </h1>
-        <p className="mb-10 text-sm" style={{ color: "#71717a" }}>
+
+        <p
+          className="mb-10 text-sm"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            fontStyle: "italic",
+            color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+          }}
+        >
           Forje sua mente, domine a batalha
         </p>
       </div>
 
       {/* Card do formulario */}
       <div
-        className="animate-fade-in-up animate-delay-150 relative w-full max-w-[420px] rounded-2xl p-6 sm:p-10"
+        className="animate-fade-in-up animate-delay-150 relative w-full max-w-[420px] p-6 sm:p-10"
         style={{
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid var(--border-subtle)",
-          boxShadow: "0 0 40px rgba(124,58,237,0.06)",
-          transition: "box-shadow 400ms ease",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = "0 0 60px rgba(124,58,237,0.1)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = "0 0 40px rgba(124,58,237,0.06)";
+          background: "linear-gradient(180deg, var(--bg-secondary), var(--bg-primary))",
+          border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
         }}
       >
-        {/* Borda superior decorativa */}
-        <div className="login-card-border-glow" />
+        {/* Corner ticks */}
+        {[
+          { top: -1, left: -1 },
+          { top: -1, right: -1 },
+          { bottom: -1, left: -1 },
+          { bottom: -1, right: -1 },
+        ].map((pos, i) => (
+          <span key={i} className="pointer-events-none absolute h-2.5 w-2.5" style={{
+            ...pos,
+            borderTop: pos.top !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+            borderBottom: pos.bottom !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+            borderLeft: pos.left !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+            borderRight: pos.right !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+          }} />
+        ))}
 
-        <h2 className="mb-2 text-xl font-bold text-white sm:text-2xl">
+        <h2
+          className="mb-2 text-xl font-bold text-white sm:text-2xl"
+          style={{ fontFamily: "var(--font-cormorant)" }}
+        >
           Entrar
         </h2>
-        <p className="mb-6 text-sm" style={{ color: "#71717a" }}>
+        <p
+          className="mb-6 text-sm"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            fontStyle: "italic",
+            color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+          }}
+        >
           Acesse sua conta para continuar
         </p>
 
@@ -170,12 +198,29 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <p className="mt-4 text-center text-sm" style={{ color: "#71717a" }}>
+        <p
+          className="mt-4 text-center text-sm"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            fontStyle: "italic",
+            color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+          }}
+        >
           Ainda nao tem conta?{" "}
           <Link
             href="/register"
-            className="transition-colors hover:underline"
-            style={{ color: "var(--accent-primary)" }}
+            className="transition-colors"
+            style={{
+              fontFamily: "var(--font-garamond)",
+              fontStyle: "italic",
+              color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "color-mix(in srgb, var(--gold) 90%, transparent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "color-mix(in srgb, var(--gold) 60%, transparent)";
+            }}
           >
             Criar conta
           </Link>
@@ -185,7 +230,10 @@ export default function LoginPage() {
       {/* Rodape */}
       <p
         className="animate-fade-in-up animate-delay-300 mt-8 text-xs"
-        style={{ color: "#52525b" }}
+        style={{
+          color: "color-mix(in srgb, var(--gold) 30%, transparent)",
+          fontFamily: "var(--font-garamond)",
+        }}
       >
         Craft Mind v0.1 — Forjando habitos em poder
       </p>

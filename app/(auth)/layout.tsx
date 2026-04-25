@@ -1,3 +1,7 @@
+"use client";
+
+import EmberField from "@/components/ui/EmberField";
+
 export default function AuthLayout({
   children,
 }: {
@@ -5,16 +9,15 @@ export default function AuthLayout({
 }) {
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)]"
+      className="relative flex min-h-screen items-center justify-center"
       style={{
-        backgroundImage: `
-          radial-gradient(circle, rgba(124,58,237,0.15) 1px, transparent 1px),
-          linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary), var(--bg-primary))
-        `,
-        backgroundSize: "40px 40px, 100% 100%",
+        backgroundColor: "var(--bg-primary)",
+        backgroundImage:
+          "radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-primary) 8%, transparent), transparent 70%)",
       }}
     >
-      <div className="w-full px-4 py-8">{children}</div>
+      <EmberField />
+      <div className="relative z-10 w-full px-4 py-8">{children}</div>
     </div>
   );
 }

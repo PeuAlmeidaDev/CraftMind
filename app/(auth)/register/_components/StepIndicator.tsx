@@ -12,29 +12,53 @@ export function StepIndicator({ current }: { current: Step }) {
         <div key={step} className="flex items-center">
           <div className="flex flex-col items-center">
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-all duration-300 ${
+              className="flex h-7 w-7 items-center justify-center text-sm font-bold transition-all duration-300"
+              style={
                 step < current
-                  ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white"
+                  ? {
+                      backgroundColor: "var(--ember)",
+                      border: "1px solid var(--ember)",
+                      color: "white",
+                    }
                   : step === current
-                    ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/20 text-[var(--accent-primary)]"
-                    : "border-[var(--border-subtle)] bg-transparent text-gray-500"
-              }`}
+                    ? {
+                        backgroundColor: "color-mix(in srgb, var(--ember) 15%, transparent)",
+                        border: "1px solid var(--ember)",
+                        color: "var(--ember)",
+                      }
+                    : {
+                        backgroundColor: "transparent",
+                        border: "1px solid color-mix(in srgb, var(--gold) 30%, transparent)",
+                        color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+                      }
+              }
             >
               {step < current ? "\u2713" : step}
             </div>
             <span
-              className={`mt-1.5 text-[11px] font-medium transition-colors duration-300 ${
-                step <= current ? "text-gray-300" : "text-gray-600"
-              }`}
+              className="mt-1.5 uppercase transition-colors duration-300"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                fontSize: "8px",
+                letterSpacing: "0.2em",
+                color:
+                  step <= current
+                    ? "color-mix(in srgb, var(--gold) 70%, transparent)"
+                    : "color-mix(in srgb, var(--gold) 40%, transparent)",
+              }}
             >
               {STEP_LABELS[i]}
             </span>
           </div>
           {i < steps.length - 1 && (
             <div
-              className={`mx-2 mb-5 h-0.5 w-12 rounded transition-colors duration-300 sm:w-16 ${
-                step < current ? "bg-[var(--accent-primary)]" : "bg-[var(--border-subtle)]"
-              }`}
+              className="mx-2 mb-5 h-0.5 w-12 transition-colors duration-300 sm:w-16"
+              style={{
+                backgroundColor:
+                  step < current
+                    ? "var(--ember)"
+                    : "color-mix(in srgb, var(--gold) 20%, transparent)",
+              }}
             />
           )}
         </div>

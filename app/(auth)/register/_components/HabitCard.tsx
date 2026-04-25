@@ -24,19 +24,37 @@ export function HabitCard({
     <button
       type="button"
       onClick={onToggle}
-      className={`group relative w-full rounded-lg border p-3 text-left transition-all duration-200 ${
+      className={`group relative w-full border p-3 text-left transition-all duration-200 ${
         selected
-          ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-[0_0_12px_rgba(124,58,237,0.25)]"
-          : "border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-gray-600 hover:brightness-110"
+          ? "hover:brightness-110"
+          : "hover:brightness-110"
       }`}
+      style={
+        selected
+          ? {
+              borderColor: "var(--accent-primary)",
+              backgroundColor: "color-mix(in srgb, var(--accent-primary) 8%, transparent)",
+            }
+          : {
+              borderColor: "var(--border-subtle)",
+              backgroundColor: "var(--bg-card)",
+            }
+      }
     >
       <div className="flex items-start gap-2.5">
         <div
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-all duration-200 ${
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center transition-all duration-200"
+          style={
             selected
-              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]"
-              : "border-gray-600 bg-transparent"
-          }`}
+              ? {
+                  border: "1px solid var(--ember)",
+                  backgroundColor: "var(--ember)",
+                }
+              : {
+                  border: "1px solid color-mix(in srgb, var(--gold) 30%, transparent)",
+                  backgroundColor: "transparent",
+                }
+          }
         >
           {selected && (
             <svg
@@ -51,12 +69,25 @@ export function HabitCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-gray-200">{habit.name}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{habit.description}</p>
+          <p
+            className="text-sm font-medium"
+            style={{
+              fontFamily: "var(--font-garamond)",
+              color: "color-mix(in srgb, var(--gold) 85%, transparent)",
+            }}
+          >
+            {habit.name}
+          </p>
+          <p
+            className="mt-0.5 text-xs leading-relaxed"
+            style={{ color: "color-mix(in srgb, var(--gold) 40%, transparent)" }}
+          >
+            {habit.description}
+          </p>
         </div>
       </div>
       <div
-        className={`absolute right-2 top-2 h-2 w-2 rounded-full ${dotColor}`}
+        className={`absolute right-2 top-2 h-1.5 w-1.5 ${dotColor}`}
         aria-hidden="true"
       />
     </button>

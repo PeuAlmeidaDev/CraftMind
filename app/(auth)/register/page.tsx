@@ -116,6 +116,29 @@ function validateStep1(
   return errors;
 }
 
+// ── Corner ticks helper ────────────────────────────────────────────────────
+
+function CornerTicks() {
+  return (
+    <>
+      {[
+        { top: -1, left: -1 },
+        { top: -1, right: -1 },
+        { bottom: -1, left: -1 },
+        { bottom: -1, right: -1 },
+      ].map((pos, i) => (
+        <span key={i} className="pointer-events-none absolute h-2.5 w-2.5" style={{
+          ...pos,
+          borderTop: pos.top !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+          borderBottom: pos.bottom !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+          borderLeft: pos.left !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+          borderRight: pos.right !== undefined ? "1px solid color-mix(in srgb, var(--gold) 40%, transparent)" : "none",
+        }} />
+      ))}
+    </>
+  );
+}
+
 // ── Main page component ────────────────────────────────────────────────────
 
 export default function RegisterPage() {
@@ -272,22 +295,50 @@ export default function RegisterPage() {
       <StepIndicator current={step} />
 
       <div
-        className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 shadow-xl transition-all duration-300 sm:p-8 ${
+        className={`relative p-6 transition-all duration-300 sm:p-8 ${
           visible && !animating ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
+        style={{
+          background: "linear-gradient(180deg, var(--bg-secondary), var(--bg-primary))",
+          border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+        }}
       >
+        <CornerTicks />
+
         {/* ── Step 1: Dados pessoais ─────────────────────────────── */}
         {step === 1 && (
           <>
-            <h1 className="mb-1 text-2xl font-bold text-white">Criar conta</h1>
-            <p className="mb-6 text-sm text-gray-400">
+            <h1
+              className="mb-1 text-2xl font-bold text-white"
+              style={{ fontFamily: "var(--font-cormorant)" }}
+            >
+              Criar conta
+            </h1>
+            <p
+              className="mb-6 text-sm"
+              style={{
+                fontFamily: "var(--font-garamond)",
+                fontStyle: "italic",
+                color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+              }}
+            >
               Seu personagem comeca aqui.
             </p>
 
             <div className="space-y-4">
               {/* Nome */}
               <div>
-                <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="name"
+                  className="mb-1.5 block text-sm font-medium"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: "10px",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  }}
+                >
                   Nome
                 </label>
                 <input
@@ -299,7 +350,12 @@ export default function RegisterPage() {
                     if (fieldErrors.name) setFieldErrors((p) => ({ ...p, name: undefined }));
                   }}
                   placeholder="Seu nome de heroi"
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[#0f0f1a] px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 outline-none transition-colors focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  className="w-full px-4 py-2.5 text-sm text-gray-100 outline-none transition-colors"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                    fontFamily: "var(--font-garamond)",
+                  }}
                 />
                 {fieldErrors.name && (
                   <p className="mt-1 text-xs text-red-400">{fieldErrors.name}</p>
@@ -308,7 +364,17 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-sm font-medium"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: "10px",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  }}
+                >
                   Email
                 </label>
                 <input
@@ -320,7 +386,12 @@ export default function RegisterPage() {
                     if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined }));
                   }}
                   placeholder="seu@email.com"
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[#0f0f1a] px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 outline-none transition-colors focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  className="w-full px-4 py-2.5 text-sm text-gray-100 outline-none transition-colors"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                    fontFamily: "var(--font-garamond)",
+                  }}
                 />
                 {fieldErrors.email && (
                   <p className="mt-1 text-xs text-red-400">{fieldErrors.email}</p>
@@ -329,7 +400,17 @@ export default function RegisterPage() {
 
               {/* Senha */}
               <div>
-                <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="password"
+                  className="mb-1.5 block text-sm font-medium"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: "10px",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  }}
+                >
                   Senha
                 </label>
                 <input
@@ -342,7 +423,12 @@ export default function RegisterPage() {
                       setFieldErrors((p) => ({ ...p, password: undefined }));
                   }}
                   placeholder="Minimo 8 caracteres"
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[#0f0f1a] px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 outline-none transition-colors focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  className="w-full px-4 py-2.5 text-sm text-gray-100 outline-none transition-colors"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                    fontFamily: "var(--font-garamond)",
+                  }}
                 />
                 <PasswordRequirements password={password} />
                 {fieldErrors.password && (
@@ -354,7 +440,14 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="confirmPassword"
-                  className="mb-1.5 block text-sm font-medium text-gray-300"
+                  className="mb-1.5 block text-sm font-medium"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: "10px",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  }}
                 >
                   Confirmar senha
                 </label>
@@ -368,7 +461,12 @@ export default function RegisterPage() {
                       setFieldErrors((p) => ({ ...p, confirmPassword: undefined }));
                   }}
                   placeholder="Repita sua senha"
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[#0f0f1a] px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 outline-none transition-colors focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  className="w-full px-4 py-2.5 text-sm text-gray-100 outline-none transition-colors"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                    fontFamily: "var(--font-garamond)",
+                  }}
                 />
                 {fieldErrors.confirmPassword && (
                   <p className="mt-1 text-xs text-red-400">{fieldErrors.confirmPassword}</p>
@@ -377,7 +475,10 @@ export default function RegisterPage() {
             </div>
 
             {apiError && (
-              <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <p
+                className="mt-4 px-3 py-2 text-sm text-red-400"
+                style={{ backgroundColor: "color-mix(in srgb, red 10%, transparent)" }}
+              >
                 {apiError}
               </p>
             )}
@@ -385,16 +486,41 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={handleStep1Continue}
-              className="mt-6 w-full rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:brightness-110 hover:shadow-purple-500/25 active:scale-[0.98]"
+              className="mt-6 w-full px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(135deg, var(--ember), var(--accent-primary))",
+                border: "1px solid color-mix(in srgb, var(--ember) 50%, transparent)",
+                fontFamily: "var(--font-cormorant)",
+                fontSize: "15px",
+                letterSpacing: "0.05em",
+              }}
             >
               Continuar
             </button>
 
-            <p className="mt-4 text-center text-sm text-gray-500">
+            <p
+              className="mt-4 text-center text-sm"
+              style={{
+                fontFamily: "var(--font-garamond)",
+                fontStyle: "italic",
+                color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+              }}
+            >
               Ja tem conta?{" "}
               <Link
                 href="/login"
-                className="font-medium text-[var(--accent-primary)] transition-colors hover:text-purple-400"
+                className="transition-colors"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  fontStyle: "italic",
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "color-mix(in srgb, var(--gold) 90%, transparent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "color-mix(in srgb, var(--gold) 60%, transparent)";
+                }}
               >
                 Entre aqui
               </Link>
@@ -406,28 +532,71 @@ export default function RegisterPage() {
         {step === 2 && (
           <>
             <div className="mb-1 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white">Escolha seus habitos</h1>
+              <h1
+                className="text-2xl font-bold text-white"
+                style={{ fontFamily: "var(--font-cormorant)" }}
+              >
+                Escolha seus habitos
+              </h1>
               <button
                 type="button"
                 onClick={() => goToStep(1)}
-                className="text-sm text-gray-500 transition-colors hover:text-gray-300"
+                className="text-sm transition-colors"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  fontStyle: "italic",
+                  color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "color-mix(in srgb, var(--gold) 80%, transparent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "color-mix(in srgb, var(--gold) 50%, transparent)";
+                }}
               >
                 Voltar
               </button>
             </div>
-            <p className="mb-5 text-sm text-gray-400">
+            <p
+              className="mb-5 text-sm"
+              style={{
+                fontFamily: "var(--font-garamond)",
+                fontStyle: "italic",
+                color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+              }}
+            >
               Seus habitos definem sua casa e atributos iniciais.
             </p>
 
             {/* Contador */}
-            <div className="mb-5 flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[#0f0f1a] px-4 py-2.5">
-              <span className="text-sm text-gray-400">Selecionados</span>
+            <div
+              className="mb-5 flex items-center justify-between px-4 py-2.5"
+              style={{
+                backgroundColor: "var(--bg-primary)",
+                border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+              }}
+            >
               <span
-                className={`text-sm font-bold ${
-                  selectedIds.size >= 3 && selectedIds.size <= 10
-                    ? "text-emerald-400"
-                    : "text-gray-500"
-                }`}
+                className="text-sm"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  fontSize: "10px",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+                }}
+              >
+                Selecionados
+              </span>
+              <span
+                className="text-sm font-bold"
+                style={{
+                  fontFamily: "var(--font-jetbrains)",
+                  color:
+                    selectedIds.size >= 3 && selectedIds.size <= 10
+                      ? "var(--ember)"
+                      : "color-mix(in srgb, var(--gold) 40%, transparent)",
+                }}
               >
                 {selectedIds.size} de 3-10
               </span>
@@ -435,13 +604,28 @@ export default function RegisterPage() {
 
             {habitsLoading && (
               <div className="flex items-center justify-center py-12">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
-                <span className="ml-3 text-sm text-gray-400">Carregando habitos...</span>
+                <div
+                  className="h-6 w-6 animate-spin border-2 border-t-transparent"
+                  style={{ borderColor: "var(--ember)", borderTopColor: "transparent" }}
+                />
+                <span
+                  className="ml-3 text-sm"
+                  style={{
+                    fontFamily: "var(--font-garamond)",
+                    fontStyle: "italic",
+                    color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+                  }}
+                >
+                  Carregando habitos...
+                </span>
               </div>
             )}
 
             {habitsError && (
-              <div className="rounded-md bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div
+                className="px-4 py-3 text-sm text-red-400"
+                style={{ backgroundColor: "color-mix(in srgb, red 10%, transparent)" }}
+              >
                 {habitsError}
                 <button
                   type="button"
@@ -462,9 +646,17 @@ export default function RegisterPage() {
                   <div key={category}>
                     <div className="mb-2.5 flex items-center gap-2">
                       <div
-                        className={`h-2.5 w-2.5 rounded-full ${CATEGORY_BG[category as HabitCategory]}`}
+                        className={`h-1.5 w-1.5 ${CATEGORY_BG[category as HabitCategory]}`}
                       />
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+                      <h2
+                        className="text-sm font-semibold uppercase tracking-wide"
+                        style={{
+                          fontFamily: "var(--font-cinzel)",
+                          fontSize: "10px",
+                          letterSpacing: "0.2em",
+                          color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                        }}
+                      >
                         {CATEGORY_LABELS[category as HabitCategory]}
                       </h2>
                     </div>
@@ -484,7 +676,10 @@ export default function RegisterPage() {
             )}
 
             {apiError && (
-              <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <p
+                className="mt-4 px-3 py-2 text-sm text-red-400"
+                style={{ backgroundColor: "color-mix(in srgb, red 10%, transparent)" }}
+              >
                 {apiError}
               </p>
             )}
@@ -493,11 +688,20 @@ export default function RegisterPage() {
               type="button"
               onClick={handleSubmit}
               disabled={selectedIds.size < 3 || selectedIds.size > 10 || submitting}
-              className="mt-6 w-full rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:brightness-110 hover:shadow-purple-500/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+              className="mt-6 w-full px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+              style={{
+                background: "linear-gradient(135deg, var(--ember), var(--accent-primary))",
+                border: "1px solid color-mix(in srgb, var(--ember) 50%, transparent)",
+                fontFamily: "var(--font-cormorant)",
+                fontSize: "15px",
+                letterSpacing: "0.05em",
+              }}
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span
+                    className="h-4 w-4 animate-spin border-2 border-white border-t-transparent"
+                  />
                   Criando conta...
                 </span>
               ) : (
@@ -511,9 +715,13 @@ export default function RegisterPage() {
         {step === 3 && result && (
           <>
             <div className="mb-6 text-center">
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-primary)]/20">
+              <div
+                className="mx-auto mb-3 flex h-14 w-14 items-center justify-center"
+                style={{ backgroundColor: "color-mix(in srgb, var(--ember) 15%, transparent)" }}
+              >
                 <svg
-                  className="h-7 w-7 text-[var(--accent-primary)]"
+                  className="h-7 w-7"
+                  style={{ color: "var(--ember)" }}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -526,29 +734,81 @@ export default function RegisterPage() {
                   />
                 </svg>
               </div>
-              <h1 className="text-2xl font-bold text-white">Bem-vindo, {result.user.name}!</h1>
-              <p className="mt-1 text-sm text-gray-400">Sua jornada comeca agora.</p>
+              <h1
+                className="text-2xl font-bold text-white"
+                style={{ fontFamily: "var(--font-cormorant)" }}
+              >
+                Bem-vindo, {result.user.name}!
+              </h1>
+              <p
+                className="mt-1 text-sm"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  fontStyle: "italic",
+                  color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+                }}
+              >
+                Sua jornada comeca agora.
+              </p>
             </div>
 
             {/* Casa */}
-            <div className="mb-5 rounded-lg border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/5 p-4">
-              <p className="mb-0.5 text-xs font-medium uppercase tracking-wider text-[var(--accent-primary)]">
+            <div
+              className="relative mb-5 p-4"
+              style={{
+                border: "1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)",
+                backgroundColor: "color-mix(in srgb, var(--accent-primary) 5%, transparent)",
+              }}
+            >
+              <p
+                className="mb-0.5 text-xs font-medium uppercase"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  fontSize: "9px",
+                  letterSpacing: "0.3em",
+                  color: "var(--ember)",
+                }}
+              >
                 Sua Casa
               </p>
-              <h2 className="text-lg font-bold text-white">
+              <h2
+                className="text-lg font-bold text-white"
+                style={{ fontFamily: "var(--font-cormorant)" }}
+              >
                 {result.user.house.name}
               </h2>
-              <p className="mt-0.5 text-sm text-gray-300">
+              <p
+                className="mt-0.5 text-sm"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                }}
+              >
                 Animal: <span className="font-medium text-white">{result.user.house.animal}</span>
               </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-gray-400">
+              <p
+                className="mt-1.5 text-sm leading-relaxed"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  fontStyle: "italic",
+                  color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+                }}
+              >
                 {result.user.house.description}
               </p>
             </div>
 
             {/* Atributos iniciais */}
             <div className="mb-6">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+              <h3
+                className="mb-3 text-sm font-semibold uppercase tracking-wide"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  fontSize: "10px",
+                  letterSpacing: "0.2em",
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                }}
+              >
                 Atributos iniciais
               </h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -557,10 +817,30 @@ export default function RegisterPage() {
                   .map(([key, value]) => (
                     <div
                       key={key}
-                      className="rounded-lg border border-[var(--border-subtle)] bg-[#0f0f1a] px-3 py-2.5 text-center"
+                      className="px-3 py-2.5 text-center"
+                      style={{
+                        backgroundColor: "var(--bg-primary)",
+                        border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                      }}
                     >
-                      <p className="text-lg font-bold text-white">{value}</p>
-                      <p className="text-[11px] text-gray-500">{STAT_LABELS[key]}</p>
+                      <p
+                        className="text-lg font-bold text-white"
+                        style={{ fontFamily: "var(--font-jetbrains)" }}
+                      >
+                        {value}
+                      </p>
+                      <p
+                        className="text-[11px]"
+                        style={{
+                          fontFamily: "var(--font-cinzel)",
+                          fontSize: "8px",
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                          color: "color-mix(in srgb, var(--gold) 45%, transparent)",
+                        }}
+                      >
+                        {STAT_LABELS[key]}
+                      </p>
                     </div>
                   )
                 )}
@@ -570,7 +850,14 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
-              className="w-full rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:brightness-110 hover:shadow-purple-500/25 active:scale-[0.98]"
+              className="w-full px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(135deg, var(--ember), var(--accent-primary))",
+                border: "1px solid color-mix(in srgb, var(--ember) 50%, transparent)",
+                fontFamily: "var(--font-cormorant)",
+                fontSize: "15px",
+                letterSpacing: "0.05em",
+              }}
             >
               Ir para o jogo
             </button>
