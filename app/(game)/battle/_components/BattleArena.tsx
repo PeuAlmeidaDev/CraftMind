@@ -465,7 +465,7 @@ export default function BattleArena({
                     color: "color-mix(in srgb, var(--gold) 80%, transparent)",
                   }}
                 >
-                  {profile.house?.name ?? "Casa"} . Nv {profile.level ?? "?"}
+                  {profile.house?.name ?? "Casa"}
                 </span>
                 <span
                   className="text-white truncate"
