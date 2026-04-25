@@ -132,11 +132,11 @@ async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void
     mobConfigs.reduce((sum, m) => sum + m.tier, 0) / mobConfigs.length
   );
 
-  const modeEnumMap: Record<CoopPveMode, string> = {
+  const modeEnumMap = {
     "2v3": "COOP_2V3",
     "2v5": "COOP_2V5",
     "3v5": "COOP_3V5",
-  };
+  } as const;
   const modeEnum = modeEnumMap[state.mode];
 
   await prisma.$transaction(async (tx) => {
