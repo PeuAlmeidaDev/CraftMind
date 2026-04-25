@@ -898,79 +898,206 @@ export default function BattleMultiPage() {
       {/* Result modal overlay */}
       {battleResult && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center"
+          className="fixed inset-0 z-50 grid place-items-center p-6"
           style={{
-            background: "rgba(5, 3, 10, 0.82)",
+            background: "rgba(5, 3, 10, 0.85)",
             backdropFilter: "blur(6px)",
             WebkitBackdropFilter: "blur(6px)",
-            animation: "matchPop 380ms cubic-bezier(.2,1.2,.3,1)",
+            animation: "modalFade 400ms ease-out",
           }}
         >
           <div
-            className="mx-4 w-full max-w-md p-8 text-center"
+            className="relative mx-4 w-full max-w-[440px] overflow-hidden text-center"
             style={{
+              padding: "38px 32px 28px",
               background: "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
-              border: "1px solid color-mix(in srgb, var(--ember) 40%, transparent)",
-              boxShadow: "0 30px 80px var(--bg-primary), 0 0 40px color-mix(in srgb, var(--ember) 14%, transparent)",
+              border: battleResult.result === "VICTORY"
+                ? "1px solid var(--ember)"
+                : "1px solid #b82b24",
+              boxShadow: battleResult.result === "VICTORY"
+                ? "0 30px 80px var(--bg-primary), 0 0 60px color-mix(in srgb, var(--ember) 27%, transparent), inset 0 0 60px color-mix(in srgb, var(--accent-primary) 13%, transparent)"
+                : "0 30px 80px var(--bg-primary), 0 0 40px color-mix(in srgb, #b82b24 20%, transparent)",
+              animation: "matchPop 380ms cubic-bezier(.2,1.2,.3,1)",
             }}
           >
-            <h2
-              className="mt-2 text-[38px] font-medium"
+            {/* Particulas de vitoria */}
+            {battleResult.result === "VICTORY" && (
+              <>
+                {Array.from({ length: 14 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="absolute bottom-0 rounded-full"
+                    style={{
+                      left: `${(i / 14) * 100}%`,
+                      width: 2,
+                      height: 2,
+                      background: "var(--gold)",
+                      boxShadow: "0 0 6px var(--gold)",
+                      animation: `victoryParticle ${2 + (i % 3)}s ${i * 0.15}s ease-out infinite`,
+                    }}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Eyebrow */}
+            <div
+              className="mb-[10px] text-[10px] uppercase tracking-[0.4em]"
               style={{
-                fontFamily: "var(--font-cormorant)",
-                color: battleResult.result === "VICTORY" ? "var(--ember)" : "#d96a52",
-                textShadow: battleResult.result === "VICTORY" ? "0 0 12px color-mix(in srgb, var(--ember) 33%, transparent)" : "none",
+                fontFamily: "var(--font-jetbrains)",
+                color: battleResult.result === "VICTORY" ? "var(--gold)" : "#d96a52",
               }}
             >
-              {battleResult.result === "VICTORY" ? "Vitoria!" : "Derrota"}
+              {battleResult.result === "VICTORY" ? "\u2726  combate encerrado  \u2726" : "combate encerrado"}
+            </div>
+
+            {/* Titulo */}
+            <h2
+              className="text-[64px] font-medium leading-none"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                color: battleResult.result === "VICTORY" ? "white" : "#ff8a70",
+                textShadow: battleResult.result === "VICTORY"
+                  ? "0 0 20px var(--ember), 0 4px 12px var(--bg-primary)"
+                  : "0 0 12px color-mix(in srgb, #b82b24 53%, transparent)",
+              }}
+            >
+              {battleResult.result === "VICTORY" ? "Vitoria" : "Derrota"}
             </h2>
 
+            {/* Bloco de vitoria */}
             {battleResult.result === "VICTORY" && (
-              <div className="mt-6 space-y-2">
-                <div
-                  className="text-[10px] uppercase tracking-[0.35em]"
-                  style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
+              <div>
+                <p
+                  className="mb-6 mt-3 text-[14px] italic"
+                  style={{
+                    fontFamily: "var(--font-garamond)",
+                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                  }}
                 >
-                  Recompensa
-                </div>
-                <p className="text-lg font-medium" style={{ fontFamily: "var(--font-cormorant)", color: "var(--ember)" }}>
-                  +{battleResult.expGained} EXP
+                  A Forja registra seu feito.
                 </p>
+
+                {/* Card de XP */}
+                <div
+                  className="mb-6 flex items-center justify-between p-[14px]"
+                  style={{
+                    background: "color-mix(in srgb, var(--bg-primary) 67%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
+                  }}
+                >
+                  <span
+                    className="text-[10px] uppercase tracking-[0.3em]"
+                    style={{
+                      fontFamily: "var(--font-cinzel)",
+                      color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                    }}
+                  >
+                    XP conquistado
+                  </span>
+                  <span
+                    className="text-[28px] font-medium"
+                    style={{
+                      fontFamily: "var(--font-cormorant)",
+                      color: "var(--ember)",
+                    }}
+                  >
+                    +{battleResult.expGained}
+                  </span>
+                </div>
+
+                {/* Level up */}
                 {battleResult.levelsGained > 0 && (
-                  <p className="text-lg font-bold animate-pulse" style={{ fontFamily: "var(--font-cormorant)", color: "var(--accent-primary)" }}>
-                    Level Up! Nivel {battleResult.newLevel}
-                  </p>
+                  <div
+                    className="flex items-center justify-between p-[10px]"
+                    style={{
+                      background: "linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 20%, transparent), color-mix(in srgb, var(--ember) 20%, transparent))",
+                      border: "1px solid var(--ember)",
+                      animation: "levelUpPulse 2s ease-in-out infinite",
+                    }}
+                  >
+                    <div className="text-left">
+                      <div
+                        className="text-[9px] uppercase tracking-[0.35em]"
+                        style={{
+                          fontFamily: "var(--font-cinzel)",
+                          color: "var(--ember)",
+                        }}
+                      >
+                        Evolucao {"\u2B06"}
+                      </div>
+                      <div
+                        className="text-[18px]"
+                        style={{
+                          fontFamily: "var(--font-cormorant)",
+                          color: "white",
+                        }}
+                      >
+                        Nivel {battleResult.newLevel - battleResult.levelsGained} {"\u2192"} {battleResult.newLevel}
+                      </div>
+                    </div>
+                    <span
+                      className="tracking-[0.15em]"
+                      style={{
+                        fontFamily: "var(--font-jetbrains)",
+                        fontSize: 11,
+                        color: "var(--ember)",
+                      }}
+                    >
+                      +{battleResult.levelsGained * 5} livres
+                    </span>
+                  </div>
                 )}
               </div>
             )}
 
+            {/* Bloco de derrota */}
             {battleResult.result === "DEFEAT" && (
-              <p className="mt-4 text-sm italic" style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}>
-                A derrota e apenas o preco do aprendizado.
+              <p
+                className="mt-[14px] mb-[30px] text-[15px] italic"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  color: "color-mix(in srgb, var(--gold) 67%, transparent)",
+                  lineHeight: 1.4,
+                }}
+              >
+                {"\u00AB"} A derrota e apenas o preco do aprendizado. {"\u00BB"}
               </p>
             )}
 
-            <div className="mt-8 flex flex-col gap-2.5">
-              <button type="button" onClick={handlePlayAgain}
-                className="w-full cursor-pointer py-3 text-xs uppercase tracking-[0.3em] text-white transition-transform duration-150 hover:-translate-y-px"
+            {/* Botoes */}
+            <div className={`flex flex-col gap-2 ${battleResult.result === "VICTORY" ? "mt-8" : "mt-0"}`}>
+              <button
+                type="button"
+                onClick={handlePlayAgain}
+                className="w-full cursor-pointer py-[13px] text-[11px] uppercase tracking-[0.35em] text-white transition-transform duration-150 hover:-translate-y-px"
                 style={{
                   fontFamily: "var(--font-cinzel)",
-                  background: "linear-gradient(135deg, var(--accent-primary) 0%, var(--ember) 100%)",
-                  border: "1px solid var(--ember)",
-                  boxShadow: "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent)",
-                }}>
-                Jogar novamente
+                  background: battleResult.result === "VICTORY"
+                    ? "linear-gradient(135deg, var(--accent-primary), var(--ember))"
+                    : "linear-gradient(135deg, #4a0f08, #b82b24)",
+                  border: battleResult.result === "VICTORY"
+                    ? "1px solid var(--ember)"
+                    : "1px solid #b82b24",
+                  boxShadow: battleResult.result === "VICTORY"
+                    ? "0 0 20px color-mix(in srgb, var(--ember) 40%, transparent)"
+                    : "none",
+                }}
+              >
+                {battleResult.result === "VICTORY" ? "Jogar Novamente" : "Tentar Novamente"}
               </button>
-              <button type="button" onClick={handleGoHome}
-                className="w-full cursor-pointer py-3 transition-colors hover:text-white"
+              <button
+                type="button"
+                onClick={handleGoHome}
+                className="w-full cursor-pointer py-[11px] text-[10px] uppercase tracking-[0.3em] transition-colors hover:text-white"
                 style={{
                   fontFamily: "var(--font-cinzel)",
-                  fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase",
-                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  color: "color-mix(in srgb, var(--gold) 80%, transparent)",
                   background: "transparent",
-                  border: "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
-                }}>
-                Voltar ao Dashboard
+                  border: "1px solid color-mix(in srgb, var(--gold) 27%, transparent)",
+                }}
+              >
+                Voltar ao Salao
               </button>
             </div>
           </div>
