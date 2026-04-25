@@ -55,6 +55,7 @@ export default function GameLayout({
   const [searchedPlayer, setSearchedPlayer] = useState<PlayerPublicProfile | null>(null);
   const layoutSocketRef = useRef<Socket | null>(null);
   const [layoutSocket, setLayoutSocket] = useState<Socket | null>(null);
+  const refreshFriendsRef = useRef<() => void>(() => {});
 
   const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight")) ? "battle" : "ambient";
   const music = useMusicPlayer(musicContext);
@@ -126,6 +127,9 @@ export default function GameLayout({
     return () => controller.abort();
   }, [fetchProfile]);
 
+  // Manter ref atualizada sem causar re-render do socket
+  refreshFriendsRef.current = refreshFriends;
+
   // Socket.io para eventos de amizade em tempo real
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -137,14 +141,17 @@ export default function GameLayout({
     const socket: Socket = io(socketUrl, {
       auth: { token },
       autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
     });
 
     socket.on("friend:request-received", () => {
-      refreshFriends();
+      refreshFriendsRef.current();
     });
 
     socket.on("friend:request-accepted", () => {
-      refreshFriends();
+      refreshFriendsRef.current();
     });
 
     socket.connect();
@@ -156,7 +163,8 @@ export default function GameLayout({
       layoutSocketRef.current = null;
       setLayoutSocket(null);
     };
-  }, [refreshFriends]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleLogout() {
     try {
