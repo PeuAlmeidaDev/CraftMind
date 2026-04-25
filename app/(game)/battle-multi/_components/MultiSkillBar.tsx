@@ -20,9 +20,9 @@ type MultiSkillBarProps = {
 // ---------------------------------------------------------------------------
 
 const DAMAGE_TYPE_LABEL: Record<string, { text: string; color: string }> = {
-  PHYSICAL: { text: "Fisico", color: "text-red-400" },
-  MAGICAL: { text: "Magico", color: "text-blue-400" },
-  NONE: { text: "Suporte", color: "text-emerald-400" },
+  PHYSICAL: { text: "Fisico", color: "#ff8a70" },
+  MAGICAL: { text: "Magico", color: "#a78bfa" },
+  NONE: { text: "Suporte", color: "#7acf8a" },
 };
 
 // ---------------------------------------------------------------------------
@@ -43,26 +43,85 @@ export default function MultiSkillBar({
 
   return (
     <div className="relative">
-      {/* Targeting overlay message */}
+      {/* Eyebrow header */}
+      <div className="flex justify-between items-center mb-2">
+        <span
+          style={{
+            fontFamily: "var(--font-cinzel)",
+            fontSize: 9,
+            letterSpacing: "0.35em",
+            textTransform: "uppercase",
+            color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+          }}
+        >
+          Arsenal
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-cinzel)",
+            fontSize: 9,
+            letterSpacing: "0.35em",
+            textTransform: "uppercase",
+            color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+          }}
+        >
+          4 SLOTS
+        </span>
+      </div>
+
+      {/* Targeting overlay */}
       {targetingMode && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/60 pointer-events-none">
-          <div className="text-center">
-            <span className="text-lg">&#127919;</span>
-            <p className="text-sm font-medium text-[var(--accent-secondary)] mt-1">
-              Selecione um alvo...
-            </p>
-          </div>
+        <div
+          className="absolute inset-0 z-10 grid place-items-center pointer-events-none"
+          style={{
+            background: "rgba(0,0,0,0.6)",
+            top: 28,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              fontSize: 10,
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color:
+                "color-mix(in srgb, var(--accent-primary) 80%, transparent)",
+            }}
+          >
+            Selecione um alvo...
+          </span>
         </div>
       )}
 
-      <div className={`grid grid-cols-2 gap-1.5 sm:gap-2 ${targetingMode ? "opacity-40" : ""}`}>
+      {/* Skill grid */}
+      <div
+        className={`grid grid-cols-2 gap-[6px] ${targetingMode ? "opacity-40" : ""}`}
+      >
         {slots.map((skill, idx) => {
           if (!skill) {
             return (
               <div
                 key={`empty-${idx}`}
-                className="rounded-lg border border-dashed border-[var(--border-subtle)] p-2 sm:p-3 min-h-[60px] sm:min-h-[72px]"
-              />
+                className="min-h-[74px] grid place-items-center"
+                style={{
+                  border:
+                    "1px dashed color-mix(in srgb, var(--gold) 20%, transparent)",
+                  opacity: 0.5,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 9,
+                    letterSpacing: "0.3em",
+                    textTransform: "uppercase",
+                    color:
+                      "color-mix(in srgb, var(--gold) 40%, transparent)",
+                  }}
+                >
+                  VAZIO
+                </span>
+              </div>
             );
           }
 
@@ -71,7 +130,7 @@ export default function MultiSkillBar({
           const isDisabled = disabled || inCooldown || (targetingMode && !isPending);
           const dmgType = DAMAGE_TYPE_LABEL[skill.damageType] ?? {
             text: skill.damageType,
-            color: "text-gray-400",
+            color: "#999",
           };
 
           return (
@@ -80,41 +139,103 @@ export default function MultiSkillBar({
               type="button"
               disabled={isDisabled}
               onClick={() => onSkillSelect(skill.skillId, skill.target)}
-              className={`relative rounded-lg border p-2 sm:p-3 text-left transition-colors ${
-                isPending
-                  ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 opacity-100"
-                  : "border-[var(--border-subtle)] bg-[var(--bg-secondary)]/60"
-              } ${
-                isDisabled
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:border-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/5 cursor-pointer"
-              }`}
+              className="relative min-h-[74px] p-[9px_10px] text-left flex flex-col gap-[3px] transition-all duration-[160ms]"
+              style={{
+                background: isPending
+                  ? `linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%), color-mix(in srgb, var(--accent-primary) 6%, transparent)`
+                  : "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+                border: isPending
+                  ? "1px solid var(--accent-primary)"
+                  : `1px solid ${
+                      isDisabled
+                        ? "color-mix(in srgb, var(--gold) 13%, transparent)"
+                        : `${dmgType.color}66`
+                    }`,
+                cursor: isDisabled ? "not-allowed" : "pointer",
+                boxShadow: isDisabled
+                  ? "none"
+                  : isPending
+                    ? `inset 0 0 12px color-mix(in srgb, var(--accent-primary) 10%, transparent)`
+                    : `inset 0 0 0 1px ${dmgType.color}17`,
+              }}
             >
-              <span className="block text-xs sm:text-sm font-medium truncate">
+              {/* Line 1: type dot + label | power */}
+              <div className="flex justify-between items-center">
+                <span
+                  className="inline-flex items-center gap-[4px]"
+                  style={{
+                    fontFamily: "var(--font-jetbrains)",
+                    fontSize: 8,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: dmgType.color,
+                  }}
+                >
+                  <span
+                    className="rounded-full"
+                    style={{
+                      width: 4,
+                      height: 4,
+                      background: dmgType.color,
+                    }}
+                  />
+                  {dmgType.text}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-cormorant)",
+                    fontSize: 16,
+                    color: "#fff",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {skill.basePower > 0 ? skill.basePower : "\u2014"}
+                </span>
+              </div>
+
+              {/* Line 2: skill name */}
+              <div
+                className="overflow-hidden text-ellipsis whitespace-nowrap"
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 15,
+                  color: "#fff",
+                  lineHeight: 1,
+                }}
+              >
                 {skill.name}
-              </span>
+              </div>
 
-              <span className={`block text-[9px] sm:text-[10px] ${dmgType.color}`}>
-                {dmgType.text}
-              </span>
-
-              {skill.basePower > 0 && (
-                <span className="block text-[9px] sm:text-[10px] text-gray-500">
-                  Poder: {skill.basePower}
-                </span>
-              )}
-
+              {/* SINGLE_ENEMY indicator */}
               {skill.target === "SINGLE_ENEMY" && (
-                <span className="block text-[9px] sm:text-[10px] text-gray-600">
-                  Alvo unico
+                <span
+                  style={{
+                    fontFamily: "var(--font-jetbrains)",
+                    fontSize: 8,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color:
+                      "color-mix(in srgb, var(--gold) 40%, transparent)",
+                  }}
+                >
+                  ALVO UNICO
                 </span>
               )}
 
+              {/* Cooldown overlay */}
               {inCooldown && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60">
-                  <span className="text-sm font-semibold text-gray-300">
-                    CD: {skill.cooldown}
-                  </span>
+                <div
+                  className="absolute inset-0 grid place-items-center"
+                  style={{
+                    background: "rgba(0,0,0,0.7)",
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 14,
+                    letterSpacing: "0.3em",
+                    color: "#ff8a70",
+                    fontWeight: 500,
+                  }}
+                >
+                  CD &middot; {skill.cooldown}T
                 </div>
               )}
             </button>
@@ -122,17 +243,26 @@ export default function MultiSkillBar({
         })}
       </div>
 
+      {/* Skip turn button */}
       <button
         type="button"
         disabled={disabled || targetingMode}
         onClick={onSkipTurn}
-        className={`mt-2 w-full py-1.5 sm:py-2 text-[11px] sm:text-xs text-gray-500 transition-colors min-h-[36px] ${
-          disabled || targetingMode
-            ? "opacity-50 cursor-not-allowed"
-            : "hover:text-gray-300 cursor-pointer"
-        }`}
+        className="w-full mt-2 py-[10px]"
+        style={{
+          border:
+            "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
+          background: "transparent",
+          fontFamily: "var(--font-cinzel)",
+          fontSize: 10,
+          letterSpacing: "0.3em",
+          textTransform: "uppercase",
+          color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+          cursor: disabled || targetingMode ? "not-allowed" : "pointer",
+          opacity: disabled || targetingMode ? 0.5 : 1,
+        }}
       >
-        Pular turno
+        Pular Turno
       </button>
     </div>
   );
