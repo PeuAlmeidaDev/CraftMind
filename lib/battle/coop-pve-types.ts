@@ -1,16 +1,16 @@
-// lib/battle/coop-pve-types.ts — Tipos para batalha cooperativa PvE (2v3 / 2v5)
+// lib/battle/coop-pve-types.ts — Tipos para batalha cooperativa PvE (2v3 / 2v5 / 3v5)
 
 import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill } from "./types";
 import type { MobState } from "./pve-multi-types";
 import type { AiProfile } from "./ai-profiles";
 
-export type CoopPveMode = "2v3" | "2v5";
+export type CoopPveMode = "2v3" | "2v5" | "3v5";
 
 export type CoopPveBattleState = {
   battleId: string;
   turnNumber: number;
-  team: PlayerState[];     // exatamente 2 players
-  mobs: MobState[];        // 3 ou 5 mobs
+  team: PlayerState[];     // 2-3 players
+  mobs: MobState[];        // 3-5 mobs
   mode: CoopPveMode;
   status: "IN_PROGRESS" | "FINISHED";
   result: "PENDING" | "VICTORY" | "DEFEAT";
@@ -48,8 +48,8 @@ export type CoopPveMobConfig = {
 
 export type CoopPveBattleConfig = {
   battleId: string;
-  team: CoopPvePlayerConfig[];  // exatamente 2
-  mobs: CoopPveMobConfig[];     // 3 ou 5
+  team: CoopPvePlayerConfig[];  // 2-3 players
+  mobs: CoopPveMobConfig[];     // 3-5 mobs
   mode: CoopPveMode;
 };
 

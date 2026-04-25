@@ -30,8 +30,8 @@ O estado original nunca e mutado. `resolveTurn` faz deep clone no topo e todas a
 | `pve-multi-types.ts` | Tipos para batalha PvE Multi (1v3): `MobState`, `PveMultiBattleState`, `PveMultiAction`, `PveMultiTurnResult`, `PveMultiBattleSession` |
 | `pve-multi-turn.ts` | `initMultiPveBattle()` e `resolveMultiPveTurn()` — orquestrador do turno PvE 1v3. Usa adapters (BattleState fake) como coop-turn.ts. Player resolve primeiro, depois mobs por speed DESC |
 | `pve-multi-store.ts` | Store em memoria (Map) para batalhas PvE Multi ativas. Exporta `getMultiPveBattle`, `setMultiPveBattle`, `removeMultiPveBattle`, `hasActiveMultiBattle`, `getActiveMultiBattleByUser`, `isSessionTimedOut`, `INACTIVITY_TIMEOUT_MS`. TTL 30min, cleanup tambem remove sessoes IN_PROGRESS com inatividade > 1 min |
-| `coop-pve-types.ts` | Tipos para batalha cooperativa PvE (2v3 / 2v5): `CoopPveBattleState`, `CoopPveAction`, `CoopPveTurnResult`, `CoopPveBattleConfig`, `CoopPveMobConfig`, `CoopPvePlayerConfig`, `CoopPveBattleSession` |
-| `coop-pve-turn.ts` | `initCoopPveBattle()` e `resolveCoopPveTurn()` — orquestrador do turno coop PvE 2v3/2v5. Players resolvem primeiro (speed DESC), depois mobs (speed DESC, desempate index). Usa adapters (BattleState fake) como coop-turn.ts |
+| `coop-pve-types.ts` | Tipos para batalha cooperativa PvE (2v3 / 2v5 / 3v5): `CoopPveBattleState`, `CoopPveAction`, `CoopPveTurnResult`, `CoopPveBattleConfig`, `CoopPveMobConfig`, `CoopPvePlayerConfig`, `CoopPveBattleSession` |
+| `coop-pve-turn.ts` | `initCoopPveBattle()` e `resolveCoopPveTurn()` — orquestrador do turno coop PvE 2v3/2v5/3v5. Players resolvem primeiro (speed DESC), depois mobs (speed DESC, desempate index). Usa adapters (BattleState fake) como coop-turn.ts |
 | `index.ts` | Barrel export |
 
 ## Fluxo do resolveTurn
@@ -233,9 +233,9 @@ Modo de batalha onde 1 jogador enfrenta 3 mobs simultaneos. Estado usa `PveMulti
 - `"DEFEAT"` = player morreu ou MAX_TURNS excedido
 - `"PENDING"` = batalha em andamento
 
-## Batalha Cooperativa PvE (2v3 / 2v5)
+## Batalha Cooperativa PvE (2v3 / 2v5 / 3v5)
 
-Modo de batalha onde 2 jogadores enfrentam 3 ou 5 mobs simultaneos. Estado usa `CoopPveBattleState` com `team: PlayerState[]` (2 players) + `mobs: MobState[]` (3 ou 5). Cada `MobState` estende `PlayerState` com `mobId`, `profile` (AiProfile) e `defeated` (boolean).
+Modo de batalha onde 2-3 jogadores enfrentam 3-5 mobs simultaneos. Estado usa `CoopPveBattleState` com `team: PlayerState[]` (2-3 players) + `mobs: MobState[]` (3-5). Cada `MobState` estende `PlayerState` com `mobId`, `profile` (AiProfile) e `defeated` (boolean). O modo 3v5 permite 3 jogadores contra 5 mobs.
 
 ### Fluxo do resolveCoopPveTurn
 
@@ -267,7 +267,7 @@ Modo de batalha onde 2 jogadores enfrentam 3 ou 5 mobs simultaneos. Estado usa `
 ### CoopPveBattleState.result
 
 - `"VICTORY"` = todos os mobs derrotados
-- `"DEFEAT"` = ambos players mortos ou MAX_TURNS excedido
+- `"DEFEAT"` = todos os players mortos ou MAX_TURNS excedido
 - `"PENDING"` = batalha em andamento
 
 ## Convencoes

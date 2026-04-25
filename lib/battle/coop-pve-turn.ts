@@ -1,4 +1,4 @@
-// lib/battle/coop-pve-turn.ts — Engine para batalha cooperativa PvE (2v3 / 2v5)
+// lib/battle/coop-pve-turn.ts — Engine para batalha cooperativa PvE (2v3 / 2v5 / 3v5)
 
 import type {
   BattleState,
@@ -72,13 +72,14 @@ function makeFakeBattleState(
 // ---------------------------------------------------------------------------
 
 export function initCoopPveBattle(config: CoopPveBattleConfig): CoopPveBattleState {
-  if (config.team.length !== 2) {
+  const expectedPlayers = config.mode === "3v5" ? 3 : 2;
+  if (config.team.length !== expectedPlayers) {
     throw new Error(
-      `Batalha coop PvE requer exatamente 2 jogadores no time (recebeu ${config.team.length})`
+      `Modo ${config.mode} requer ${expectedPlayers} jogadores (recebeu ${config.team.length})`
     );
   }
 
-  const expectedMobs = config.mode === "2v3" ? 3 : 5;
+  const expectedMobs = config.mode === "2v3" ? 3 : 5; // 2v5 e 3v5 ambos usam 5 mobs
   if (config.mobs.length !== expectedMobs) {
     throw new Error(
       `Modo ${config.mode} requer exatamente ${expectedMobs} mobs (recebeu ${config.mobs.length})`
@@ -221,7 +222,7 @@ export function resolveCoopPveTurn(
     const statusEntries = applyStatusDamage(player, s.turnNumber);
     events.push(...statusEntries);
 
-    // d. Se morreu por status -> checar se AMBOS mortos -> DEFEAT
+    // d. Se morreu por status -> checar se todos mortos -> DEFEAT
     if (player.currentHp <= 0) {
       events.push({
         turn: s.turnNumber,
@@ -687,7 +688,7 @@ export function resolveCoopPveTurn(
           }
         }
 
-        // f. Se player morreu -> checar se AMBOS mortos -> DEFEAT
+        // f. Se player morreu -> checar se todos mortos -> DEFEAT
         if (target.currentHp <= 0 && s.team.some((p) => p.playerId === target.playerId)) {
           events.push({
             turn: s.turnNumber,
@@ -801,7 +802,7 @@ export function resolveCoopPveTurn(
       }
     }
 
-    // Checar se ambos players morreram por ON_EXPIRE
+    // Checar se todos players morreram por ON_EXPIRE
     if (s.team.every((p) => p.currentHp <= 0)) {
       s.status = "FINISHED";
       s.result = "DEFEAT";
