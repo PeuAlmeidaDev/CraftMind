@@ -35,7 +35,7 @@ const SKILL_VFX_MAP: Record<string, VfxType> = {
   "Execucao Perfeita": "slash",
   "Cadeia Implacavel": "slash",
 
-  // ARCANE (magical + debuffs + buffs)
+  // ARCANE (magical damage)
   "Fagulha Arcana": "arcane",
   "Rajada de Vento": "arcane",
   "Toque Gelido": "arcane",
@@ -46,16 +46,18 @@ const SKILL_VFX_MAP: Record<string, VfxType> = {
   "Ressonancia Arcana": "arcane",
   "Meteoro Abissal": "arcane",
   "Cataclismo": "arcane",
-  "Grito Intimidador": "arcane",
-  "Olhar Penetrante": "arcane",
-  "Provocacao": "arcane",
-  "Marca Fragil": "arcane",
-  "Maldicao Enfraquecedora": "arcane",
-  "Analise Fatal": "arcane",
-  "Grito de Guerra": "arcane",
-  "Palavra de Coragem": "arcane",
-  "Espinhos da Vinganca": "arcane",
-  "Reflexo de Combate": "arcane",
+
+  // HEAL (support: buffs, debuffs, counters, cleanse)
+  "Grito Intimidador": "heal",
+  "Olhar Penetrante": "heal",
+  "Provocacao": "heal",
+  "Marca Fragil": "heal",
+  "Maldicao Enfraquecedora": "heal",
+  "Analise Fatal": "heal",
+  "Grito de Guerra": "heal",
+  "Palavra de Coragem": "heal",
+  "Espinhos da Vinganca": "heal",
+  "Reflexo de Combate": "heal",
 
   // HEAL
   "Cura Vital": "heal",
