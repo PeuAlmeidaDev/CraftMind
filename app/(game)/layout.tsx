@@ -54,6 +54,7 @@ export default function GameLayout({
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [searchedPlayer, setSearchedPlayer] = useState<PlayerPublicProfile | null>(null);
   const layoutSocketRef = useRef<Socket | null>(null);
+  const layoutSocketCreated = useRef(false);
   const [layoutSocket, setLayoutSocket] = useState<Socket | null>(null);
   const refreshFriendsRef = useRef<() => void>(() => {});
 
@@ -132,11 +133,19 @@ export default function GameLayout({
 
   // Socket.io para eventos de amizade em tempo real
   useEffect(() => {
+    // Evitar recriar se ja foi criado
+    if (layoutSocketCreated.current) return;
+
     const token = localStorage.getItem("access_token");
+    console.log("[Layout] Socket useEffect - token:", !!token);
     if (!token) return;
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    console.log("[Layout] Socket useEffect - socketUrl:", socketUrl);
     if (!socketUrl) return;
+
+    layoutSocketCreated.current = true;
+    console.log("[Layout] Criando socket para:", socketUrl);
 
     const socket: Socket = io(socketUrl, {
       auth: { token },
@@ -176,12 +185,12 @@ export default function GameLayout({
     setLayoutSocket(socket);
 
     return () => {
+      layoutSocketCreated.current = false;
       socket.disconnect();
       layoutSocketRef.current = null;
       setLayoutSocket(null);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]); // re-rodar quando user mudar (para pegar o token)
 
   async function handleLogout() {
     try {
