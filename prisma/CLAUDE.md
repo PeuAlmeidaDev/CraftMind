@@ -28,7 +28,7 @@
 
 - Sempre usar `id String @id @default(cuid())` — nunca `Int @default(autoincrement())`.
 - Timestamps: `createdAt DateTime @default(now())` e `updatedAt DateTime @updatedAt` em todo model.
-- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`, `PveBattleMode` (SOLO, MULTI, COOP_2V3, COOP_2V5).
+- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`, `PveBattleMode` (SOLO, MULTI, COOP_2V3, COOP_2V5, COOP_3V5).
 - Dados variáveis por registro (atributos concedidos, log de batalha): usar `Json` com tipo TypeScript em `types/`.
 
 ## Comandos

@@ -371,6 +371,7 @@ enum PveBattleMode {
   MULTI
   COOP_2V3
   COOP_2V5
+  COOP_3V5
 }
 
 model PveBattle {

@@ -58,8 +58,8 @@ io.use((socket, next) => {
 | `handlers/battle.ts` | Acoes de batalha PvP, timer de turno, reconexao, persistencia |
 | `handlers/boss-matchmaking.ts` | Fila e emparelhamento para Boss Fight 3v1 por HabitCategory |
 | `handlers/boss-battle.ts` | Acoes de boss battle, timer de turno, reconexao, persistencia coop |
-| `handlers/coop-pve-matchmaking.ts` | Fila e emparelhamento para Coop PvE 2v3/2v5 (2 players vs N mobs) |
-| `handlers/coop-pve-battle.ts` | Acoes de batalha coop PvE, timer de turno, reconexao, persistencia |
+| `handlers/coop-pve-matchmaking.ts` | Fila e emparelhamento para Coop PvE 2v3/2v5/3v5 (2-3 players vs N mobs, stat scaling 3v5) |
+| `handlers/coop-pve-battle.ts` | Acoes de batalha coop PvE (2v3/2v5/3v5), timer de turno, reconexao, persistencia |
 | `handlers/coop-pve-invite.ts` | Convites de amigos para batalha coop PvE (send, accept, decline, online-check, disconnect cleanup) |
 
 ## Lib (helpers do servidor)

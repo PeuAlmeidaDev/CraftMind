@@ -1,4 +1,4 @@
-// server/handlers/coop-pve-battle.ts — Handlers de batalha cooperativa PvE (2v3/2v5)
+// server/handlers/coop-pve-battle.ts — Handlers de batalha cooperativa PvE (2v3/2v5/3v5)
 
 import type { Server, Socket } from "socket.io";
 import type { PlayerState, BaseStats, ActiveStatusEffect, TurnLogEntry } from "../../lib/battle/types";
@@ -122,8 +122,9 @@ async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void
       }
     }
   }
+  const playerCount = state.team.length;
   const expPerPlayer = isVictory
-    ? Math.floor((totalMobExp * COOP_EXP_MULTIPLIER) / 2)
+    ? Math.floor((totalMobExp * COOP_EXP_MULTIPLIER) / playerCount)
     : 0;
 
   const playerIds = state.team.map((p) => p.playerId);
@@ -131,7 +132,12 @@ async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void
     mobConfigs.reduce((sum, m) => sum + m.tier, 0) / mobConfigs.length
   );
 
-  const modeEnum = state.mode === "2v3" ? "COOP_2V3" : "COOP_2V5";
+  const modeEnumMap: Record<CoopPveMode, string> = {
+    "2v3": "COOP_2V3",
+    "2v5": "COOP_2V5",
+    "3v5": "COOP_3V5",
+  };
+  const modeEnum = modeEnumMap[state.mode];
 
   await prisma.$transaction(async (tx) => {
     for (const playerId of playerIds) {
@@ -238,8 +244,9 @@ function processCoopPveTurn(
         }
       }
     }
+    const teamSize = result.state.team.length;
     const expPerPlayer = result.state.result === "VICTORY"
-      ? Math.floor((totalMobExp * COOP_EXP_MULTIPLIER) / 2)
+      ? Math.floor((totalMobExp * COOP_EXP_MULTIPLIER) / teamSize)
       : 0;
 
     io.to(roomName).emit("coop-pve:battle:end", {
@@ -532,31 +539,58 @@ export function registerCoopPveBattleHandlers(io: Server, socket: Socket): void 
 
       currentSession.disconnectedPlayers.delete(userId);
 
-      // Grace period expirou — encerrar batalha como derrota
-      currentSession.state.status = "FINISHED";
-      currentSession.state.result = "DEFEAT";
-
-      if (currentSession.turnTimer) {
-        clearTimeout(currentSession.turnTimer);
-        currentSession.turnTimer = null;
+      // Marcar player como morto (desconexao permanente = eliminado)
+      const disconnectedPlayer = currentSession.state.team.find(
+        (p) => p.playerId === userId,
+      );
+      if (disconnectedPlayer) {
+        disconnectedPlayer.currentHp = 0;
       }
 
-      io.to(roomName).emit("coop-pve:battle:end", {
-        result: "DEFEAT",
-        message: "Aliado desconectou permanentemente. Batalha encerrada.",
-      });
-
-      persistCoopPveResult(currentSession).catch((err) => {
-        console.log(
-          `[Socket.io] Erro ao persistir coop PvE ${battleId} (desconexao permanente de ${userId}): ${String(err)}`
-        );
-      });
-
-      readyPlayers.delete(battleId);
-      removeCoopPveBattle(battleId);
-      console.log(
-        `[Socket.io] Coop PvE ${battleId} encerrada: ${userId} desconectou permanentemente`
+      // Verificar se ainda restam players vivos e conectados
+      const aliveAndConnected = currentSession.state.team.filter(
+        (p) =>
+          p.currentHp > 0 &&
+          !currentSession.disconnectedPlayers.has(p.playerId),
       );
+
+      if (aliveAndConnected.length === 0) {
+        // Todos mortos ou desconectados — encerrar como derrota
+        currentSession.state.status = "FINISHED";
+        currentSession.state.result = "DEFEAT";
+
+        if (currentSession.turnTimer) {
+          clearTimeout(currentSession.turnTimer);
+          currentSession.turnTimer = null;
+        }
+
+        io.to(roomName).emit("coop-pve:battle:end", {
+          result: "DEFEAT",
+          message: "Todos os aliados desconectaram. Batalha encerrada.",
+        });
+
+        persistCoopPveResult(currentSession).catch((err) => {
+          console.log(
+            `[Socket.io] Erro ao persistir coop PvE ${battleId} (desconexao permanente de ${userId}): ${String(err)}`
+          );
+        });
+
+        readyPlayers.delete(battleId);
+        removeCoopPveBattle(battleId);
+        console.log(
+          `[Socket.io] Coop PvE ${battleId} encerrada: todos desconectaram permanentemente`
+        );
+      } else {
+        // Ainda ha players vivos — notificar e continuar
+        io.to(roomName).emit("coop-pve:battle:player-eliminated", {
+          playerId: userId,
+          message: "Aliado desconectou permanentemente e foi eliminado.",
+        });
+
+        console.log(
+          `[Socket.io] ${userId} eliminado da coop PvE ${battleId} por desconexao permanente. ${aliveAndConnected.length} player(s) restante(s).`
+        );
+      }
     }, RECONNECT_GRACE_MS);
 
     session.disconnectedPlayers.set(userId, { disconnectTimer });

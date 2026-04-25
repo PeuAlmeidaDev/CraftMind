@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       prisma.pveBattle.findMany({
         where: {
           userId,
-          mode: { in: ["COOP_2V3", "COOP_2V5"] },
+          mode: { in: ["COOP_2V3", "COOP_2V5", "COOP_3V5"] },
           result: { not: null },
         },
         orderBy: { createdAt: "desc" },
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       prisma.pveBattle.count({
         where: {
           userId,
-          mode: { in: ["COOP_2V3", "COOP_2V5"] },
+          mode: { in: ["COOP_2V3", "COOP_2V5", "COOP_3V5"] },
           result: { not: null },
         },
       }),
