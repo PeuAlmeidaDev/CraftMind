@@ -170,14 +170,21 @@ export default function GameLayout({
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Header */}
-      <header className="fixed top-0 right-0 left-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)]/95 backdrop-blur-sm">
+      <header
+        className="fixed top-0 right-0 left-0 z-50 backdrop-blur-sm"
+        style={{
+          background: "linear-gradient(to right, var(--bg-secondary), color-mix(in srgb, var(--bg-secondary) 95%, transparent))",
+          borderBottom: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+        }}
+      >
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           {/* Logo + Hamburger (mobile) */}
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="cursor-pointer text-gray-400 transition-colors hover:text-white lg:hidden"
+              className="cursor-pointer transition-colors hover:text-white lg:hidden"
+              style={{ color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
               aria-label="Abrir menu"
             >
               <svg
@@ -196,8 +203,11 @@ export default function GameLayout({
               </svg>
             </button>
 
-            <span className="text-xl font-bold tracking-tight text-white">
-              <span className="text-[var(--accent-primary)]">Craft</span> Mind
+            <span
+              className="text-[22px] font-medium italic text-white"
+              style={{ fontFamily: "var(--font-cormorant)" }}
+            >
+              <span style={{ color: "var(--ember)" }}>Craft</span> Mind
             </span>
           </div>
 
@@ -207,11 +217,17 @@ export default function GameLayout({
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm transition-colors hover:text-white ${
+                className={`text-[10px] uppercase transition-colors tracking-[0.25em] hover:text-white ${
                   pathname === link.href
-                    ? "border-b-2 border-[var(--accent-primary)] pb-0.5 text-white"
-                    : "text-gray-400"
+                    ? "border-b-2 border-b-[var(--ember)] pb-1 text-white"
+                    : ""
                 }`}
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  ...(pathname !== link.href
+                    ? { color: "color-mix(in srgb, var(--gold) 60%, transparent)" }
+                    : {}),
+                }}
               >
                 {link.label}
               </Link>
@@ -227,7 +243,11 @@ export default function GameLayout({
           <button
             type="button"
             onClick={() => setFriendsOpen(true)}
-            className="relative hidden cursor-pointer rounded-lg p-2 text-gray-400 transition-colors hover:bg-[var(--bg-primary)] hover:text-white lg:block"
+            className="relative hidden cursor-pointer p-2 transition-colors hover:bg-[var(--bg-primary)] hover:text-white lg:block"
+            style={{
+              color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+            }}
             aria-label="Amigos"
           >
             <svg
@@ -246,7 +266,7 @@ export default function GameLayout({
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             {pendingCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[0.6rem] font-bold text-white">
+              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-sm bg-[var(--ember)] px-1 text-[0.6rem] font-bold text-white">
                 {pendingCount}
               </span>
             )}
@@ -255,15 +275,25 @@ export default function GameLayout({
           {/* User info + Logout (desktop) */}
           <div className="flex items-center gap-3">
             {loading ? (
-              <div className="h-5 w-32 animate-pulse rounded bg-[var(--border-subtle)]" />
+              <div className="h-5 w-32 animate-pulse bg-[var(--border-subtle)]" />
             ) : user ? (
               <>
                 <div className="hidden items-center gap-2 sm:flex">
-                  <span className="text-sm font-medium text-gray-200">
+                  <span
+                    className="text-[14px] text-white"
+                    style={{ fontFamily: "var(--font-cormorant)" }}
+                  >
                     {user.name}
                   </span>
                   {user.house && (
-                    <span className="rounded-md bg-[var(--accent-primary)]/15 px-2.5 py-0.5 text-xs font-semibold tracking-wider text-[var(--accent-primary)]" style={{ fontFamily: "var(--font-cinzel), serif" }}>
+                    <span
+                      className="px-2.5 py-0.5 text-[8px] font-semibold tracking-[0.3em] uppercase text-[var(--accent-primary)]"
+                      style={{
+                        fontFamily: "var(--font-cinzel), serif",
+                        background: "color-mix(in srgb, var(--accent-primary) 10%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)",
+                      }}
+                    >
                       {HOUSE_DISPLAY[user.house.name] ?? user.house.name}
                     </span>
                   )}
@@ -272,7 +302,11 @@ export default function GameLayout({
                 <div className="hidden items-center gap-1.5 sm:flex">
                   <button
                     onClick={music.toggleMute}
-                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-[var(--bg-secondary)] hover:text-white"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center transition-colors hover:bg-[var(--bg-secondary)] hover:text-white"
+                    style={{
+                      color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                    }}
                     title={music.muted ? "Ativar som" : "Mutar"}
                   >
                     {music.muted ? (
@@ -291,13 +325,18 @@ export default function GameLayout({
                       music.setVolume(v);
                       if (music.muted && v > 0) music.toggleMute();
                     }}
-                    className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-[var(--border-subtle)] accent-[var(--accent-primary)]"
+                    className="h-1 w-16 cursor-pointer appearance-none bg-[var(--border-subtle)] accent-[var(--ember)]"
                   />
                 </div>
 
                 <button
                   onClick={handleLogout}
-                  className="hidden cursor-pointer rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-red-500/40 hover:text-red-400 lg:block"
+                  className="hidden cursor-pointer px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] transition-colors hover:border-[#d96a52]/60 hover:text-[#d96a52] lg:block"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    border: "1px solid color-mix(in srgb, #d96a52 30%, transparent)",
+                    color: "color-mix(in srgb, #d96a52 60%, transparent)",
+                  }}
                 >
                   Sair
                 </button>
@@ -310,26 +349,39 @@ export default function GameLayout({
       {/* Mobile menu overlay */}
       {menuOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-50 backdrop-blur-sm lg:hidden"
+          style={{ background: "rgba(5,3,10,0.7)" }}
           onClick={() => setMenuOpen(false)}
         />
       )}
 
       {/* Mobile slide-in menu */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-secondary)] transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col bg-[var(--bg-secondary)] transition-transform duration-300 ease-in-out lg:hidden ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        style={{
+          borderRight: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+        }}
       >
         {/* Menu header */}
-        <div className="flex h-14 items-center justify-between border-b border-[var(--border-subtle)] px-4">
-          <span className="text-lg font-bold tracking-tight text-white">
-            <span className="text-[var(--accent-primary)]">Craft</span> Mind
+        <div
+          className="flex h-14 items-center justify-between px-4"
+          style={{
+            borderBottom: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+          }}
+        >
+          <span
+            className="text-lg font-medium italic text-white"
+            style={{ fontFamily: "var(--font-cormorant)" }}
+          >
+            <span style={{ color: "var(--ember)" }}>Craft</span> Mind
           </span>
           <button
             type="button"
             onClick={() => setMenuOpen(false)}
-            className="cursor-pointer text-gray-400 transition-colors hover:text-white"
+            className="cursor-pointer transition-colors hover:text-white"
+            style={{ color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
             aria-label="Fechar menu"
           >
             <svg
@@ -355,11 +407,22 @@ export default function GameLayout({
               key={link.href}
               href={link.href}
               onClick={() => setMenuOpen(false)}
-              className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`px-3 py-2.5 text-[11px] uppercase tracking-[0.2em] transition-colors ${
                 pathname === link.href
-                  ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]"
-                  : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  ? "text-[var(--ember)]"
+                  : "hover:text-white"
               }`}
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                ...(pathname === link.href
+                  ? {
+                      background: "color-mix(in srgb, var(--ember) 8%, transparent)",
+                      borderLeft: "2px solid var(--ember)",
+                    }
+                  : {
+                      color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                    }),
+              }}
             >
               {link.label}
             </Link>
@@ -372,7 +435,11 @@ export default function GameLayout({
               setMenuOpen(false);
               setFriendsOpen(true);
             }}
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="flex items-center gap-2 px-3 py-2.5 text-[11px] uppercase tracking-[0.2em] transition-colors hover:text-white"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            }}
           >
             <svg
               width="16"
@@ -391,7 +458,7 @@ export default function GameLayout({
             </svg>
             <span>Amigos</span>
             {pendingCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[0.6rem] font-bold text-white">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-sm bg-[var(--ember)] px-1 text-[0.6rem] font-bold text-white">
                 {pendingCount}
               </span>
             )}
@@ -405,13 +472,28 @@ export default function GameLayout({
 
         {/* Menu user info + logout */}
         {user && (
-          <div className="mt-auto border-t border-[var(--border-subtle)] px-4 py-4">
+          <div
+            className="mt-auto px-4 py-4"
+            style={{
+              borderTop: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+            }}
+          >
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-200">
+              <span
+                className="text-[14px] text-white"
+                style={{ fontFamily: "var(--font-cormorant)" }}
+              >
                 {user.name}
               </span>
               {user.house && (
-                <span className="rounded-md bg-[var(--accent-primary)]/15 px-2.5 py-0.5 text-xs font-semibold tracking-wider text-[var(--accent-primary)]" style={{ fontFamily: "var(--font-cinzel), serif" }}>
+                <span
+                  className="px-2.5 py-0.5 text-[8px] font-semibold tracking-[0.3em] uppercase text-[var(--accent-primary)]"
+                  style={{
+                    fontFamily: "var(--font-cinzel), serif",
+                    background: "color-mix(in srgb, var(--accent-primary) 10%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)",
+                  }}
+                >
                   {HOUSE_DISPLAY[user.house.name] ?? user.house.name}
                 </span>
               )}
@@ -420,7 +502,11 @@ export default function GameLayout({
             <div className="mb-3 flex items-center gap-2">
               <button
                 onClick={music.toggleMute}
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-400 transition-colors hover:text-white"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center transition-colors hover:text-white"
+                style={{
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                }}
               >
                 {music.muted ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
@@ -438,7 +524,7 @@ export default function GameLayout({
                   music.setVolume(v);
                   if (music.muted && v > 0) music.toggleMute();
                 }}
-                className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-[var(--border-subtle)] accent-[var(--accent-primary)]"
+                className="h-1 flex-1 cursor-pointer appearance-none bg-[var(--border-subtle)] accent-[var(--ember)]"
               />
             </div>
 
@@ -447,7 +533,12 @@ export default function GameLayout({
                 setMenuOpen(false);
                 handleLogout();
               }}
-              className="w-full cursor-pointer rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-red-500/40 hover:text-red-400"
+              className="w-full cursor-pointer px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] transition-colors hover:border-[#d96a52]/60 hover:text-[#d96a52]"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                border: "1px solid color-mix(in srgb, #d96a52 30%, transparent)",
+                color: "color-mix(in srgb, #d96a52 60%, transparent)",
+              }}
             >
               Sair
             </button>
