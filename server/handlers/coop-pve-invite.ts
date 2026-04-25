@@ -613,17 +613,8 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
           });
       }
 
-      // Join sockets na room
+      // Join sockets na room e emitir battle:start para cada player individualmente
       const roomName = `coop-pve-battle:${battleId}`;
-      for (const pId of allPlayerIds) {
-        const sids = getSocketIds(pId);
-        if (sids) {
-          for (const sid of sids) {
-            io.sockets.sockets.get(sid)?.join(roomName);
-          }
-        }
-      }
-
       const sanitized = sanitizeCoopPveStateForTeam(
         state,
         Object.fromEntries(session.playerNames),
@@ -632,10 +623,22 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
         mobConfigs,
       );
 
-      io.to(roomName).emit("coop-pve:battle:start", {
-        battleId,
-        state: sanitized,
-      });
+      for (const pId of allPlayerIds) {
+        const sids = getSocketIds(pId);
+        if (sids) {
+          for (const sid of sids) {
+            const s = io.sockets.sockets.get(sid);
+            if (s) {
+              s.join(roomName);
+              s.emit("coop-pve:battle:start", { battleId, state: sanitized });
+            }
+          }
+        }
+        // Fallback: emitir via emitToUser caso nenhum socket direto funcione
+        if (!sids || sids.size === 0) {
+          emitToUser(io, pId, "coop-pve:battle:start", { battleId, state: sanitized });
+        }
+      }
 
       console.log(
         `[Socket.io] Coop PvE battle ${battleId} iniciada via invite 3v5 (${allPlayerIds.join(" + ")})`
