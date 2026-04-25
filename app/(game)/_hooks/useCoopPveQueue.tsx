@@ -632,8 +632,8 @@ export function CoopPveProvider({ children }: { children: ReactNode }): React.JS
     setMatchTeammates([]);
     setMatchMobs([]);
     setInvites([]);
-    disconnectSocket();
-  }, [clearTurnTimer, disconnectSocket]);
+    // Socket permanece ativo para que o user continue visivel no servidor
+  }, [clearTurnTimer]);
 
   const getSocketRef = useCallback((): Socket | null => {
     return socketRef.current;
