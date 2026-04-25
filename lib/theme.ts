@@ -9,40 +9,65 @@ type HouseTheme = {
   accentPrimary: string;
   accentSecondary: string;
   borderSubtle: string;
+  gold: string;
+  gold2: string;
+  ember: string;
+  deep: string;
+  ink: string;
 };
 
 const HOUSE_THEMES: Record<HouseName, HouseTheme> = {
   NOCTIS: {
-    bgPrimary: "#0a0a0f",
-    bgSecondary: "#13131a",
-    bgCard: "#1a1a2e",
+    bgPrimary: "#07060c",
+    bgSecondary: "#120e1f",
+    bgCard: "#120e1fcc",
     accentPrimary: "#7c3aed",
     accentSecondary: "#10b981",
-    borderSubtle: "#2a2a3e",
+    borderSubtle: "#10b98118",
+    gold: "#10b981",
+    gold2: "#34d399",
+    ember: "#a78bfa",
+    deep: "#2a1460",
+    ink: "#e6f6ec",
   },
   LYCUS: {
-    bgPrimary: "#040E1A",
-    bgSecondary: "#0A1F33",
-    bgCard: "#12334D",
+    bgPrimary: "#05080e",
+    bgSecondary: "#0a1220",
+    bgCard: "#0a1220cc",
     accentPrimary: "#DAA520",
     accentSecondary: "#4A90D9",
-    borderSubtle: "#1B4468",
+    borderSubtle: "#DAA52018",
+    gold: "#DAA520",
+    gold2: "#f2c84a",
+    ember: "#f2c84a",
+    deep: "#14325a",
+    ink: "#eef4ff",
   },
   ARION: {
-    bgPrimary: "#0A0A0A",
-    bgSecondary: "#161010",
-    bgCard: "#2A1215",
+    bgPrimary: "#0a0608",
+    bgSecondary: "#180a08",
+    bgCard: "#180a08cc",
     accentPrimary: "#C4362A",
     accentSecondary: "#D4763A",
-    borderSubtle: "#3D1A1E",
+    borderSubtle: "#D4763A18",
+    gold: "#D4763A",
+    gold2: "#e8945a",
+    ember: "#ff8a54",
+    deep: "#4a0f08",
+    ink: "#f6e8e0",
   },
   NEREID: {
-    bgPrimary: "#010E0E",
-    bgSecondary: "#012A2A",
-    bgCard: "#014040",
+    bgPrimary: "#04100e",
+    bgSecondary: "#0a1f1b",
+    bgCard: "#0a1f1bcc",
     accentPrimary: "#E8A33C",
     accentSecondary: "#03A678",
-    borderSubtle: "#025C50",
+    borderSubtle: "#E8A33C18",
+    gold: "#E8A33C",
+    gold2: "#f5b85a",
+    ember: "#f5b85a",
+    deep: "#0a4a3a",
+    ink: "#f1f7f4",
   },
 };
 
@@ -53,6 +78,11 @@ const CSS_VAR_MAP: Record<keyof HouseTheme, string> = {
   accentPrimary: "--accent-primary",
   accentSecondary: "--accent-secondary",
   borderSubtle: "--border-subtle",
+  gold: "--gold",
+  gold2: "--gold2",
+  ember: "--ember",
+  deep: "--deep",
+  ink: "--ink",
 };
 
 export function getHouseTheme(houseName: HouseName): HouseTheme {

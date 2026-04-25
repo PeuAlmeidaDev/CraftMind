@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, clearAuthAndRedirect, authFetchOptions } from "@/lib/client-auth";
+import { HOUSE_LORE } from "@/lib/constants-house";
+import EmberField from "@/components/ui/EmberField";
 import MultiBattleArena from "./_components/MultiBattleArena";
 
 // ---------------------------------------------------------------------------
@@ -667,59 +669,210 @@ export default function BattleMultiPage() {
 
   if (phase === "IDLE") {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="relative">
+        <EmberField />
         <div
-          className="max-w-sm w-full rounded-xl border border-[var(--border-subtle)] p-8 text-center"
-          style={{ background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))" }}
-        >
-          <div className="text-5xl mb-4">&#9876;&#65039;</div>
-          <h1 className="text-xl font-bold text-white mb-2">Batalha Multi</h1>
-          <p className="text-sm text-gray-400 mb-6">
-            Enfrente multiplos mobs simultaneamente. Escolha seus alvos com sabedoria.
-          </p>
-
-          {/* Mode selector */}
-          <div className="flex gap-2 mb-6">
-            <button
-              type="button"
-              onClick={() => setSelectedMode("1v3")}
-              className={`flex-1 cursor-pointer rounded-lg py-2 text-sm font-semibold border transition ${
-                selectedMode === "1v3"
-                  ? "bg-[var(--accent-primary)]/20 border-[var(--accent-primary)] text-white"
-                  : "border-[var(--border-subtle)] text-gray-400 hover:text-white hover:border-gray-500"
-              }`}
+          className="pointer-events-none fixed inset-0 z-0"
+          style={{
+            backgroundImage: `
+              radial-gradient(ellipse at 15% 8%, color-mix(in srgb, var(--accent-primary) 12%, transparent) 0, transparent 55%),
+              radial-gradient(ellipse at 88% 92%, color-mix(in srgb, var(--deep) 40%, transparent) 0, transparent 55%)`,
+          }}
+        />
+        <div className="relative z-[2] flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
+          {/* Hero */}
+          <div className="text-center">
+            <div
+              className="mb-2 text-[10px] uppercase tracking-[0.4em]"
+              style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
             >
-              1v3
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedMode("1v5")}
-              className={`flex-1 cursor-pointer rounded-lg py-2 text-sm font-semibold border transition ${
-                selectedMode === "1v5"
-                  ? "bg-[var(--accent-primary)]/20 border-[var(--accent-primary)] text-white"
-                  : "border-[var(--border-subtle)] text-gray-400 hover:text-white hover:border-gray-500"
-              }`}
+              PVE · Multiplos Inimigos
+            </div>
+            <h1
+              className="text-[clamp(32px,5vw,48px)] font-medium text-white"
+              style={{ fontFamily: "var(--font-cormorant)", lineHeight: 1 }}
             >
-              1v5
-            </button>
+              Enfrente a Horda
+            </h1>
+            <p
+              className="mx-auto mt-2 max-w-md text-[15px] italic"
+              style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 67%, transparent)" }}
+            >
+              &laquo; A verdadeira forca se revela quando os numeros nao estao ao seu favor. &raquo;
+            </p>
           </div>
 
-          <p className="text-xs text-gray-500 mb-4">
-            {selectedMode === "1v3"
-              ? "Enfrente 3 mobs — recomendado para iniciantes"
-              : "Enfrente 5 mobs — maior desafio, mais EXP"}
-          </p>
-
-          <button
-            type="button"
-            onClick={handleStartBattle}
-            disabled={loading}
-            className={`w-full cursor-pointer rounded-lg py-3 font-semibold text-white bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] transition ${
-              loading ? "opacity-60 cursor-not-allowed" : "hover:brightness-110"
-            }`}
+          {/* Card de seleção */}
+          <article
+            className="relative w-full max-w-md overflow-hidden p-6"
+            style={{
+              background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+              border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+            }}
           >
-            {loading ? "Iniciando..." : "Iniciar Batalha"}
-          </button>
+            {/* Corner ticks */}
+            {[
+              { top: 0, left: 0, borderTop: "1px solid", borderLeft: "1px solid" },
+              { top: 0, right: 0, borderTop: "1px solid", borderRight: "1px solid" },
+              { bottom: 0, left: 0, borderBottom: "1px solid", borderLeft: "1px solid" },
+              { bottom: 0, right: 0, borderBottom: "1px solid", borderRight: "1px solid" },
+            ].map((pos, i) => (
+              <span
+                key={i}
+                className="pointer-events-none absolute h-3 w-3"
+                style={{
+                  ...pos,
+                  borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)",
+                }}
+              />
+            ))}
+
+            {/* Glyph */}
+            <div
+              className="mb-3 text-center text-[36px]"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                lineHeight: 1,
+              }}
+            >
+              &#9760;
+            </div>
+
+            {/* Formation visual */}
+            <div
+              className="mx-auto mb-5 grid max-w-[200px] items-center gap-2"
+              style={{
+                gridTemplateColumns: "1fr auto 1fr",
+                padding: "12px 8px",
+                background: "linear-gradient(180deg, transparent 40%, color-mix(in srgb, var(--ember) 4%, transparent) 100%)",
+                border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+              }}
+            >
+              {/* Aliado */}
+              <div className="flex justify-end">
+                <span
+                  className="inline-block h-3 w-3 rounded-full"
+                  style={{
+                    background: "radial-gradient(circle at 40% 35%, var(--ember), color-mix(in srgb, var(--ember) 20%, transparent))",
+                    border: "1px solid var(--ember)",
+                    boxShadow: "0 0 4px color-mix(in srgb, var(--ember) 27%, transparent)",
+                  }}
+                />
+              </div>
+              <span
+                className="text-[11px] tracking-[0.15em]"
+                style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}
+              >
+                ·vs·
+              </span>
+              {/* Inimigos */}
+              <div className="flex gap-1">
+                {Array.from({ length: selectedMode === "1v3" ? 3 : 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{
+                      background: "radial-gradient(circle at 40% 35%, var(--gold), color-mix(in srgb, var(--gold) 20%, transparent))",
+                      border: "1px solid var(--gold)",
+                      boxShadow: "0 0 4px color-mix(in srgb, var(--gold) 27%, transparent)",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Difficulty tabs */}
+            <div className="mb-4 flex gap-1">
+              {(["1v3", "1v5"] as const).map((mode) => {
+                const active = selectedMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSelectedMode(mode)}
+                    className="flex flex-1 cursor-pointer flex-col items-center gap-1 py-2 transition-all"
+                    style={{
+                      fontFamily: "var(--font-cinzel)",
+                      fontSize: 10,
+                      letterSpacing: "0.25em",
+                      textTransform: "uppercase",
+                      background: active ? "color-mix(in srgb, var(--ember) 14%, transparent)" : "color-mix(in srgb, var(--bg-secondary) 67%, transparent)",
+                      border: `1px solid ${active ? "var(--ember)" : "color-mix(in srgb, var(--gold) 14%, transparent)"}`,
+                      color: active ? "#fff" : "color-mix(in srgb, var(--gold) 80%, transparent)",
+                    }}
+                  >
+                    <span>{mode}</span>
+                    <span
+                      className="text-[10px] normal-case tracking-normal"
+                      style={{
+                        fontFamily: "var(--font-garamond)",
+                        fontStyle: "italic",
+                        letterSpacing: 0,
+                        color: active ? "var(--ember)" : "color-mix(in srgb, var(--gold) 47%, transparent)",
+                      }}
+                    >
+                      {mode === "1v3" ? "Iniciante" : "Desafio"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Hint */}
+            <p
+              className="mb-4 text-center text-xs italic"
+              style={{
+                fontFamily: "var(--font-garamond)",
+                color: "color-mix(in srgb, var(--gold) 67%, transparent)",
+              }}
+            >
+              {selectedMode === "1v3"
+                ? "Enfrente 3 mobs — recomendado para iniciantes"
+                : "Enfrente 5 mobs — maior desafio, mais EXP"}
+            </p>
+
+            {/* Reward hint */}
+            <div
+              className="mb-4 flex items-center justify-center gap-1.5 text-[9px] tracking-[0.18em]"
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+              }}
+            >
+              <span style={{ color: "var(--ember)" }}>&#10022;</span>
+              {selectedMode === "1v3" ? "EXP x1.5 bonus" : "EXP x2.5 bonus"}
+            </div>
+
+            {/* Action button */}
+            <button
+              type="button"
+              onClick={handleStartBattle}
+              disabled={loading}
+              className="w-full cursor-pointer py-3 text-xs uppercase tracking-[0.3em] text-white transition-transform duration-150 hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                background: "linear-gradient(135deg, var(--accent-primary) 0%, var(--ember) 100%)",
+                border: "1px solid var(--ember)",
+                boxShadow: "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent)",
+              }}
+            >
+              {loading ? "Iniciando..." : "Enfrentar Horda"}
+            </button>
+          </article>
+
+          {/* Footer */}
+          <footer
+            className="text-center text-xs italic"
+            style={{
+              fontFamily: "var(--font-garamond)",
+              color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+            }}
+          >
+            &laquo; {profile?.house?.name && HOUSE_LORE[profile.house.name]
+              ? HOUSE_LORE[profile.house.name].motto
+              : "O conhecimento e a chave, a disciplina e o caminho"} &raquo;
+          </footer>
         </div>
       </div>
     );
@@ -744,70 +897,83 @@ export default function BattleMultiPage() {
 
       {/* Result modal overlay */}
       {battleResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 grid place-items-center"
+          style={{
+            background: "rgba(5, 3, 10, 0.82)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            animation: "matchPop 380ms cubic-bezier(.2,1.2,.3,1)",
+          }}
+        >
           <div
-            className="max-w-md w-full mx-4 rounded-xl border border-[var(--border-subtle)] p-8 text-center animate-scale-in"
-            style={{ background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))" }}
+            className="mx-4 w-full max-w-md p-8 text-center"
+            style={{
+              background: "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+              border: "1px solid color-mix(in srgb, var(--ember) 40%, transparent)",
+              boxShadow: "0 30px 80px var(--bg-primary), 0 0 40px color-mix(in srgb, var(--ember) 14%, transparent)",
+            }}
           >
-            <div className="text-6xl">
-              {battleResult.result === "VICTORY" ? "\uD83C\uDFC6" : "\uD83D\uDC80"}
-            </div>
-
             <h2
-              className={`text-2xl font-bold mt-4 ${
-                battleResult.result === "VICTORY" ? "text-emerald-400" : "text-red-400"
-              }`}
+              className="mt-2 text-[38px] font-medium"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                color: battleResult.result === "VICTORY" ? "var(--ember)" : "#d96a52",
+                textShadow: battleResult.result === "VICTORY" ? "0 0 12px color-mix(in srgb, var(--ember) 33%, transparent)" : "none",
+              }}
             >
               {battleResult.result === "VICTORY" ? "Vitoria!" : "Derrota"}
             </h2>
 
             {battleResult.result === "VICTORY" && (
               <div className="mt-6 space-y-2">
-                <p className="text-lg text-amber-400 font-semibold">
-                  EXP ganho: +{battleResult.expGained}
+                <div
+                  className="text-[10px] uppercase tracking-[0.35em]"
+                  style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
+                >
+                  Recompensa
+                </div>
+                <p className="text-lg font-medium" style={{ fontFamily: "var(--font-cormorant)", color: "var(--ember)" }}>
+                  +{battleResult.expGained} EXP
                 </p>
                 {battleResult.levelsGained > 0 && (
-                  <p className="text-lg text-[var(--accent-primary)] font-bold animate-pulse">
+                  <p className="text-lg font-bold animate-pulse" style={{ fontFamily: "var(--font-cormorant)", color: "var(--accent-primary)" }}>
                     Level Up! Nivel {battleResult.newLevel}
                   </p>
                 )}
               </div>
             )}
 
-            <div className="mt-8 space-y-3">
-              <button
-                type="button"
-                onClick={handlePlayAgain}
-                className="w-full cursor-pointer rounded-lg py-3 font-semibold text-white bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] hover:brightness-110 transition"
-              >
+            {battleResult.result === "DEFEAT" && (
+              <p className="mt-4 text-sm italic" style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}>
+                A derrota e apenas o preco do aprendizado.
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-col gap-2.5">
+              <button type="button" onClick={handlePlayAgain}
+                className="w-full cursor-pointer py-3 text-xs uppercase tracking-[0.3em] text-white transition-transform duration-150 hover:-translate-y-px"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  background: "linear-gradient(135deg, var(--accent-primary) 0%, var(--ember) 100%)",
+                  border: "1px solid var(--ember)",
+                  boxShadow: "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent)",
+                }}>
                 Jogar novamente
               </button>
-              <button
-                type="button"
-                onClick={handleGoHome}
-                className="w-full cursor-pointer rounded-lg py-3 text-gray-400 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:text-white transition"
-              >
+              <button type="button" onClick={handleGoHome}
+                className="w-full cursor-pointer py-3 transition-colors hover:text-white"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase",
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  background: "transparent",
+                  border: "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
+                }}>
                 Voltar ao Dashboard
               </button>
             </div>
           </div>
-
-          <style jsx>{`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes scaleIn {
-              from { opacity: 0; transform: scale(0.9); }
-              to { opacity: 1; transform: scale(1); }
-            }
-            .animate-fade-in {
-              animation: fadeIn 0.3s ease-out forwards;
-            }
-            .animate-scale-in {
-              animation: scaleIn 0.3s ease-out forwards;
-            }
-          `}</style>
         </div>
       )}
     </div>

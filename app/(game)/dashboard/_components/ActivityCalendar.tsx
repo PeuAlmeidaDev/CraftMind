@@ -2,11 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { CalendarDay } from "@/types/task";
-
-const MONTH_ABBR = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
-];
+import Panel from "@/components/ui/Panel";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
@@ -43,7 +39,6 @@ export default function ActivityCalendar({
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const abortRef = useRef<AbortController | null>(null);
 
-  // Cancelar fetch pendente ao desmontar
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
@@ -56,7 +51,6 @@ export default function ActivityCalendar({
     viewYear === now.getFullYear() && viewMonth === now.getMonth();
 
   function changeMonth(newYear: number, newMonth: number) {
-    // Cancela fetch anterior antes de iniciar novo
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -87,121 +81,168 @@ export default function ActivityCalendar({
     changeMonth(newYear, newMonth);
   }
 
-  function getCellColor(dateStr: string): string {
+  function getCellValue(dateStr: string): number | null {
     const day = days.find((d) => d.date === dateStr);
-    if (!day || day.total === 0 || day.completed === 0)
-      return "bg-[var(--border-subtle)]";
-    const ratio = day.completed / day.total;
-    if (ratio < 0.4) return "bg-emerald-900/60";
-    if (ratio < 0.8) return "bg-emerald-600/70";
-    return "bg-emerald-400";
+    if (!day || day.total === 0) return null;
+    return day.completed / day.total;
   }
 
   function getCellTitle(dateStr: string): string {
     const day = days.find((d) => d.date === dateStr);
     const dayNum = parseInt(dateStr.slice(8, 10), 10);
-    const monthIdx = parseInt(dateStr.slice(5, 7), 10) - 1;
-    const label = `${dayNum} ${MONTH_ABBR[monthIdx]}`;
-    if (!day || day.total === 0) return `${label}: sem tarefas`;
-    return `${label}: ${day.completed}/${day.total} tarefas`;
+    if (!day || day.total === 0) return `${dayNum}: sem tarefas`;
+    return `${dayNum}: ${day.completed}/${day.total} tarefas`;
   }
 
   const todayStr = now.toISOString().slice(0, 10);
   const totalRows = Math.ceil(grid.length / 7);
 
+  // Streak from days data
+  const streak = days.filter(d => d.total > 0 && d.completed === d.total).length;
+
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      {/* Cabecalho de navegacao */}
-      <div className="mb-4 flex items-center justify-between">
+    <Panel
+      title={`Vigilia · ${MONTH_NAMES[viewMonth]}`}
+      right={`${streak} dias em chama`}
+    >
+      {/* Navigation */}
+      <div className="mb-3 flex items-center justify-between">
         <button
           onClick={goToPrevMonth}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm text-gray-400 transition-colors hover:bg-[var(--bg-secondary)] hover:text-white"
+          className="flex h-6 w-6 cursor-pointer items-center justify-center text-sm transition-colors hover:text-white"
+          style={{
+            color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            fontFamily: "var(--font-garamond)",
+          }}
         >
           {"\u2039"}
         </button>
-        <span className="text-sm font-medium text-gray-200">
-          {MONTH_NAMES[viewMonth]} {viewYear}
+        <span
+          className="text-[10px] uppercase tracking-[0.2em]"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+          }}
+        >
+          {viewYear}
         </span>
         <button
           onClick={goToNextMonth}
           disabled={isCurrentMonth}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm text-gray-400 transition-colors hover:bg-[var(--bg-secondary)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          className="flex h-6 w-6 cursor-pointer items-center justify-center text-sm transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          style={{
+            color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            fontFamily: "var(--font-garamond)",
+          }}
         >
           {"\u203A"}
         </button>
       </div>
 
-      {/* Labels dos dias da semana */}
-      <div className="mb-1.5 grid grid-cols-7 gap-1.5">
-        {DAY_LABELS.map((label, i) => (
-          <span key={i} className="text-center text-[11px] font-medium text-zinc-500">
-            {label}
-          </span>
+      {/* Weekday labels */}
+      <div
+        className="mb-1.5 grid grid-cols-7 gap-1 text-center text-[8px] tracking-[0.15em]"
+        style={{
+          fontFamily: "var(--font-mono)",
+          color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+        }}
+      >
+        {DAY_LABELS.map((d, i) => (
+          <span key={i}>{d}</span>
         ))}
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: 35 }).map((_, i) => (
             <div
               key={i}
-              className="aspect-square animate-pulse rounded-lg bg-[var(--border-subtle)]"
+              className="aspect-square animate-pulse"
+              style={{ background: "color-mix(in srgb, var(--gold) 4%, transparent)" }}
             />
           ))}
         </div>
       ) : (
         <>
-          {/* Grid do calendario */}
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: totalRows * 7 }).map((_, i) => {
               const dateStr = grid[i] ?? null;
 
               if (!dateStr) {
-                return <div key={i} />;
+                return <div key={i} className="aspect-square" />;
               }
 
               const dayNum = parseInt(dateStr.slice(8, 10), 10);
               const isToday = dateStr === todayStr;
+              const value = getCellValue(dateStr);
+
+              // Color based on completion value
+              let bgColor: string;
+              let textColor: string;
+              if (value === null) {
+                bgColor = "color-mix(in srgb, var(--gold) 4%, transparent)";
+                textColor = "color-mix(in srgb, var(--gold) 27%, transparent)";
+              } else if (value === 0) {
+                bgColor = "color-mix(in srgb, var(--gold) 9%, transparent)";
+                textColor = "color-mix(in srgb, var(--gold) 40%, transparent)";
+              } else {
+                const alpha = Math.round(30 + value * 210)
+                  .toString(16)
+                  .padStart(2, "0");
+                bgColor = `var(--ember)${alpha}`;
+                textColor = value > 0.5 ? "#fff" : "color-mix(in srgb, var(--gold) 60%, transparent)";
+              }
 
               return (
                 <div
                   key={i}
-                  className={`group relative flex aspect-square cursor-pointer items-center justify-center rounded-lg text-xs transition-colors hover:brightness-125 ${getCellColor(dateStr)} ${
-                    isToday
-                      ? "ring-2 ring-[var(--accent-primary)]"
-                      : ""
-                  }`}
+                  title={getCellTitle(dateStr)}
+                  className="flex aspect-square cursor-default items-center justify-center text-[8px]"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    background: bgColor,
+                    border: `1px solid color-mix(in srgb, var(--gold) ${value === null ? "7%" : "14%"}, transparent)`,
+                    color: textColor,
+                    outline: isToday ? "1px solid var(--accent-primary)" : "none",
+                    outlineOffset: -1,
+                  }}
                 >
-                  <span
-                    className={
-                      isToday
-                        ? "font-bold text-white"
-                        : "text-gray-400"
-                    }
-                  >
-                    {dayNum}
-                  </span>
-                  {/* Tooltip */}
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-3 py-1.5 text-xs text-gray-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 whitespace-nowrap">
-                    {getCellTitle(dateStr)}
-                    <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[var(--bg-secondary)]" />
-                  </div>
+                  {dayNum}
                 </div>
               );
             })}
           </div>
 
-          {/* Legenda */}
-          <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-gray-500">
-            <span>Menos</span>
-            <div className="h-3 w-3 rounded-sm bg-[var(--border-subtle)]" />
-            <div className="h-3 w-3 rounded-sm bg-emerald-900/60" />
-            <div className="h-3 w-3 rounded-sm bg-emerald-600/70" />
-            <div className="h-3 w-3 rounded-sm bg-emerald-400" />
-            <span>Mais</span>
+          {/* Legend */}
+          <div
+            className="mt-3 flex items-center justify-center gap-1.5 text-[8px] tracking-[0.2em]"
+            style={{
+              fontFamily: "var(--font-mono)",
+              color: "color-mix(in srgb, var(--gold) 53%, transparent)",
+            }}
+          >
+            <span>MENOS</span>
+            {[0, 0.25, 0.5, 0.75, 1].map((v, j) => {
+              const alpha = Math.round(30 + v * 210)
+                .toString(16)
+                .padStart(2, "0");
+              return (
+                <div
+                  key={j}
+                  className="h-3 w-3"
+                  style={{
+                    background: v === 0
+                      ? "color-mix(in srgb, var(--gold) 9%, transparent)"
+                      : `var(--ember)${alpha}`,
+                    border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+                  }}
+                />
+              );
+            })}
+            <span>MAIS</span>
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }

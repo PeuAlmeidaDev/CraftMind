@@ -12,31 +12,152 @@ import type { CharacterSkillSlot } from "@/types/skill";
 import type { CalendarDay } from "@/types/task";
 import { useBossQueue } from "../_hooks/useBossQueue";
 import { ATTRIBUTE_META, CATEGORY_COLORS, CATEGORY_LABEL } from "./_components/constants";
+import { HOUSE_LORE, getPlayerTitle } from "@/lib/constants-house";
 import ActivityCalendar from "./_components/ActivityCalendar";
 import EquippedSkillsPreview from "./_components/EquippedSkillsPreview";
+import AttributeRadar from "@/components/ui/AttributeRadar";
+import Panel from "@/components/ui/Panel";
+import EmberField from "@/components/ui/EmberField";
 
 // ---------------------------------------------------------------------------
-// Componentes internos (pequenos, acoplados ao dashboard)
+// Category color mapping for task ribbons
 // ---------------------------------------------------------------------------
 
-function ProgressBar({ completed, total }: { completed: number; total: number }) {
-  const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+const CATEGORY_RIBBON: Record<string, string> = {
+  PHYSICAL: "#ff6b6b",
+  INTELLECTUAL: "#6b9dff",
+  MENTAL: "#b06bff",
+  SOCIAL: "#ffb86b",
+  SPIRITUAL: "#6bffb8",
+};
+
+const CATEGORY_DOT: Record<string, string> = {
+  PHYSICAL: "#ff8a8a",
+  INTELLECTUAL: "#8ab5ff",
+  MENTAL: "#c98aff",
+  SOCIAL: "#ffc98a",
+  SPIRITUAL: "#8affc9",
+};
+
+// ---------------------------------------------------------------------------
+// Componentes internos — estilo mockup
+// ---------------------------------------------------------------------------
+
+function DailyProgressArc({ done, total, streak }: { done: number; total: number; streak: number }) {
+  const pct = total > 0 ? done / total : 0;
+  const size = 160;
+  const r = 66;
+  const c = 2 * Math.PI * r;
+  const SWEEP = 0.78;
+  const arcLen = c * SWEEP;
+  const filled = arcLen * pct;
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <div className="mb-2 flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-200">Progresso do dia</span>
-        <span className="text-gray-400">
-          {completed} de {total} tarefas
-        </span>
-      </div>
-      <div className="h-3 overflow-hidden rounded-full bg-[var(--bg-secondary)]">
+    <Panel title="Progresso Diario">
+      <div className="relative flex flex-col items-center gap-2.5">
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          style={{ filter: "drop-shadow(0 0 8px color-mix(in srgb, var(--ember) 14%, transparent))" }}
+        >
+          <defs>
+            <linearGradient id="arcFill" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--gold)" />
+              <stop offset="60%" stopColor="var(--ember)" />
+              <stop offset="100%" stopColor="#ffffff" />
+            </linearGradient>
+          </defs>
+          {/* Background ring */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="color-mix(in srgb, var(--gold) 14%, transparent)"
+            strokeWidth="3"
+            strokeDasharray={`${arcLen} ${c}`}
+            transform={`rotate(${90 + (1 - SWEEP) * 180} ${size / 2} ${size / 2})`}
+            strokeLinecap="butt"
+          />
+          {/* Filled arc */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="url(#arcFill)"
+            strokeWidth="3"
+            strokeDasharray={`${filled} ${c}`}
+            transform={`rotate(${90 + (1 - SWEEP) * 180} ${size / 2} ${size / 2})`}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dasharray 500ms ease-out" }}
+          />
+          {/* Checkpoint pips */}
+          {Array.from({ length: total }).map((_, i) => {
+            const t = total === 1 ? 0.5 : i / (total - 1);
+            const ang = ((90 + (1 - SWEEP) * 180 + t * SWEEP * 360) * Math.PI) / 180;
+            const cx = size / 2 + Math.cos(ang) * r;
+            const cy = size / 2 + Math.sin(ang) * r;
+            const isFilled = i < done;
+            return (
+              <circle
+                key={i}
+                cx={cx}
+                cy={cy}
+                r={isFilled ? 4 : 2.5}
+                fill={isFilled ? "var(--ember)" : "color-mix(in srgb, var(--gold) 27%, transparent)"}
+                stroke={isFilled ? "#fff" : "none"}
+                strokeWidth="0.5"
+                style={{
+                  filter: isFilled
+                    ? "drop-shadow(0 0 2px color-mix(in srgb, var(--ember) 67%, transparent))"
+                    : "none",
+                }}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Centre readout */}
+        <div className="pointer-events-none absolute inset-0 -top-5 flex flex-col items-center justify-center">
+          <div style={{ fontFamily: "var(--font-cormorant)", marginBottom: 6 }}>
+            <span className="text-4xl font-light" style={{ color: "var(--ember)", letterSpacing: "-0.02em" }}>
+              {done}
+            </span>
+            <span className="mx-1 text-xl" style={{ color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}>
+              /
+            </span>
+            <span className="text-4xl font-light" style={{ color: "var(--ember)", letterSpacing: "-0.02em" }}>
+              {total}
+            </span>
+          </div>
+          <span
+            className="mt-0.5 text-[8px] uppercase tracking-[0.3em]"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+            }}
+          >
+            Tarefas do dia
+          </span>
+
+        </div>
+
+        {/* Streak ribbon */}
         <div
-          className="h-full rounded-full bg-gradient-to-r from-[var(--accent-primary)] to-purple-400 transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+          className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em]"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: "color-mix(in srgb, var(--gold) 87%, transparent)",
+          }}
+        >
+          <span style={{ color: "var(--ember)", fontSize: 12 }}>&#9670;</span>
+          <span>{streak} dias · vigilia continua</span>
+          <span style={{ color: "var(--ember)", fontSize: 12 }}>&#9670;</span>
+        </div>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -47,50 +168,92 @@ function AttributePanel({
   character: Character | null;
   highlightedKeys: Set<string>;
 }) {
-  return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
-        Atributos
-      </h2>
-
-      {character === null ? (
-        <div className="space-y-3">
+  if (character === null) {
+    return (
+      <Panel title="Atributos" right="6 dominios">
+        <div className="flex flex-col gap-1.5">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="h-4 w-28 animate-pulse rounded bg-[var(--border-subtle)]" />
-              <div className="h-4 w-8 animate-pulse rounded bg-[var(--border-subtle)]" />
-            </div>
+            <div
+              key={i}
+              className="h-4 animate-pulse"
+              style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)" }}
+            />
           ))}
         </div>
-      ) : (
-        <div className="space-y-3">
-          {ATTRIBUTE_META.map(({ key, label, icon }) => {
-            const highlighted = highlightedKeys.has(key);
-            return (
-              <div
-                key={key}
-                className={`flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors duration-700 ${
-                  highlighted
-                    ? "bg-[var(--accent-primary)]/15"
-                    : ""
-                }`}
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel title="Atributos" right="6 dominios">
+      {/* Radar chart */}
+      <AttributeRadar
+        attributes={ATTRIBUTE_META.map(({ key, abbr, icon }) => ({
+          key,
+          abbr,
+          icon,
+          value: character[key] as number,
+          max: key === "hp" ? 1000 : 100,
+        }))}
+      />
+
+      {/* Attribute bars */}
+      <div className="mt-3.5 flex flex-col gap-1.5">
+        {ATTRIBUTE_META.map(({ key, label, icon }) => {
+          const value = character[key] as number;
+          const max = key === "hp" ? 1000 : 100;
+          const highlighted = highlightedKeys.has(key);
+
+          return (
+            <div
+              key={key}
+              className="grid items-center gap-2 transition-all duration-700"
+              style={{
+                gridTemplateColumns: "18px 60px 1fr 32px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                background: highlighted
+                  ? "color-mix(in srgb, var(--accent-primary) 15%, transparent)"
+                  : "transparent",
+                padding: "2px 4px",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 13,
+                  color: "var(--ember)",
+                }}
               >
-                <span className="text-sm text-gray-300">
-                  {icon} {label}
-                </span>
+                {icon}
+              </span>
+              <span style={{ color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}>
+                {label.split(" ")[0]?.slice(0, 6).toUpperCase()}
+              </span>
+              <span
+                className="relative h-[3px]"
+                style={{
+                  background: "color-mix(in srgb, var(--gold) 8%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+                }}
+              >
                 <span
-                  className={`text-sm font-bold tabular-nums transition-colors duration-700 ${
-                    highlighted ? "text-[var(--accent-primary)]" : "text-white"
-                  }`}
-                >
-                  {character[key]}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                  className="absolute inset-0"
+                  style={{
+                    width: `${Math.min(100, (value / max) * 100)}%`,
+                    background: "linear-gradient(90deg, var(--gold), var(--ember))",
+                    boxShadow: "0 0 6px color-mix(in srgb, var(--ember) 40%, transparent)",
+                    transition: "width 400ms ease-out",
+                  }}
+                />
+              </span>
+              <span className="text-right text-white">{value}</span>
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
   );
 }
 
@@ -103,166 +266,350 @@ function TaskCard({
   onComplete: (id: string) => void;
   completing: boolean;
 }) {
-  const categoryColor =
-    CATEGORY_COLORS[task.habitCategory as HabitCategory] ??
-    "bg-gray-500/15 text-gray-400 border-gray-500/30";
+  const catColor = CATEGORY_RIBBON[task.habitCategory] ?? "#999";
+  const catDot = CATEGORY_DOT[task.habitCategory] ?? "#aaa";
 
   const grants = task.attributeGrants;
   const grantEntries = ATTRIBUTE_META.filter(
     ({ grantKey }) =>
       grants[grantKey as keyof typeof grants] !== undefined &&
-      (grants[grantKey as keyof typeof grants] as number) > 0
+      (grants[grantKey as keyof typeof grants] as number) > 0,
   );
+  const rewardBits = grantEntries
+    .map(({ grantKey, icon }) => `${icon}+${grants[grantKey as keyof typeof grants]}`)
+    .join(" · ");
 
   return (
-    <div
-      className={`rounded-xl border p-4 transition-all ${
-        task.completed
-          ? "border-emerald-500/30 bg-emerald-900/20 opacity-70"
-          : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
-      }`}
+    <article
+      className="relative grid transition-all duration-250"
+      style={{
+        gridTemplateColumns: "4px 1fr auto",
+        gap: 14,
+        padding: "12px 14px",
+        background: task.completed
+          ? "linear-gradient(90deg, color-mix(in srgb, var(--bg-secondary) 33%, transparent) 0%, transparent 60%)"
+          : "color-mix(in srgb, var(--bg-secondary) 53%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--gold) 8%, transparent)",
+        opacity: task.completed ? 0.6 : 1,
+      }}
     >
-      {/* Header: badge + status */}
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-md border px-2 py-0.5 text-xs font-medium ${categoryColor}`}
+      {/* Category ribbon */}
+      <div
+        style={{
+          background: catColor,
+          boxShadow: `0 0 5px ${catColor}55`,
+          opacity: task.completed ? 0.4 : 1,
+        }}
+      />
+
+      {/* Text */}
+      <div className="min-w-0">
+        <div
+          className="mb-1 flex items-center gap-2 text-[9px] uppercase tracking-[0.25em]"
+          style={{ fontFamily: "var(--font-mono)", color: catDot }}
         >
-          {task.habitName}
-        </span>
-        <span
-          className={`text-xs ${categoryColor.split(" ")[1] ?? "text-gray-400"}`}
-        >
+          <span
+            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: catDot, boxShadow: `0 0 3px ${catDot}aa` }}
+          />
           {CATEGORY_LABEL[task.habitCategory as HabitCategory] ?? task.habitCategory}
-        </span>
+          {rewardBits && (
+            <>
+              <span style={{ color: "color-mix(in srgb, var(--gold) 33%, transparent)", marginLeft: 4 }}>·</span>
+              <span style={{ color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}>{rewardBits}</span>
+            </>
+          )}
+        </div>
+        <div
+          className="text-[15px]"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            color: task.completed
+              ? "color-mix(in srgb, var(--gold) 60%, transparent)"
+              : "#f0e6e0",
+            textDecorationLine: task.completed ? "line-through" : "none",
+            textDecorationColor: "color-mix(in srgb, var(--gold) 40%, transparent)",
+            textDecorationStyle: "solid",
+          }}
+        >
+          {task.description}
+        </div>
       </div>
 
-      {/* Descricao */}
-      <p className="mb-3 text-sm leading-relaxed text-gray-200">
-        {task.completed && (
-          <span className="mr-1.5 text-emerald-400">{"\u2713"}</span>
-        )}
-        {task.description}
-      </p>
-
-      {/* Preview de atributos */}
-      {grantEntries.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {grantEntries.map(({ grantKey, icon }) => (
-            <span
-              key={grantKey}
-              className="rounded bg-[var(--bg-secondary)] px-1.5 py-0.5 text-xs text-gray-400"
-            >
-              {icon} +{grants[grantKey as keyof typeof grants]}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Botao ou status completada */}
-      {task.completed ? (
-        <span className="text-xs font-medium text-emerald-400">Completada</span>
-      ) : (
-        <button
-          onClick={() => onComplete(task.id)}
-          disabled={completing}
-          className="cursor-pointer rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {completing ? "Completando..." : "Completar"}
-        </button>
-      )}
-    </div>
+      {/* Action */}
+      <button
+        onClick={() => onComplete(task.id)}
+        disabled={task.completed || completing}
+        className="cursor-pointer self-center text-[10px] uppercase tracking-[0.25em] transition-all duration-150 disabled:cursor-not-allowed"
+        style={{
+          fontFamily: "var(--font-cinzel)",
+          padding: "8px 14px",
+          color: task.completed
+            ? "color-mix(in srgb, var(--gold) 80%, transparent)"
+            : "var(--ember)",
+          background: task.completed
+            ? "transparent"
+            : "linear-gradient(180deg, color-mix(in srgb, var(--ember) 14%, transparent) 0%, color-mix(in srgb, var(--ember) 4%, transparent) 100%)",
+          border: task.completed
+            ? "1px solid color-mix(in srgb, var(--gold) 33%, transparent)"
+            : "1px solid var(--ember)",
+          whiteSpace: "nowrap",
+        }}
+        onMouseEnter={(e) => {
+          if (!task.completed) {
+            (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--ember) 27%, transparent)";
+            (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!task.completed) {
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "linear-gradient(180deg, color-mix(in srgb, var(--ember) 14%, transparent) 0%, color-mix(in srgb, var(--ember) 4%, transparent) 100%)";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--ember)";
+          }
+        }}
+      >
+        {task.completed ? "\u2713 Feita" : completing ? "..." : "Cumprir"}
+      </button>
+    </article>
   );
 }
 
 function TaskListSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-2">
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4"
-        >
-          <div className="mb-3 flex gap-2">
-            <div className="h-5 w-24 animate-pulse rounded bg-[var(--border-subtle)]" />
-            <div className="h-5 w-16 animate-pulse rounded bg-[var(--border-subtle)]" />
-          </div>
-          <div className="mb-3 h-4 w-3/4 animate-pulse rounded bg-[var(--border-subtle)]" />
-          <div className="flex gap-1.5">
-            <div className="h-5 w-14 animate-pulse rounded bg-[var(--border-subtle)]" />
-            <div className="h-5 w-14 animate-pulse rounded bg-[var(--border-subtle)]" />
-          </div>
-        </div>
+          className="h-16 animate-pulse"
+          style={{
+            background: "color-mix(in srgb, var(--bg-secondary) 53%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--gold) 8%, transparent)",
+          }}
+        />
       ))}
     </div>
   );
 }
 
-function LevelExpBar({ character }: { character: Character | null }) {
+function PlayerHeader({
+  character,
+  playerName,
+  avatarUrl,
+  houseName,
+}: {
+  character: Character | null;
+  playerName: string | null;
+  avatarUrl: string | null;
+  houseName: string | null;
+}) {
   if (character === null) {
     return (
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-        <div className="flex items-center gap-4">
-          <div className="h-10 w-10 animate-pulse rounded-full bg-[var(--border-subtle)]" />
-          <div className="flex-1 space-y-2">
-            <div className="h-3 w-full animate-pulse rounded-full bg-[var(--border-subtle)]" />
-            <div className="h-3 w-24 animate-pulse rounded bg-[var(--border-subtle)]" />
+      <Panel style={{ overflow: "hidden" }}>
+        <div className="p-4 sm:px-7 sm:py-6">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
+            <div
+              className="h-16 w-16 shrink-0 animate-pulse rounded-full sm:h-[104px] sm:w-[104px]"
+              style={{ background: "color-mix(in srgb, var(--gold) 14%, transparent)" }}
+            />
+            <div className="flex-1 space-y-3">
+              <div className="mx-auto h-3 w-32 animate-pulse sm:mx-0" style={{ background: "color-mix(in srgb, var(--gold) 14%, transparent)" }} />
+              <div className="mx-auto h-8 w-48 animate-pulse sm:mx-0" style={{ background: "color-mix(in srgb, var(--gold) 14%, transparent)" }} />
+              <div className="h-[6px] w-full animate-pulse" style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)" }} />
+            </div>
+            <div
+              className="h-16 w-16 shrink-0 animate-pulse rounded-full sm:h-[92px] sm:w-[92px]"
+              style={{ background: "color-mix(in srgb, var(--gold) 14%, transparent)" }}
+            />
           </div>
-          <div className="h-6 w-28 animate-pulse rounded bg-[var(--border-subtle)]" />
         </div>
-      </div>
+      </Panel>
     );
   }
 
   const needed = expToNextLevel(character.level);
   const pct = needed === 0 ? 100 : Math.min(100, Math.round((character.currentExp / needed) * 100));
+  const lore = houseName ? HOUSE_LORE[houseName] : null;
+  const title = getPlayerTitle(character.level);
+  const displayHouse = houseName
+    ? houseName.charAt(0) + houseName.slice(1).toLowerCase()
+    : null;
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <div className="flex items-center gap-4">
-        {/* Badge de nivel */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-primary)] font-bold text-white">
-          {character.level}
-        </div>
-
-        {/* Barra de EXP */}
-        <div className="flex-1">
-          <div className="h-3 overflow-hidden rounded-full bg-[var(--bg-secondary)]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[var(--accent-primary)] to-purple-400 transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="mt-1 text-xs text-gray-400">
-            {character.currentExp} / {needed} EXP
-          </p>
-        </div>
-
-        {/* Pontos livres */}
-        {character.freePoints > 0 && (
-          <Link
-            href="/character"
-            className="shrink-0 rounded-lg bg-[var(--accent-primary)]/20 px-3 py-1 text-xs font-semibold text-[var(--accent-primary)] transition-colors hover:bg-[var(--accent-primary)]/30"
-          >
-            {character.freePoints} pontos livres
-          </Link>
-        )}
+    <Panel style={{ overflow: "hidden" }}>
+      <div className="p-4 sm:px-7 sm:py-6">
+      {/* Watermark — nome da casa */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-14 select-none text-[120px] sm:text-[240px]"
+        style={{
+          fontFamily: "var(--font-cinzel)",
+          lineHeight: 1,
+          fontWeight: 600,
+          color: "var(--ember)",
+          opacity: 0.04,
+          letterSpacing: "0.04em",
+        }}
+      >
+        {houseName ?? "CRAFT"}
       </div>
-    </div>
+
+      <div className="relative flex flex-col items-center gap-4 sm:flex-row sm:items-stretch sm:gap-5">
+        {/* Avatar a esquerda */}
+        <div
+          className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full sm:h-[104px] sm:w-[104px]"
+          style={{
+            border: "1px solid color-mix(in srgb, var(--ember) 33%, transparent)",
+            background: avatarUrl
+              ? "transparent"
+              : `repeating-linear-gradient(135deg, var(--bg-secondary) 0 6px, var(--bg-primary) 6px 12px),
+                 radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--ember) 9%, transparent) 0%, transparent 65%)`,
+            boxShadow: "0 0 0 3px var(--bg-primary), 0 0 0 4px color-mix(in srgb, var(--gold) 20%, transparent), 0 0 14px color-mix(in srgb, var(--ember) 9%, transparent)",
+          }}
+        >
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+          ) : (
+            <span
+              className="text-3xl font-light italic sm:text-5xl"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                color: "var(--ember)",
+                textShadow: "0 0 6px color-mix(in srgb, var(--ember) 33%, transparent)",
+              }}
+            >
+              {playerName?.charAt(0)?.toUpperCase() ?? "?"}
+            </span>
+          )}
+        </div>
+
+        {/* Centro: eyebrow + nome + motto + XP */}
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-between gap-2 sm:items-start">
+          <div className="text-center sm:text-left">
+            <div
+              className="mb-1.5 text-[10px] uppercase tracking-[0.35em]"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+              }}
+            >
+              {displayHouse ? `Casa de ${displayHouse} \u00B7 ${title}` : title}
+            </div>
+            <div
+              className="text-2xl font-normal leading-none text-white sm:text-[34px]"
+              style={{ fontFamily: "var(--font-cormorant)", letterSpacing: "0.01em" }}
+            >
+              {playerName ?? "Aventureiro"}
+            </div>
+            {lore && (
+              <div
+                className="mt-1 text-[13px] italic"
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  color: "color-mix(in srgb, var(--gold) 67%, transparent)",
+                }}
+              >
+                &laquo; {lore.motto} &raquo;
+              </div>
+            )}
+          </div>
+
+          {/* XP bar */}
+          <div className="w-full">
+            <div
+              className="mb-1.5 flex items-baseline justify-between text-[10px] uppercase tracking-[0.2em]"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              <span style={{ color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}>XP</span>
+              <span style={{ color: "var(--ember)" }}>
+                {character.currentExp.toLocaleString()} / {needed.toLocaleString()}
+              </span>
+            </div>
+            <div
+              className="relative h-[6px]"
+              style={{
+                background: "var(--bg-secondary)",
+                border: "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
+              }}
+            >
+              <div
+                className="absolute inset-0 transition-all duration-500 ease-out"
+                style={{
+                  width: `${pct}%`,
+                  background: "linear-gradient(90deg, var(--gold) 0%, var(--ember) 100%)",
+                  boxShadow: "0 0 5px color-mix(in srgb, var(--ember) 40%, transparent), inset 0 0 3px color-mix(in srgb, var(--gold) 47%, transparent)",
+                }}
+              />
+              {[0.25, 0.5, 0.75].map((t) => (
+                <div
+                  key={t}
+                  className="absolute -bottom-0.5 -top-0.5 w-px"
+                  style={{ left: `${t * 100}%`, background: "color-mix(in srgb, var(--gold) 33%, transparent)" }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Nivel a direita */}
+        <div className="flex shrink-0 flex-col items-center gap-2 self-center sm:self-auto">
+          <div
+            className="relative grid h-16 w-16 place-items-center rounded-full sm:h-[92px] sm:w-[92px]"
+            style={{
+              background: "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-primary) 53%, transparent) 0%, var(--bg-secondary) 65%)",
+              border: "1px solid color-mix(in srgb, var(--ember) 33%, transparent)",
+              boxShadow: `
+                0 0 0 6px var(--bg-primary),
+                0 0 0 7px color-mix(in srgb, var(--gold) 20%, transparent),
+                0 0 14px color-mix(in srgb, var(--ember) 14%, transparent),
+                inset 0 0 14px color-mix(in srgb, var(--accent-primary) 20%, transparent)`,
+            }}
+          >
+            <svg viewBox="0 0 92 92" className="pointer-events-none absolute inset-0 h-full w-full">
+              {Array.from({ length: 24 }).map((_, i) => {
+                const a = (i / 24) * Math.PI * 2;
+                return (
+                  <line key={i}
+                    x1={46 + Math.cos(a) * 44} y1={46 + Math.sin(a) * 44}
+                    x2={46 + Math.cos(a) * 46.5} y2={46 + Math.sin(a) * 46.5}
+                    stroke="color-mix(in srgb, var(--gold) 53%, transparent)" strokeWidth="0.8"
+                  />
+                );
+              })}
+            </svg>
+            <div className="text-center leading-none">
+              <div className="text-[7px] uppercase tracking-[0.2em] sm:text-[9px] sm:tracking-[0.4em]"
+                style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}>
+                NIVEL
+              </div>
+              <div className="mt-0.5 text-3xl font-medium text-white sm:text-[44px]"
+                style={{ fontFamily: "var(--font-cormorant)", textShadow: "0 0 7px color-mix(in srgb, var(--ember) 47%, transparent)" }}>
+                {character.level}
+              </div>
+            </div>
+          </div>
+
+          {character.freePoints > 0 && (
+            <Link href="/character"
+              className="shrink-0 text-[10px] uppercase tracking-[0.3em] text-white"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                padding: "7px 14px",
+                background: "linear-gradient(135deg, color-mix(in srgb, var(--ember) 20%, transparent) 0%, color-mix(in srgb, var(--accent-primary) 40%, transparent) 100%)",
+                border: "1px solid var(--ember)",
+                animation: "freePulse 1.8s ease-in-out infinite",
+              }}>
+              &#10022; {character.freePoints} pontos livres &#10022;
+            </Link>
+          )}
+        </div>
+      </div>
+      </div>
+    </Panel>
   );
 }
 
-function PveBattleButton() {
-  return (
-    <Link
-      href="/battle"
-      className="block w-full rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-purple-600 py-3 text-center font-semibold text-white transition hover:brightness-110"
-    >
-      {"\u2694\uFE0F"} Batalhar
-    </Link>
-  );
-}
-
-function BossFightCard({
+function BattleActions({
   eligible,
   alreadyParticipated,
   dominantCategory,
@@ -275,48 +622,116 @@ function BossFightCard({
   inQueue: boolean;
   onJoin: (category: string) => void;
 }) {
-  if (alreadyParticipated) {
-    return (
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-center">
-        <p className="text-sm font-medium text-gray-500">
-          Ja participou de um Boss Fight hoje
-        </p>
-      </div>
-    );
-  }
-
-  if (!eligible) return null;
-
-  if (inQueue) {
-    return (
-      <div className="rounded-xl border border-[var(--accent-primary)]/30 bg-[var(--bg-card)] p-4 text-center">
-        <p className="text-sm font-medium text-[var(--accent-primary)]">
-          Na fila...
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className="rounded-xl border border-purple-500/40 p-4"
-      style={{
-        background: "linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.08))",
-      }}
-    >
-      <p className="text-sm font-bold text-purple-300">Boss Fight Disponivel!</p>
-      <p className="mt-1 text-xs text-gray-400">
-        Enfrente um boss com outros jogadores
-      </p>
-      <button
-        type="button"
-        onClick={() => {
-          if (dominantCategory) onJoin(dominantCategory);
+    <div className="flex flex-col gap-2.5">
+      {/* Primary CTA */}
+      <Link
+        href="/battle"
+        className="group relative block w-full overflow-hidden text-center text-sm uppercase tracking-[0.4em] text-white transition-transform duration-150 hover:-translate-y-px"
+        style={{
+          fontFamily: "var(--font-cinzel)",
+          padding: "18px 22px",
+          background: "linear-gradient(135deg, var(--accent-primary) 0%, var(--ember) 100%)",
+          border: "1px solid var(--ember)",
+          boxShadow:
+            "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent), inset 0 0 8px color-mix(in srgb, var(--gold) 14%, transparent)",
         }}
-        className="mt-3 w-full cursor-pointer rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-purple-500 py-2 text-xs font-semibold text-white transition hover:brightness-110"
       >
-        Entrar na Fila
-      </button>
+        <span
+          className="pointer-events-none absolute inset-1.5"
+          style={{ border: "1px solid color-mix(in srgb, var(--gold) 33%, transparent)" }}
+        />
+        &#9876; Batalhar &#9876;
+      </Link>
+
+      {/* Boss Fight */}
+      {alreadyParticipated || !eligible ? (
+        <article
+          className="p-4 text-center opacity-55"
+          style={{ border: "1px dashed color-mix(in srgb, var(--gold) 20%, transparent)" }}
+        >
+          <div
+            className="mb-1.5 text-[10px] uppercase tracking-[0.3em]"
+            style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 67%, transparent)" }}
+          >
+            &#9671; Boss Fight · Selado
+          </div>
+          <div
+            className="text-xs italic"
+            style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}
+          >
+            Nenhuma investida disponivel ate a proxima lua.
+          </div>
+        </article>
+      ) : (
+        <article
+          className="relative overflow-hidden p-4"
+          style={{
+            background: `
+              radial-gradient(ellipse at 20% 20%, color-mix(in srgb, var(--ember) 14%, transparent) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 100%, color-mix(in srgb, var(--accent-primary) 27%, transparent) 0%, transparent 60%),
+              linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)`,
+            border: "1px solid color-mix(in srgb, var(--ember) 33%, transparent)",
+            boxShadow:
+              "0 0 14px color-mix(in srgb, var(--ember) 9%, transparent), inset 0 0 14px color-mix(in srgb, var(--accent-primary) 14%, transparent)",
+          }}
+        >
+          {/* Pulsing corner */}
+          <div
+            className="pointer-events-none absolute -right-2.5 -top-2.5 h-20 w-20 rounded-full"
+            style={{
+              background: "radial-gradient(circle, color-mix(in srgb, var(--ember) 20%, transparent) 0%, transparent 70%)",
+              animation: "bossPulse 2.4s ease-in-out infinite",
+            }}
+          />
+
+          <div
+            className="mb-2 flex items-center justify-between text-[9px] uppercase tracking-[0.4em]"
+            style={{ fontFamily: "var(--font-cinzel)", color: "var(--ember)" }}
+          >
+            <span>&#9672; Boss Fight · {inQueue ? "Na Fila" : "Disponivel"}</span>
+            <span
+              className="text-[8px]"
+              style={{ color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
+            >
+              18h–22h
+            </span>
+          </div>
+          <div
+            className="mb-1 text-[19px] font-medium leading-tight text-white"
+            style={{ fontFamily: "var(--font-cormorant)", textWrap: "balance" }}
+          >
+            Arauto da Penumbra
+          </div>
+          <div
+            className="mb-2.5 text-[9px] tracking-[0.15em]"
+            style={{ fontFamily: "var(--font-mono)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
+          >
+            BOSS · 3v1 COOP
+          </div>
+          <div
+            className="mb-3 text-xs italic"
+            style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 87%, transparent)" }}
+          >
+            Recompensa: EXP bonus · Fragmento do Veu
+          </div>
+          <button
+            type="button"
+            onClick={() => { if (dominantCategory) onJoin(dominantCategory); }}
+            disabled={inQueue}
+            className="w-full cursor-pointer text-[11px] uppercase tracking-[0.3em] transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              padding: "10px",
+              color: inQueue ? "color-mix(in srgb, var(--gold) 60%, transparent)" : "var(--ember)",
+              background: "transparent",
+              border: `1px solid ${inQueue ? "color-mix(in srgb, var(--gold) 33%, transparent)" : "var(--ember)"}`,
+            }}
+          >
+            {inQueue ? "Aguardando..." : "Enfrentar o Arauto"}
+          </button>
+        </article>
+      )}
     </div>
   );
 }
@@ -329,6 +744,9 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [playerName, setPlayerName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [houseName, setHouseName] = useState<string | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -431,6 +849,21 @@ export default function DashboardPage() {
 
       if (signal.aborted) return;
 
+      // Extract player name, avatar, house from profile
+      if (profileRes.ok) {
+        const profileJson = (await profileRes.json()) as {
+          data: { name: string; avatarUrl: string | null; house: { name: string } | null; character: Character | null };
+        };
+        if (signal.aborted) return;
+        setPlayerName(profileJson.data.name);
+        setAvatarUrl(profileJson.data.avatarUrl);
+        setHouseName(profileJson.data.house?.name ?? null);
+        // Fallback character data from profile if character endpoint fails
+        if (!characterRes.ok && profileJson.data.character) {
+          setCharacter(profileJson.data.character);
+        }
+      }
+
       if (characterRes.ok) {
         const charData = (await characterRes.json()) as {
           data: { character: Character; skills: CharacterSkillSlot[] };
@@ -438,12 +871,6 @@ export default function DashboardPage() {
         if (signal.aborted) return;
         setCharacter(charData.data.character);
         setSkills(charData.data.skills);
-      } else if (profileRes.ok) {
-        const profileJson = (await profileRes.json()) as {
-          data: { character: Character | null };
-        };
-        if (signal.aborted) return;
-        setCharacter(profileJson.data.character);
       }
 
       // Non-blocking boss eligibility check
@@ -485,7 +912,6 @@ export default function DashboardPage() {
 
     return () => {
       controller.abort();
-      // Limpar timer do highlight ao desmontar
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current);
       }
@@ -494,7 +920,6 @@ export default function DashboardPage() {
 
   // Completar tarefa
   async function handleComplete(taskId: string) {
-    // Guard contra double-submit: se ja esta completando algo, ignora
     if (completingId !== null) return;
 
     const token = getToken();
@@ -523,19 +948,16 @@ export default function DashboardPage() {
 
       const json = (await res.json()) as CompleteTaskResponse;
 
-      // Atualizar tarefa na lista
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId
             ? { ...t, completed: true, completedAt: json.data.task.completedAt }
-            : t
-        )
+            : t,
+        ),
       );
 
-      // Atualizar atributos do personagem
       setCharacter(json.data.character);
 
-      // Destacar atributos que mudaram
       const gainedKeys = new Set<string>();
       const gained = json.data.attributesGained;
 
@@ -548,12 +970,10 @@ export default function DashboardPage() {
 
       setHighlightedKeys(gainedKeys);
 
-      // Limpar timer anterior se existir
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current);
       }
 
-      // Remover highlight apos 1.5s
       highlightTimerRef.current = setTimeout(() => {
         setHighlightedKeys(new Set());
         highlightTimerRef.current = null;
@@ -565,7 +985,6 @@ export default function DashboardPage() {
     }
   }
 
-  // Callback do calendario com AbortSignal vindo do componente
   const handleCalendarMonthChange = useCallback(
     (year: number, month: number, signal: AbortSignal) => {
       fetchCalendar(year, month, signal);
@@ -574,76 +993,118 @@ export default function DashboardPage() {
   );
 
   const completedCount = tasks.filter((t) => t.completed).length;
+  const streak = calendarDays.filter((d) => d.total > 0 && d.completed === d.total).length;
 
   return (
-    <div className="space-y-6">
-      {/* Barra de nivel e EXP */}
-      <LevelExpBar character={character} />
+    <div className="relative">
+      {/* Ember particles */}
+      <EmberField />
 
-      {/* Barra de progresso */}
-      {loadingTasks ? (
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-          <div className="mb-2 flex justify-between">
-            <div className="h-4 w-36 animate-pulse rounded bg-[var(--border-subtle)]" />
-            <div className="h-4 w-24 animate-pulse rounded bg-[var(--border-subtle)]" />
-          </div>
-          <div className="h-3 animate-pulse rounded-full bg-[var(--border-subtle)]" />
+      {/* Ambient backdrop gradients */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse at 15% 8%, color-mix(in srgb, var(--accent-primary) 12%, transparent) 0, transparent 55%),
+            radial-gradient(ellipse at 88% 92%, color-mix(in srgb, var(--deep) 40%, transparent) 0, transparent 55%)`,
+        }}
+      />
+
+      <div className="relative z-[2] flex flex-col gap-[18px]">
+        {/* Player Header */}
+        <PlayerHeader character={character} playerName={playerName} avatarUrl={avatarUrl} houseName={houseName} />
+
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 items-start gap-[18px] min-[960px]:grid-cols-[340px_1fr]">
+
+          {/* Sidebar */}
+          <aside className="flex flex-col gap-[18px]">
+            {loadingTasks ? (
+              <Panel title="Progresso Diario">
+                <div className="flex items-center justify-center py-12">
+                  <div
+                    className="h-[120px] w-[120px] animate-pulse rounded-full"
+                    style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)" }}
+                  />
+                </div>
+              </Panel>
+            ) : (
+              <DailyProgressArc
+                done={completedCount}
+                total={tasks.length}
+                streak={streak}
+              />
+            )}
+
+            <AttributePanel
+              character={character}
+              highlightedKeys={highlightedKeys}
+            />
+
+            <BattleActions
+              eligible={bossEligible}
+              alreadyParticipated={bossAlreadyParticipated}
+              dominantCategory={bossDominantCategory}
+              inQueue={inQueue}
+              onJoin={joinQueue}
+            />
+          </aside>
+
+          {/* Main content */}
+          <main className="flex flex-col gap-[18px]">
+            <EquippedSkillsPreview skills={skills} loading={loadingTasks} />
+
+            {/* Tasks */}
+            <Panel
+              title="Tarefas do Dia"
+              right={loadingTasks ? "" : `${completedCount} de ${tasks.length} cumpridas`}
+            >
+              {loadingTasks ? (
+                <TaskListSkeleton />
+              ) : tasks.length === 0 ? (
+                <div
+                  className="py-8 text-center text-sm italic"
+                  style={{
+                    fontFamily: "var(--font-garamond)",
+                    color: "color-mix(in srgb, var(--gold) 53%, transparent)",
+                  }}
+                >
+                  Nenhuma tarefa para hoje. Selecione habitos no seu perfil para comecar.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {tasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onComplete={handleComplete}
+                      completing={completingId === task.id}
+                    />
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <ActivityCalendar
+              days={calendarDays}
+              loading={loadingCalendar}
+              onMonthChange={handleCalendarMonthChange}
+            />
+          </main>
         </div>
-      ) : (
-        <ProgressBar completed={completedCount} total={tasks.length} />
-      )}
 
-      {/* Grid: sidebar + tarefas */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-        {/* Sidebar */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <AttributePanel
-            character={character}
-            highlightedKeys={highlightedKeys}
-          />
-          <EquippedSkillsPreview skills={skills} loading={loadingTasks} />
-          <PveBattleButton />
-          <BossFightCard
-            eligible={bossEligible}
-            alreadyParticipated={bossAlreadyParticipated}
-            dominantCategory={bossDominantCategory}
-            inQueue={inQueue}
-            onJoin={joinQueue}
-          />
-          <ActivityCalendar
-            days={calendarDays}
-            loading={loadingCalendar}
-            onMonthChange={handleCalendarMonthChange}
-          />
-        </div>
-
-        {/* Tarefas */}
-        <div>
-          <h2 className="mb-4 text-lg font-semibold text-white">
-            Tarefas Diarias
-          </h2>
-
-          {loadingTasks ? (
-            <TaskListSkeleton />
-          ) : tasks.length === 0 ? (
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center">
-              <p className="text-sm text-gray-400">
-                Nenhuma tarefa para hoje. Selecione habitos no seu perfil para comecar.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onComplete={handleComplete}
-                  completing={completingId === task.id}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Footer motto */}
+        <footer
+          className="mt-2 text-center text-xs italic"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+          }}
+        >
+          &laquo; {houseName && HOUSE_LORE[houseName]
+          ? HOUSE_LORE[houseName].motto
+          : "O conhecimento e a chave, a disciplina e o caminho"} &raquo;
+        </footer>
       </div>
     </div>
   );

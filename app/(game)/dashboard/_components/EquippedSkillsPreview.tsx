@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import type { CharacterSkillSlot } from "@/types/skill";
+import Panel from "@/components/ui/Panel";
 
-const TIER_COLORS: Record<number, string> = {
-  1: "text-gray-400 bg-gray-500/15",
-  2: "text-blue-400 bg-blue-500/15",
-  3: "text-purple-400 bg-purple-500/15",
+const TYPE_COLORS: Record<string, string> = {
+  MAGICAL: "#8fa8ff",
+  PHYSICAL: "#ff8a70",
+  BUFF: "#b9ff8a",
+  HEAL: "#8fd8a6",
 };
 
 export default function EquippedSkillsPreview({
@@ -17,17 +19,14 @@ export default function EquippedSkillsPreview({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
-        Habilidades
-      </h2>
-
+    <Panel title="Skills Equipadas" right="4 / 4">
       {loading ? (
         <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-16 animate-pulse rounded-lg bg-[var(--border-subtle)]"
+              className="h-20 animate-pulse"
+              style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)" }}
             />
           ))}
         </div>
@@ -35,40 +34,86 @@ export default function EquippedSkillsPreview({
         <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: 4 }).map((_, idx) => {
             const slot = skills.find((s) => s.slotIndex === idx);
-
-            if (!slot) {
-              return (
-                <div
-                  key={idx}
-                  className="flex h-16 items-center justify-center rounded-lg border border-dashed border-[var(--border-subtle)]"
-                >
-                  <span className="text-xs text-gray-600">Vazio</span>
-                </div>
-              );
-            }
-
-            const tierColor = TIER_COLORS[slot.skill.tier] ?? TIER_COLORS[1];
+            const empty = !slot;
+            const c = empty
+              ? "color-mix(in srgb, var(--gold) 14%, transparent)"
+              : (TYPE_COLORS[slot.skill.damageType] ?? "var(--ember)");
 
             return (
               <div
                 key={idx}
-                className="flex flex-col justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-2 py-2"
+                className="relative flex min-h-[82px] flex-col justify-between p-2"
+                style={{
+                  background: empty
+                    ? "repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--gold) 3%, transparent) 6px 7px)"
+                    : "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+                  border: `1px solid color-mix(in srgb, var(--gold) ${empty ? "14%" : "20%"}, transparent)`,
+                  opacity: empty ? 0.5 : 1,
+                }}
               >
-                <span className="truncate text-xs font-medium text-gray-200">
-                  {slot.skill.name}
+                {/* Slot index */}
+                <span
+                  className="absolute right-1.5 top-1 text-[7px] tracking-[0.15em]"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+                  }}
+                >
+                  SLOT·{idx + 1}
                 </span>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <span
-                    className={`rounded px-1 py-0.5 text-[10px] font-semibold ${tierColor}`}
+
+                {empty ? (
+                  <div
+                    className="flex flex-1 items-center justify-center text-[9px] uppercase tracking-[0.3em]"
+                    style={{
+                      fontFamily: "var(--font-cinzel)",
+                      color: "color-mix(in srgb, var(--gold) 33%, transparent)",
+                    }}
                   >
-                    T{slot.skill.tier}
-                  </span>
-                  {slot.skill.cooldown > 0 && (
-                    <span className="text-[10px] text-gray-500">
-                      CD: {slot.skill.cooldown}
-                    </span>
-                  )}
-                </div>
+                    + Vazio
+                  </div>
+                ) : (
+                  <>
+                    {/* Type badge */}
+                    <div
+                      className="inline-flex items-center gap-1 self-start px-1 py-px text-[8px] tracking-[0.18em]"
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        color: c,
+                        border: `1px solid ${c}55`,
+                      }}
+                    >
+                      <span
+                        className="inline-block h-1 w-1 rounded-full"
+                        style={{ background: c, boxShadow: `0 0 3px ${c}aa` }}
+                      />
+                      {slot.skill.damageType === "MAGICAL" ? "MAG" : "PHY"}
+                    </div>
+
+                    <div>
+                      <div
+                        className="mb-0.5 text-sm font-medium leading-tight text-white"
+                        style={{ fontFamily: "var(--font-cormorant)" }}
+                      >
+                        {slot.skill.name}
+                      </div>
+                      <div
+                        className="flex items-center justify-between text-[8px] tracking-[0.12em]"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                        }}
+                      >
+                        <span>TIER {slot.skill.tier}</span>
+                        {slot.skill.cooldown > 0 ? (
+                          <span style={{ color: "#d96a52" }}>CD · {slot.skill.cooldown}T</span>
+                        ) : (
+                          <span style={{ color: "#7acf8a" }}>● PRONTA</span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
@@ -77,10 +122,14 @@ export default function EquippedSkillsPreview({
 
       <Link
         href="/character"
-        className="mt-3 block text-center text-xs text-gray-400 transition-colors hover:text-[var(--accent-primary)]"
+        className="mt-3 block text-center text-xs italic transition-colors hover:text-white"
+        style={{
+          fontFamily: "var(--font-garamond)",
+          color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+        }}
       >
-        Gerenciar
+        Gerenciar grimorio
       </Link>
-    </div>
+    </Panel>
   );
 }

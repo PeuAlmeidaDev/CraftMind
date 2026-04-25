@@ -23,12 +23,13 @@ export const ATTRIBUTE_META: {
   key: keyof Character;
   grantKey: string;
   label: string;
+  abbr: string;
   icon: string;
 }[] = [
-  { key: "physicalAtk", grantKey: "physicalAttack", label: "Ataque Fisico", icon: "\u2694\uFE0F" },
-  { key: "physicalDef", grantKey: "physicalDefense", label: "Defesa Fisica", icon: "\u{1F6E1}\uFE0F" },
-  { key: "magicAtk", grantKey: "magicAttack", label: "Ataque Magico", icon: "\u2728" },
-  { key: "magicDef", grantKey: "magicDefense", label: "Defesa Magica", icon: "\u{1F52E}" },
-  { key: "hp", grantKey: "hp", label: "Vida", icon: "\u2764\uFE0F" },
-  { key: "speed", grantKey: "speed", label: "Velocidade", icon: "\u{1F4A8}" },
+  { key: "physicalAtk", grantKey: "physicalAttack", label: "Ataque Fisico", abbr: "ATK.F", icon: "\u2694\uFE0F" },
+  { key: "physicalDef", grantKey: "physicalDefense", label: "Defesa Fisica", abbr: "DEF.F", icon: "\u{1F6E1}\uFE0F" },
+  { key: "magicAtk", grantKey: "magicAttack", label: "Ataque Magico", abbr: "ATK.M", icon: "\u2728" },
+  { key: "magicDef", grantKey: "magicDefense", label: "Defesa Magica", abbr: "DEF.M", icon: "\u{1F52E}" },
+  { key: "hp", grantKey: "hp", label: "Vida", abbr: "HP", icon: "\u2764\uFE0F" },
+  { key: "speed", grantKey: "speed", label: "Velocidade", abbr: "SPD", icon: "\u{1F4A8}" },
 ];

@@ -134,6 +134,9 @@ export async function POST(
             magicDef: true,
             hp: true,
             speed: true,
+            level: true,
+            currentExp: true,
+            freePoints: true,
           },
         });
 

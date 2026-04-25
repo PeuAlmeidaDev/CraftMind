@@ -1,30 +1,46 @@
 "use client";
 
 import type { CharacterSkillSlot, SkillEffect } from "@/types/skill";
+import Panel from "@/components/ui/Panel";
 
 type Props = {
   skills: CharacterSkillSlot[];
 };
 
-const TIER_STYLES: Record<number, string> = {
-  1: "text-gray-400 bg-gray-500/15",
-  2: "text-blue-400 bg-blue-500/15",
-  3: "text-purple-400 bg-purple-500/15",
+const TIER_COLORS: Record<number, string> = {
+  1: "#9ba3ad",
+  2: "#6b9dff",
+  3: "#b06bff",
 };
 
-const DAMAGE_TYPE_LABELS: Record<string, string> = {
-  PHYSICAL: "Fisico",
-  MAGICAL: "Magico",
-  NONE: "Suporte",
+const DAMAGE_TYPE_LABEL: Record<string, { short: string; color: string }> = {
+  PHYSICAL: { short: "PHY", color: "#ff8a70" },
+  MAGICAL: { short: "MAG", color: "#8fa8ff" },
+  NONE: { short: "SUP", color: "#b9ff8a" },
 };
 
 const TARGET_LABELS: Record<string, string> = {
-  SELF: "Proprio",
-  SINGLE_ENEMY: "1 Inimigo",
-  ALL_ENEMIES: "Todos Inimigos",
-  SINGLE_ALLY: "1 Aliado",
-  ALL_ALLIES: "Todos Aliados",
-  ALL: "Todos",
+  SELF: "PROPRIO",
+  SINGLE_ENEMY: "1 INIMIGO",
+  ALL_ENEMIES: "TODOS INIMIGOS",
+  SINGLE_ALLY: "1 ALIADO",
+  ALL_ALLIES: "TODOS ALIADOS",
+  ALL: "TODOS",
+};
+
+const EFFECT_COLORS: Record<string, string> = {
+  BUFF: "#8fd8a6",
+  DEBUFF: "#ff8a70",
+  STATUS: "#b06bff",
+  HEAL: "#8fd8a6",
+  RECOIL: "#ff6b6b",
+  CLEANSE: "#6bffb8",
+  SELF_DEBUFF: "#ffb86b",
+  VULNERABILITY: "#d96a52",
+  PRIORITY_SHIFT: "#6b9dff",
+  COUNTER: "#f2c84a",
+  COMBO: "#e8945a",
+  ON_EXPIRE: "#9ba3ad",
 };
 
 function renderEffect(effect: SkillEffect): string {
@@ -61,85 +77,184 @@ function renderEffect(effect: SkillEffect): string {
 export default function SkillInventory({ skills }: Props) {
   if (skills.length === 0) {
     return (
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-        <p className="text-center text-sm text-gray-400">
-          Nenhuma habilidade desbloqueada. Complete tarefas diarias para
-          desbloquear.
+      <Panel title="Grimorio" right="0 desbloqueadas">
+        <p
+          className="text-center"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            fontSize: 13,
+            fontStyle: "italic",
+            color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            padding: "20px 0",
+          }}
+        >
+          Nenhuma habilidade desbloqueada. Complete tarefas diarias para desbloquear.
         </p>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
-        Habilidades desbloqueadas ({skills.length}/49)
-      </h3>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <Panel title="Grimorio" right={`${skills.length} desbloqueadas`}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          gap: 10,
+        }}
+      >
         {skills.map((slot) => {
           const { skill } = slot;
-          const tierStyle = TIER_STYLES[skill.tier] ?? TIER_STYLES[1];
+          const tierColor = TIER_COLORS[skill.tier] ?? TIER_COLORS[1];
+          const typeInfo = DAMAGE_TYPE_LABEL[skill.damageType] ?? DAMAGE_TYPE_LABEL.NONE;
+          const isEquipped = slot.equipped && slot.slotIndex !== null;
 
           return (
             <div
               key={skill.id}
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3"
+              className="relative"
+              style={{
+                background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+                border: `1px solid ${isEquipped ? "var(--ember)" : "color-mix(in srgb, var(--gold) 14%, transparent)"}`,
+                padding: "12px 10px 10px",
+              }}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-gray-200">
-                  {skill.name}
+              {/* Equipped badge */}
+              {isEquipped && (
+                <span
+                  className="absolute"
+                  style={{
+                    top: 0,
+                    right: 0,
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 8,
+                    background: "var(--ember)",
+                    color: "var(--bg-primary)",
+                    padding: "2px 6px",
+                    letterSpacing: "0.04em",
+                    fontWeight: 600,
+                  }}
+                >
+                  ✦ Slot {(slot.slotIndex as number) + 1}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  {slot.equipped && slot.slotIndex !== null && (
-                    <span className="text-xs text-amber-400">
-                      Slot {slot.slotIndex + 1}
-                    </span>
-                  )}
+              )}
+
+              {/* Top row: tier + type */}
+              <div className="flex items-center" style={{ gap: 8, marginBottom: 6 }}>
+                {/* Tier badge */}
+                <span
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 9,
+                    padding: "1px 6px",
+                    border: `1px solid ${tierColor}`,
+                    background: `color-mix(in srgb, ${tierColor} 7%, transparent)`,
+                    color: tierColor,
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  T{skill.tier}
+                </span>
+
+                {/* Type badge */}
+                <div className="flex items-center" style={{ gap: 4 }}>
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tierStyle}`}
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      backgroundColor: typeInfo.color,
+                      display: "inline-block",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 8,
+                      color: typeInfo.color,
+                      letterSpacing: "0.05em",
+                    }}
                   >
-                    T{skill.tier}
+                    {typeInfo.short}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-gray-500">
-                  {DAMAGE_TYPE_LABELS[skill.damageType] ?? skill.damageType}
-                </span>
-                <span className="text-gray-600">|</span>
-                <span className="text-gray-500">
-                  {TARGET_LABELS[skill.target] ?? skill.target}
-                </span>
-                {skill.cooldown > 0 && (
-                  <>
-                    <span className="text-gray-600">|</span>
-                    <span className="text-gray-500">
-                      Cooldown: {skill.cooldown} turno(s)
-                    </span>
-                  </>
-                )}
+              {/* Skill name */}
+              <p
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: "#ffffff",
+                  lineHeight: 1.2,
+                  marginBottom: 4,
+                  paddingRight: isEquipped ? 50 : 0,
+                }}
+              >
+                {skill.name}
+              </p>
+
+              {/* Footer: target + cooldown */}
+              <div
+                className="flex items-center"
+                style={{
+                  gap: 8,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  marginBottom: 6,
+                }}
+              >
+                <span>{TARGET_LABELS[skill.target] ?? skill.target}</span>
+                {skill.cooldown > 0 && <span>CD {skill.cooldown}</span>}
               </div>
 
-              <p className="mt-2 text-xs text-gray-400">{skill.description}</p>
+              {/* Description */}
+              <p
+                style={{
+                  fontFamily: "var(--font-garamond)",
+                  fontSize: 13,
+                  fontStyle: "italic",
+                  color: "color-mix(in srgb, var(--gold) 87%, transparent)",
+                  lineHeight: 1.4,
+                  marginBottom: skill.effects.length > 0 ? 8 : 0,
+                }}
+              >
+                {skill.description}
+              </p>
 
+              {/* Effects */}
               {skill.effects.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {skill.effects.map((effect, idx) => (
-                    <span
-                      key={idx}
-                      className="rounded bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] text-gray-300"
-                    >
-                      {renderEffect(effect)}
-                    </span>
-                  ))}
+                <div className="flex flex-wrap" style={{ gap: 4 }}>
+                  {skill.effects.map((effect, effectIdx) => {
+                    const effectColor = EFFECT_COLORS[effect.type] ?? "#9ba3ad";
+                    return (
+                      <span
+                        key={effectIdx}
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 8,
+                          color: effectColor,
+                          border: `1px solid color-mix(in srgb, ${effectColor} 27%, transparent)`,
+                          background: `color-mix(in srgb, ${effectColor} 6%, transparent)`,
+                          padding: "1px 5px",
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        {renderEffect(effect)}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
           );
         })}
       </div>
-    </div>
+    </Panel>
   );
 }

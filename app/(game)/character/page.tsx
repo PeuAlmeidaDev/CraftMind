@@ -15,6 +15,8 @@ import SkillLoadout from "./_components/SkillLoadout";
 import SkillSelectModal from "./_components/SkillSelectModal";
 import SkillInventory from "./_components/SkillInventory";
 import HouseBanner from "./_components/HouseBanner";
+import EmberField from "@/components/ui/EmberField";
+import { HOUSE_LORE } from "@/lib/constants-house";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -176,53 +178,95 @@ export default function CharacterPage() {
 
   const allSkills = [...equippedSkills, ...unequippedSkills];
 
+  const houseName = profile?.house?.name ?? null;
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-28 animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)]" />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
-          <div className="h-80 animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)]" />
-          <div className="h-96 animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)]" />
+      <div className="relative">
+        <EmberField />
+        <div className="relative z-[2] flex flex-col gap-[18px]">
+          <div
+            className="h-32 animate-pulse"
+            style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--gold) 10%, transparent)" }}
+          />
+          <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[320px_1fr]">
+            <div
+              className="h-80 animate-pulse"
+              style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--gold) 10%, transparent)" }}
+            />
+            <div
+              className="h-96 animate-pulse"
+              style={{ background: "color-mix(in srgb, var(--gold) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--gold) 10%, transparent)" }}
+            />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header do personagem */}
-      {profile && character && (
-        <CharacterHeader
-          profile={profile}
-          character={character}
-          onAvatarChange={handleAvatarChange}
-        />
-      )}
+    <div className="relative">
+      {/* Ember particles */}
+      <EmberField />
 
-      {/* Grid: atributos (esquerda) + skills (direita) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
-        {/* Coluna esquerda */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          {character && (
-            <AttributePanel
-              character={character}
-              onDistribute={handleDistribute}
-            />
-          )}
-          {profile?.house && (
-            <HouseBanner houseName={profile.house.name} />
-          )}
-        </div>
+      {/* Ambient backdrop */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse at 15% 8%, color-mix(in srgb, var(--accent-primary) 12%, transparent) 0, transparent 55%),
+            radial-gradient(ellipse at 88% 92%, color-mix(in srgb, var(--deep) 40%, transparent) 0, transparent 55%)`,
+        }}
+      />
 
-        {/* Coluna direita */}
-        <div className="space-y-6">
-          <SkillLoadout
-            equipped={equippedSkills}
-            onSlotClick={handleSlotClick}
-            onUnequip={handleUnequip}
+      <div className="relative z-[2] flex flex-col gap-[18px]">
+        {/* Header do personagem */}
+        {profile && character && (
+          <CharacterHeader
+            profile={profile}
+            character={character}
+            onAvatarChange={handleAvatarChange}
           />
-          <SkillInventory skills={allSkills} />
+        )}
+
+        {/* Grid: atributos (esquerda) + skills (direita) */}
+        <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[320px_1fr]">
+          {/* Coluna esquerda */}
+          <div className="flex flex-col gap-[18px] lg:sticky lg:top-20 lg:self-start">
+            {character && (
+              <AttributePanel
+                character={character}
+                onDistribute={handleDistribute}
+              />
+            )}
+            {profile?.house && (
+              <HouseBanner houseName={profile.house.name} />
+            )}
+          </div>
+
+          {/* Coluna direita */}
+          <div className="flex flex-col gap-[18px]">
+            <SkillLoadout
+              equipped={equippedSkills}
+              onSlotClick={handleSlotClick}
+              onUnequip={handleUnequip}
+            />
+            <SkillInventory skills={allSkills} />
+          </div>
         </div>
+
+        {/* Footer motto */}
+        <footer
+          className="mt-2 text-center text-xs italic"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+          }}
+        >
+          &laquo; {houseName && HOUSE_LORE[houseName]
+            ? HOUSE_LORE[houseName].motto
+            : "O conhecimento e a chave, a disciplina e o caminho"} &raquo;
+        </footer>
       </div>
 
       {/* Modal de selecao de skill */}

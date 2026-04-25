@@ -8,6 +8,8 @@ import { getToken, authFetchOptions, clearAuthAndRedirect } from "@/lib/client-a
 import CoopPveArena from "./_components/CoopPveArena";
 import CoopPveResult from "./_components/CoopPveResult";
 import InviteFriendModal from "./_components/InviteFriendModal";
+import EmberField from "@/components/ui/EmberField";
+import { HOUSE_LORE } from "@/lib/constants-house";
 
 // ---------------------------------------------------------------------------
 // Re-exported types for child components (part 2)
@@ -96,6 +98,7 @@ function CoopPveInner() {
   const router = useRouter();
   const ctx = useCoopPveQueue();
   const [currentPlayerId, setCurrentPlayerId] = useState<string>("");
+  const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null; house: { name: string } | null } | null>(null);
   const [activeBattleType, setActiveBattleType] = useState<string | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
   const [reconnecting, setReconnecting] = useState(false);
@@ -117,6 +120,7 @@ function CoopPveInner() {
       .then((json) => {
         if (json) {
           setCurrentPlayerId(json.data.id);
+          setProfile({ name: json.data.name, avatarUrl: json.data.avatarUrl, house: json.data.house });
         }
       })
       .catch(() => {});
@@ -234,7 +238,7 @@ function CoopPveInner() {
 
   switch (ctx.phase) {
     case "IDLE":
-      return <IdlePhase />;
+      return <IdlePhase profile={profile} />;
     case "QUEUE":
       return <QueuePhase />;
     case "MATCH":
@@ -250,7 +254,7 @@ function CoopPveInner() {
 // IDLE — Mode selector + join button
 // ---------------------------------------------------------------------------
 
-function IdlePhase() {
+function IdlePhase({ profile }: { profile: { name: string; avatarUrl: string | null; house: { name: string } | null } | null }) {
   const { mode, setMode, joinQueue, sendInvite, invitePhase, inviteTargetName } = useCoopPveQueue();
   const router = useRouter();
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -260,50 +264,244 @@ function IdlePhase() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="max-w-md w-full mx-4 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-8 text-center">
-        <h1 className="text-2xl font-bold text-white mb-2">Coop PvE</h1>
-        <p className="text-sm text-gray-400 mb-6">
-          Junte-se a outro jogador para enfrentar mobs em dupla
-        </p>
-
-        {/* Mode selector */}
-        <div className="flex justify-center gap-2 mb-6">
-          <ModeButton current={mode} value="2v3" label="2v3" onSelect={setMode} />
-          <ModeButton current={mode} value="2v5" label="2v5" onSelect={setMode} />
+    <div className="relative">
+      <EmberField />
+      <div
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse at 15% 8%, color-mix(in srgb, var(--accent-primary) 12%, transparent) 0, transparent 55%),
+            radial-gradient(ellipse at 88% 92%, color-mix(in srgb, var(--deep) 40%, transparent) 0, transparent 55%)`,
+        }}
+      />
+      <div className="relative z-[2] flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
+        {/* Hero */}
+        <div className="text-center">
+          <div
+            className="mb-2 text-[10px] uppercase tracking-[0.4em]"
+            style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
+          >
+            Coop · 2 Jogadores
+          </div>
+          <h1
+            className="text-[clamp(32px,5vw,48px)] font-medium text-white"
+            style={{ fontFamily: "var(--font-cormorant)", lineHeight: 1 }}
+          >
+            Reuna seu Aliado
+          </h1>
+          <p
+            className="mx-auto mt-2 max-w-md text-[15px] italic"
+            style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 67%, transparent)" }}
+          >
+            &laquo; Juntos, a jornada e mais leve e o destino mais certo. &raquo;
+          </p>
         </div>
 
-        <p className="text-xs text-gray-500 mb-6">
-          {mode === "2v3"
-            ? "Voce e um parceiro enfrentam 3 mobs. Partida rapida."
-            : "Voce e um parceiro enfrentam 5 mobs. Desafio maior, mais EXP."}
-        </p>
+        {/* Card de selecao */}
+        <article
+          className="relative w-full max-w-md overflow-hidden p-6"
+          style={{
+            background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+            border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+          }}
+        >
+          {/* Corner ticks */}
+          {[
+            { top: 0, left: 0, borderTop: "1px solid", borderLeft: "1px solid" },
+            { top: 0, right: 0, borderTop: "1px solid", borderRight: "1px solid" },
+            { bottom: 0, left: 0, borderBottom: "1px solid", borderLeft: "1px solid" },
+            { bottom: 0, right: 0, borderBottom: "1px solid", borderRight: "1px solid" },
+          ].map((pos, i) => (
+            <span
+              key={i}
+              className="pointer-events-none absolute h-3 w-3"
+              style={{
+                ...pos,
+                borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)",
+              }}
+            />
+          ))}
 
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={joinQueue}
-            className="w-full rounded-lg py-3 font-semibold text-white bg-gradient-to-r from-[var(--accent-primary)] to-purple-600 hover:brightness-110 transition cursor-pointer"
+          {/* Glyph */}
+          <div
+            className="mb-3 text-center text-[36px]"
+            style={{
+              fontFamily: "var(--font-cormorant)",
+              color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+              lineHeight: 1,
+            }}
           >
-            Buscar Parceiro
-          </button>
+            &#9873;
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setShowInviteModal(true)}
-            className="w-full rounded-lg py-3 font-semibold text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 hover:bg-[var(--accent-primary)]/10 transition cursor-pointer"
+          {/* Formation visual */}
+          <div
+            className="mx-auto mb-5 grid max-w-[220px] items-center gap-2"
+            style={{
+              gridTemplateColumns: "1fr auto 1fr",
+              padding: "12px 8px",
+              background: "linear-gradient(180deg, transparent 40%, color-mix(in srgb, var(--ember) 4%, transparent) 100%)",
+              border: "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+            }}
           >
-            Convidar Amigo
-          </button>
+            {/* Aliados (2 pips) */}
+            <div className="flex justify-end gap-1">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="inline-block h-3 w-3 rounded-full"
+                  style={{
+                    background: "radial-gradient(circle at 40% 35%, var(--ember), color-mix(in srgb, var(--ember) 20%, transparent))",
+                    border: "1px solid var(--ember)",
+                    boxShadow: "0 0 4px color-mix(in srgb, var(--ember) 27%, transparent)",
+                  }}
+                />
+              ))}
+            </div>
+            <span
+              className="text-[11px] tracking-[0.15em]"
+              style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}
+            >
+              ·vs·
+            </span>
+            {/* Inimigos */}
+            <div className="flex gap-1">
+              {Array.from({ length: mode === "2v3" ? 3 : 5 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{
+                    background: "radial-gradient(circle at 40% 35%, var(--gold), color-mix(in srgb, var(--gold) 20%, transparent))",
+                    border: "1px solid var(--gold)",
+                    boxShadow: "0 0 4px color-mix(in srgb, var(--gold) 27%, transparent)",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => router.push("/battle")}
-            className="w-full rounded-lg py-2 text-sm text-gray-400 hover:text-white transition cursor-pointer"
+          {/* Difficulty tabs */}
+          <div className="mb-4 flex gap-1">
+            {(["2v3", "2v5"] as const).map((m) => {
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className="flex flex-1 cursor-pointer flex-col items-center gap-1 py-2 transition-all"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 10,
+                    letterSpacing: "0.25em",
+                    textTransform: "uppercase",
+                    background: active ? "color-mix(in srgb, var(--ember) 14%, transparent)" : "color-mix(in srgb, var(--bg-secondary) 67%, transparent)",
+                    border: `1px solid ${active ? "var(--ember)" : "color-mix(in srgb, var(--gold) 14%, transparent)"}`,
+                    color: active ? "#fff" : "color-mix(in srgb, var(--gold) 80%, transparent)",
+                  }}
+                >
+                  <span>{m}</span>
+                  <span
+                    className="text-[10px] normal-case tracking-normal"
+                    style={{
+                      fontFamily: "var(--font-garamond)",
+                      fontStyle: "italic",
+                      letterSpacing: 0,
+                      color: active ? "var(--ember)" : "color-mix(in srgb, var(--gold) 47%, transparent)",
+                    }}
+                  >
+                    {m === "2v3" ? "Rapido" : "Desafio"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Hint */}
+          <p
+            className="mb-4 text-center text-xs italic"
+            style={{
+              fontFamily: "var(--font-garamond)",
+              color: "color-mix(in srgb, var(--gold) 67%, transparent)",
+            }}
           >
-            Voltar
-          </button>
-        </div>
+            {mode === "2v3"
+              ? "Junte-se a um aliado contra 3 mobs — partida rapida"
+              : "Junte-se a um aliado contra 5 mobs — desafio maior, mais EXP"}
+          </p>
+
+          {/* Reward hint */}
+          <div
+            className="mb-4 flex items-center justify-center gap-1.5 text-[9px] tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-mono)",
+              color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            }}
+          >
+            <span style={{ color: "var(--ember)" }}>&#10022;</span>
+            {mode === "2v3" ? "EXP x2 bonus" : "EXP x3 bonus"}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={joinQueue}
+              className="w-full cursor-pointer py-3 text-[11px] uppercase tracking-[0.3em] text-white transition-transform duration-150 hover:-translate-y-px"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                background: "linear-gradient(135deg, var(--accent-primary) 0%, var(--ember) 100%)",
+                border: "1px solid var(--ember)",
+                boxShadow: "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent)",
+              }}
+            >
+              Buscar Parceiro
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowInviteModal(true)}
+              className="w-full cursor-pointer py-3 text-[11px] uppercase tracking-[0.3em] transition-all duration-150 hover:brightness-125"
+              style={{
+                fontFamily: "var(--font-cinzel)",
+                background: "transparent",
+                border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+                color: "var(--gold)",
+              }}
+            >
+              Convidar Amigo
+            </button>
+          </div>
+        </article>
+
+        {/* Voltar */}
+        <button
+          type="button"
+          onClick={() => router.push("/battle")}
+          className="cursor-pointer border-0 bg-transparent text-[13px] italic transition-colors hover:text-white"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            color: "color-mix(in srgb, var(--gold) 67%, transparent)",
+            textDecoration: "underline",
+            textDecorationColor: "color-mix(in srgb, var(--gold) 27%, transparent)",
+            textUnderlineOffset: "3px",
+          }}
+        >
+          Voltar
+        </button>
+
+        {/* Footer motto */}
+        <footer
+          className="text-center text-xs italic"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+          }}
+        >
+          &laquo; {profile?.house?.name && HOUSE_LORE[profile.house.name]
+            ? HOUSE_LORE[profile.house.name].motto
+            : "Juntos, a jornada e mais leve e o destino mais certo"} &raquo;
+        </footer>
       </div>
 
       {showInviteModal && (

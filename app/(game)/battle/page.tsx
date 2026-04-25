@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, clearAuthAndRedirect, authFetchOptions } from "@/lib/client-auth";
+import { HOUSE_LORE } from "@/lib/constants-house";
+import EmberField from "@/components/ui/EmberField";
 import BattleIdle from "./_components/BattleIdle";
 import BattleArena from "./_components/BattleArena";
 
@@ -613,7 +615,27 @@ export default function BattlePage() {
   }
 
   if (phase === "IDLE") {
-    return <BattleIdle onStart={handleStartBattle} loading={loading} />;
+    return (
+      <div className="relative">
+        <EmberField />
+        <div
+          className="pointer-events-none fixed inset-0 z-0"
+          style={{
+            backgroundImage: `
+              radial-gradient(ellipse at 15% 8%, color-mix(in srgb, var(--accent-primary) 12%, transparent) 0, transparent 55%),
+              radial-gradient(ellipse at 88% 92%, color-mix(in srgb, var(--deep) 40%, transparent) 0, transparent 55%)`,
+          }}
+        />
+        <div className="relative z-[2]">
+          <BattleIdle
+            onStart={handleStartBattle}
+            loading={loading}
+            playerName={profile?.name ?? null}
+            houseName={profile?.house?.name ?? null}
+          />
+        </div>
+      </div>
+    );
   }
 
   // phase === "BATTLE" ou "RESULT" (resultado agora e modal sobre a arena)
@@ -640,67 +662,100 @@ export default function BattlePage() {
 
       {/* Modal de resultado sobre a arena */}
       {battleResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-          <div className="max-w-md w-full mx-4 rounded-xl border border-[var(--border-subtle)] p-8 text-center animate-scale-in" style={{ background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))" }}>
-            <div className="text-6xl">
-              {battleResult.result === "VICTORY" ? "\uD83C\uDFC6" : battleResult.result === "DEFEAT" ? "\uD83D\uDC80" : "\uD83E\uDD1D"}
-            </div>
-
-            <h2 className={`text-2xl font-bold mt-4 ${
-              battleResult.result === "VICTORY" ? "text-emerald-400"
-              : battleResult.result === "DEFEAT" ? "text-red-400"
-              : "text-gray-400"
-            }`}>
+        <div
+          className="fixed inset-0 z-50 grid place-items-center"
+          style={{
+            background: "rgba(5, 3, 10, 0.82)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            animation: "matchPop 380ms cubic-bezier(.2,1.2,.3,1)",
+          }}
+        >
+          <div
+            className="mx-4 w-full max-w-md p-8 text-center"
+            style={{
+              background: "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+              border: "1px solid color-mix(in srgb, var(--ember) 40%, transparent)",
+              boxShadow: "0 30px 80px var(--bg-primary), 0 0 40px color-mix(in srgb, var(--ember) 14%, transparent)",
+            }}
+          >
+            <h2
+              className="mt-2 text-[38px] font-medium"
+              style={{
+                fontFamily: "var(--font-cormorant)",
+                color: battleResult.result === "VICTORY" ? "var(--ember)" : battleResult.result === "DEFEAT" ? "#d96a52" : "color-mix(in srgb, var(--gold) 60%, transparent)",
+                textShadow: `0 0 12px ${battleResult.result === "VICTORY" ? "color-mix(in srgb, var(--ember) 33%, transparent)" : "transparent"}`,
+              }}
+            >
               {battleResult.result === "VICTORY" ? "Vitoria!" : battleResult.result === "DEFEAT" ? "Derrota" : "Empate"}
             </h2>
 
             {battleResult.result === "VICTORY" && (
               <div className="mt-6 space-y-2">
-                <p className="text-lg text-amber-400 font-semibold">
-                  EXP ganho: +{battleResult.expGained}
+                <div
+                  className="text-[10px] uppercase tracking-[0.35em]"
+                  style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}
+                >
+                  Recompensa
+                </div>
+                <p
+                  className="text-lg font-medium"
+                  style={{ fontFamily: "var(--font-cormorant)", color: "var(--ember)" }}
+                >
+                  +{battleResult.expGained} EXP
                 </p>
                 {battleResult.levelsGained > 0 && (
-                  <p className="text-lg text-[var(--accent-primary)] font-bold animate-pulse">
+                  <p
+                    className="text-lg font-bold animate-pulse"
+                    style={{ fontFamily: "var(--font-cormorant)", color: "var(--accent-primary)" }}
+                  >
                     Level Up! Nivel {battleResult.newLevel}
                   </p>
                 )}
               </div>
             )}
 
-            <div className="mt-8 space-y-3">
+            {battleResult.result === "DEFEAT" && (
+              <p
+                className="mt-4 text-sm italic"
+                style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 53%, transparent)" }}
+              >
+                A derrota e apenas o preco do aprendizado.
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-col gap-2.5">
               <button
                 type="button"
                 onClick={handlePlayAgain}
-                className="w-full cursor-pointer rounded-lg py-3 font-semibold text-white bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] hover:brightness-110 transition"
+                className="w-full cursor-pointer py-3 text-xs uppercase tracking-[0.3em] text-white transition-transform duration-150 hover:-translate-y-px"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  background: "linear-gradient(135deg, var(--accent-primary) 0%, var(--ember) 100%)",
+                  border: "1px solid var(--ember)",
+                  boxShadow: "0 0 12px color-mix(in srgb, var(--ember) 20%, transparent)",
+                }}
               >
                 Jogar novamente
               </button>
               <button
                 type="button"
                 onClick={handleGoHome}
-                className="w-full cursor-pointer rounded-lg py-3 text-gray-400 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] hover:text-white transition"
+                className="w-full cursor-pointer py-3 transition-colors hover:text-white"
+                style={{
+                  fontFamily: "var(--font-cinzel)",
+                  fontSize: 11,
+                  letterSpacing: "0.25em",
+                  textTransform: "uppercase",
+                  color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                  background: "transparent",
+                  border: "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
+                }}
               >
                 Voltar ao Dashboard
               </button>
             </div>
           </div>
-
-          <style jsx>{`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes scaleIn {
-              from { opacity: 0; transform: scale(0.9); }
-              to { opacity: 1; transform: scale(1); }
-            }
-            .animate-fade-in {
-              animation: fadeIn 0.3s ease-out forwards;
-            }
-            .animate-scale-in {
-              animation: scaleIn 0.3s ease-out forwards;
-            }
-          `}</style>
         </div>
       )}
     </div>

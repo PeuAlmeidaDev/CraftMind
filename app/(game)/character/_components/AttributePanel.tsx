@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { getToken, authFetchOptions } from "@/lib/client-auth";
 import type { Character } from "@/types/character";
+import Panel from "@/components/ui/Panel";
+import AttributeRadar from "@/components/ui/AttributeRadar";
 
 type Props = {
   character: Character;
@@ -10,12 +12,12 @@ type Props = {
 };
 
 const STATS = [
-  { key: "physicalAtk" as const, label: "Ataque Fisico", icon: "⚔️" },
-  { key: "physicalDef" as const, label: "Defesa Fisica", icon: "🛡️" },
-  { key: "magicAtk" as const, label: "Ataque Magico", icon: "✨" },
-  { key: "magicDef" as const, label: "Defesa Magica", icon: "🔮" },
-  { key: "hp" as const, label: "Vida", icon: "❤️", multiplier: 10 },
-  { key: "speed" as const, label: "Velocidade", icon: "💨" },
+  { key: "physicalAtk" as const, label: "Ataque Fisico", abbr: "ATK.F", icon: "⚔️" },
+  { key: "physicalDef" as const, label: "Defesa Fisica", abbr: "DEF.F", icon: "🛡️" },
+  { key: "magicAtk" as const, label: "Ataque Magico", abbr: "ATK.M", icon: "✨" },
+  { key: "magicDef" as const, label: "Defesa Magica", abbr: "DEF.M", icon: "🔮" },
+  { key: "hp" as const, label: "Vida", abbr: "HP", icon: "❤️", multiplier: 10 },
+  { key: "speed" as const, label: "Velocidade", abbr: "SPD", icon: "💨" },
 ] as const;
 
 type StatKey = (typeof STATS)[number]["key"];
@@ -100,105 +102,258 @@ export default function AttributePanel({ character, onDistribute }: Props) {
   // Modo visualizacao
   if (!isDistributeMode) {
     return (
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-        <h2 className="mb-3 text-lg font-semibold">Atributos</h2>
-        <ul className="space-y-2">
-          {STATS.map((stat) => (
-            <li key={stat.key} className="flex items-center justify-between">
-              <span>
-                {stat.icon} {stat.label}
-              </span>
-              <span className="font-bold">{character[stat.key]}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <Panel title="Atributos" right="6 dominios">
+        <AttributeRadar
+          attributes={STATS.map((s) => ({
+            key: s.key,
+            abbr: s.abbr,
+            icon: s.icon,
+            value: character[s.key],
+            max: s.key === "hp" ? 1000 : 100,
+          }))}
+        />
+
+        <div className="mt-3 flex flex-col gap-1.5">
+          {STATS.map((stat) => {
+            const value = character[stat.key];
+            const max = stat.key === "hp" ? 1000 : 100;
+            const pct = Math.min((value / max) * 100, 100);
+
+            return (
+              <div
+                key={stat.key}
+                className="grid items-center gap-2"
+                style={{ gridTemplateColumns: "20px 42px 1fr 32px" }}
+              >
+                {/* Icon */}
+                <span
+                  className="text-center text-[13px]"
+                  style={{
+                    fontFamily: "var(--font-cormorant)",
+                    color: "var(--ember)",
+                  }}
+                >
+                  {stat.icon}
+                </span>
+
+                {/* Abbr */}
+                <span
+                  className="text-[10px]"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                  }}
+                >
+                  {stat.abbr}
+                </span>
+
+                {/* Bar */}
+                <div
+                  className="h-[3px] w-full overflow-hidden rounded-full"
+                  style={{
+                    background: "color-mix(in srgb, var(--gold) 8%, transparent)",
+                  }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${pct}%`,
+                      background: "linear-gradient(90deg, var(--gold), var(--ember))",
+                    }}
+                  />
+                </div>
+
+                {/* Value */}
+                <span
+                  className="text-right text-[12px] font-medium text-white"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  {value}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
     );
   }
 
   // Modo distribuicao
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-lg font-semibold">Atributos</h2>
-        <span className="rounded-full bg-[var(--accent-primary)] px-2 py-0.5 text-xs font-medium text-white">
-          {remaining} pontos livres
-        </span>
-      </div>
-
-      <ul className="space-y-2">
+    <Panel title="Forjar o Destino" right={`${remaining} / ${character.freePoints} livres`}>
+      <div className="flex flex-col gap-2">
         {STATS.map((stat) => {
           const hasAllocation = allocation[stat.key] > 0;
           const preview = getPreviewValue(stat.key, "multiplier" in stat ? stat.multiplier : undefined);
+          const canDecrement = allocation[stat.key] > 0;
+          const canIncrement = remaining > 0;
 
           return (
-            <li key={stat.key}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">
-                  {stat.icon} {stat.label}
+            <div
+              key={stat.key}
+              className="grid items-center"
+              style={{
+                gridTemplateColumns: "28px 1fr auto",
+                padding: "10px 12px",
+                background: "color-mix(in srgb, var(--bg-secondary) 53%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--gold) 8%, transparent)",
+              }}
+            >
+              {/* Icon */}
+              <span
+                className="text-[18px]"
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  color: "var(--ember)",
+                }}
+              >
+                {stat.icon}
+              </span>
+
+              {/* Info */}
+              <div className="flex flex-col gap-0.5">
+                <span
+                  className="text-[10px] uppercase tracking-wider"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                  }}
+                >
+                  {stat.label}
                 </span>
-
                 <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={allocation[stat.key] === 0}
-                    onClick={() => handleDecrement(stat.key)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-[var(--bg-secondary)] text-sm font-bold transition-colors hover:bg-[var(--accent-primary)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  <span
+                    className="text-[14px] text-white"
+                    style={{ fontFamily: "var(--font-mono)" }}
                   >
-                    -
-                  </button>
-
-                  <span className="min-w-[2rem] text-center text-sm">
                     {character[stat.key]}
                   </span>
-
                   {hasAllocation && (
                     <>
-                      <span className="text-xs text-gray-400">&rarr;</span>
-                      <span className="min-w-[2rem] text-center text-sm font-bold text-[var(--accent-primary)]">
+                      <span
+                        className="text-[11px]"
+                        style={{ color: "var(--ember)" }}
+                      >
+                        &rarr;
+                      </span>
+                      <span
+                        className="text-[14px] font-bold"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          color: "var(--ember)",
+                        }}
+                      >
                         {preview}
                       </span>
                     </>
                   )}
-
-                  <button
-                    type="button"
-                    disabled={remaining === 0}
-                    onClick={() => handleIncrement(stat.key)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-[var(--bg-secondary)] text-sm font-bold transition-colors hover:bg-[var(--accent-primary)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    +
-                  </button>
                 </div>
               </div>
 
-              {stat.key === "hp" && (
-                <p className="mt-0.5 text-xs text-gray-500">(cada ponto = +10 HP)</p>
-              )}
-            </li>
+              {/* Stepper */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={!canDecrement}
+                  onClick={() => handleDecrement(stat.key)}
+                  className="flex cursor-pointer items-center justify-center transition-colors disabled:cursor-not-allowed"
+                  style={{
+                    width: 26,
+                    height: 26,
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: canDecrement
+                      ? "var(--ember)"
+                      : "color-mix(in srgb, var(--gold) 20%, transparent)",
+                    border: canDecrement
+                      ? "1px solid var(--ember)"
+                      : "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+                    background: canDecrement
+                      ? "color-mix(in srgb, var(--ember) 9%, transparent)"
+                      : "transparent",
+                  }}
+                >
+                  -
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!canIncrement}
+                  onClick={() => handleIncrement(stat.key)}
+                  className="flex cursor-pointer items-center justify-center transition-colors disabled:cursor-not-allowed"
+                  style={{
+                    width: 26,
+                    height: 26,
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: canIncrement
+                      ? "var(--ember)"
+                      : "color-mix(in srgb, var(--gold) 20%, transparent)",
+                    border: canIncrement
+                      ? "1px solid var(--ember)"
+                      : "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
+                    background: canIncrement
+                      ? "color-mix(in srgb, var(--ember) 9%, transparent)"
+                      : "transparent",
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
           );
         })}
-      </ul>
+      </div>
 
+      {/* Actions */}
       {totalAllocated > 0 && (
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col items-center gap-2.5">
           <button
             type="button"
             disabled={isSubmitting}
             onClick={handleConfirm}
-            className="w-full cursor-pointer rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-purple-600 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full cursor-pointer transition-opacity hover:opacity-90 disabled:cursor-not-allowed"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.35em",
+              padding: 12,
+              ...(isSubmitting
+                ? {
+                    background: "var(--bg-secondary)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 20%, transparent)",
+                    color: "color-mix(in srgb, var(--gold) 40%, transparent)",
+                  }
+                : {
+                    background: "linear-gradient(135deg, var(--accent-primary), var(--ember))",
+                    border: "1px solid var(--ember)",
+                    color: "#fff",
+                  }),
+            }}
           >
-            {isSubmitting ? "Distribuindo..." : "Confirmar"}
+            {isSubmitting ? "Forjando..." : "Confirmar"}
           </button>
+
           <button
             type="button"
             onClick={handleReset}
-            className="cursor-pointer text-xs text-gray-400 underline hover:text-gray-300"
+            className="cursor-pointer border-none bg-transparent"
+            style={{
+              fontFamily: "var(--font-garamond)",
+              fontSize: 13,
+              fontStyle: "italic",
+              color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+              textDecoration: "underline",
+              textDecorationColor: "color-mix(in srgb, var(--gold) 27%, transparent)",
+            }}
           >
             Resetar
           </button>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

@@ -4,12 +4,26 @@
 @source "../components";
 
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #13131a;
-  --bg-card: #1a1a2e;
+  /* Core palette (overridden per house by theme.ts) */
+  --bg-primary: #07060c;
+  --bg-secondary: #120e1f;
+  --bg-card: #120e1fcc;
   --accent-primary: #7c3aed;
   --accent-secondary: #10b981;
   --border-subtle: #2a2a3e;
+
+  /* Extended palette (set by theme.ts per house) */
+  --gold: #10b981;
+  --gold2: #34d399;
+  --ember: #a78bfa;
+  --deep: #2a1460;
+  --ink: #e6f6ec;
+
+  /* Font families */
+  --font-cinzel: "Cinzel", serif;
+  --font-cormorant: "Cormorant Garamond", serif;
+  --font-garamond: "EB Garamond", serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 /* Scrollbar hide utility */
@@ -19,4 +33,42 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Ember particle animation */
+@keyframes emberDrift {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  8%   { opacity: 0.7; }
+  92%  { opacity: 0.5; }
+  100% { transform: translate(var(--dx, 40px), calc(-100vh - 40px)); opacity: 0; }
+}
+
+/* Boss card pulse */
+@keyframes bossPulse {
+  0%, 100% { transform: scale(1);   opacity: 0.7; }
+  50%      { transform: scale(1.5); opacity: 0.2; }
+}
+
+/* Free points pulse */
+@keyframes freePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167,139,250,0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(167,139,250,0); }
+}
+
+/* Queue animations */
+@keyframes queuePulse {
+  0%   { transform: scale(0.82); opacity: 0.8; }
+  100% { transform: scale(1.15); opacity: 0;   }
+}
+@keyframes queueSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes queueSlide {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(420%);  }
+}
+@keyframes matchPop {
+  0%   { transform: scale(0.86); opacity: 0; }
+  100% { transform: scale(1);    opacity: 1; }
 }
