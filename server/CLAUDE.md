@@ -24,6 +24,16 @@ Resposta: `{ hasBattle: true, battleType: "pvp"|"boss"|"coop-pve", battleId: str
 
 Usado pela API route `GET /api/battle/active` no Next.js.
 
+### GET /internal/online-check
+
+Consulta status online de multiplos usuarios via user-store. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
+
+Query param: `userIds=id1,id2,id3` (max 50)
+
+Resposta: `{ statuses: { [userId]: boolean } }`
+
+Usado pela API route `GET /api/friends/online` no Next.js. Substituiu o mecanismo Socket.io `coop-pve:friends:online-check` no frontend para maior confiabilidade.
+
 ### POST /internal/notify
 
 Emite evento Socket.io para um userId especifico. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.

@@ -11,6 +11,7 @@
 | `DELETE` | `/api/friends/[id]` | Remover amizade aceita |
 | `GET` | `/api/friends` | Listar todos os amigos |
 | `GET` | `/api/friends/status/[userId]` | Status da relacao com outro usuario (NONE, PENDING, ACCEPTED, DECLINED, BLOCKED + direction) |
+| `GET` | `/api/friends/online?userIds=id1,id2` | Consulta status online de amigos via servidor Socket.io (max 50 IDs) |
 
 ## Autenticacao
 

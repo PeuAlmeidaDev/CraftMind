@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { getToken, authFetchOptions } from "@/lib/client-auth";
-import { useLayoutSocket } from "../../_hooks/useLayoutSocket";
 import type { CoopPveMode, InviteSlot } from "../../_hooks/useCoopPveQueue";
 
 type FriendUser = {
@@ -42,7 +41,6 @@ export default function InviteFriendModal({
   invites,
   maxInvites,
 }: InviteFriendModalProps) {
-  const layoutSocket = useLayoutSocket();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -71,55 +69,51 @@ export default function InviteFriendModal({
     }
   }, []);
 
-  // Listen for online status via layout socket
-  useEffect(() => {
-    if (!open || !layoutSocket) return;
-
-    const handler = (data: { statuses: Record<string, boolean> }) => {
-      setOnlineStatus(data.statuses);
-    };
-
-    layoutSocket.on("coop-pve:friends:online-status", handler);
-
-    return () => {
-      layoutSocket.off("coop-pve:friends:online-status", handler);
-    };
-  }, [open, layoutSocket]);
-
-  // Fetch friends and emit online check when modal opens
+  // Fetch friends when modal opens
   useEffect(() => {
     if (!open) return;
 
     // Reset online status so stale data is not shown
     setOnlineStatus({});
-
-    fetchFriends().then(() => {
-      // online-check will be emitted by the effect below once friends are set
-    });
+    fetchFriends();
   }, [open, fetchFriends]);
 
-  // Emit online check when friends are loaded AND layout socket is available
-  // Re-emit every 5s while modal is open to catch reconnecting players
+  // Fetch online status via HTTP (more reliable than Socket.io)
+  // Polls every 5s while modal is open
   useEffect(() => {
-    if (!open || !layoutSocket || friends.length === 0) return;
+    if (!open || friends.length === 0) return;
 
-    const emitCheck = () => {
-      if (layoutSocket.connected) {
-        const userIds = friends.map((f) => f.user.id);
-        layoutSocket.emit("coop-pve:friends:online-check", { userIds });
+    const token = getToken();
+    if (!token) return;
+
+    let cancelled = false;
+
+    const checkOnline = async () => {
+      try {
+        const userIds = friends.map((f) => f.user.id).join(",");
+        const res = await fetch(`/api/friends/online?userIds=${userIds}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { data: Record<string, boolean> };
+        if (!cancelled) {
+          setOnlineStatus(json.data ?? {});
+        }
+      } catch {
+        // silently ignore
       }
     };
 
-    // Emit immediately
-    emitCheck();
-
-    // Re-emit every 5 seconds to catch reconnecting players
-    const interval = setInterval(emitCheck, 5000);
+    // Check immediately + poll every 5s
+    checkOnline();
+    const interval = setInterval(checkOnline, 5000);
 
     return () => {
+      cancelled = true;
       clearInterval(interval);
     };
-  }, [layoutSocket, friends, open]);
+  }, [open, friends]);
 
   if (!open) return null;
 

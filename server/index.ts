@@ -13,7 +13,7 @@ import { registerBossBattleHandlers, handleBossReconnection } from "./handlers/b
 import { registerCoopPveMatchmakingHandlers } from "./handlers/coop-pve-matchmaking";
 import { registerCoopPveBattleHandlers, handleCoopPveReconnection } from "./handlers/coop-pve-battle";
 import { registerCoopPveInviteHandlers } from "./handlers/coop-pve-invite";
-import { registerSocket, unregisterSocket, getSocketIds } from "./stores/user-store";
+import { registerSocket, unregisterSocket, getSocketIds, isOnline } from "./stores/user-store";
 import { getPlayerBattle } from "./stores/pvp-store";
 import { getPlayerBossBattle } from "./stores/boss-battle-store";
 import { getPlayerCoopPveBattle } from "./stores/coop-pve-battle-store";
@@ -109,6 +109,41 @@ const httpServer = http.createServer((req, res) => {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ hasBattle: false }));
+    return;
+  }
+
+  // GET /internal/online-check?userIds=id1,id2,id3 — consulta status online de usuarios
+  if (req.method === "GET" && req.url?.startsWith("/internal/online-check")) {
+    const authHeader = req.headers.authorization;
+    if (!INTERNAL_SECRET || authHeader !== `Bearer ${INTERNAL_SECRET}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const parsedUrl = new URL(req.url, "http://localhost");
+    const userIdsParam = parsedUrl.searchParams.get("userIds");
+
+    if (!userIdsParam) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "userIds query param required" }));
+      return;
+    }
+
+    const userIds = userIdsParam.split(",").filter(Boolean);
+    if (userIds.length > 50) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Max 50 userIds" }));
+      return;
+    }
+
+    const statuses: Record<string, boolean> = {};
+    for (const id of userIds) {
+      statuses[id] = isOnline(id);
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ statuses }));
     return;
   }
 
