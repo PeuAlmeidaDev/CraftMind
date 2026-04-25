@@ -38,12 +38,12 @@ type MultiBattleArenaProps = {
 // Status effect config
 // ---------------------------------------------------------------------------
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  STUN: { label: "Atordoado", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  FROZEN: { label: "Congelado", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" },
-  BURN: { label: "Queimando", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  POISON: { label: "Envenenado", color: "bg-green-500/20 text-green-400 border-green-500/30" },
-  SLOW: { label: "Lento", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+const STATUS_COLORS: Record<string, { label: string; hex: string }> = {
+  STUN: { label: "STUN", hex: "#e0c85c" },
+  FROZEN: { label: "FROZEN", hex: "#67e8f9" },
+  BURN: { label: "BURN", hex: "#ff8a70" },
+  POISON: { label: "POISON", hex: "#7acf8a" },
+  SLOW: { label: "SLOW", hex: "#60a5fa" },
 };
 
 // ---------------------------------------------------------------------------
@@ -56,16 +56,33 @@ function StatusBadges({ effects }: { effects: ActiveStatusEffect[] }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {effects.map((effect) => {
-        const config = STATUS_CONFIG[effect.status];
+        const config = STATUS_COLORS[effect.status];
         const label = config?.label ?? effect.status;
-        const color = config?.color ?? "bg-gray-500/20 text-gray-400 border-gray-500/30";
+        const hex = config?.hex ?? "#9ca3af";
 
         return (
           <span
             key={effect.status}
-            className={`text-[10px] rounded-full px-2 py-0.5 border animate-pulse ${color}`}
+            className="flex items-center gap-[5px] px-[6px] py-[2px] uppercase"
+            style={{
+              fontFamily: "var(--font-jetbrains), monospace",
+              fontSize: "9px",
+              letterSpacing: "0.18em",
+              color: hex,
+              border: `1px solid color-mix(in srgb, ${hex} 40%, transparent)`,
+              background: `color-mix(in srgb, ${hex} 8%, transparent)`,
+            }}
           >
-            {label} ({effect.remainingTurns})
+            <span
+              className="rounded-full inline-block"
+              style={{
+                width: "4px",
+                height: "4px",
+                background: hex,
+                boxShadow: `0 0 4px ${hex}`,
+              }}
+            />
+            {label} {effect.remainingTurns}t
           </span>
         );
       })}
@@ -73,25 +90,120 @@ function StatusBadges({ effects }: { effects: ActiveStatusEffect[] }) {
   );
 }
 
-function HpBar({ current, max }: { current: number; max: number }) {
+function HpBar({
+  current,
+  max,
+  showLabel = true,
+}: {
+  current: number;
+  max: number;
+  showLabel?: boolean;
+}) {
   const percent = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
-
-  let barColor = "bg-emerald-500";
-  if (percent <= 25) barColor = "bg-red-500";
-  else if (percent <= 50) barColor = "bg-yellow-500";
+  const isLow = percent <= 25;
 
   return (
     <div>
-      <div className="w-full h-3 rounded-full bg-emerald-950/30 overflow-hidden">
+      {showLabel && (
         <div
-          className={`h-full rounded-full ${barColor} transition-all duration-500`}
-          style={{ width: `${percent}%` }}
+          className="flex items-center gap-[6px] mb-[3px]"
+          style={{
+            fontFamily: "var(--font-jetbrains), monospace",
+            fontSize: "10px",
+            letterSpacing: "0.18em",
+          }}
+        >
+          <span style={{ color: "color-mix(in srgb, var(--gold) 80%, transparent)" }}>
+            HP
+          </span>
+          <span style={{ color: "#7acf8a" }}>
+            {current} / {max}
+          </span>
+        </div>
+      )}
+      <div
+        className="relative w-full h-[6px] overflow-hidden"
+        style={{
+          border: "1px solid color-mix(in srgb, #10b981 27%, transparent)",
+        }}
+      >
+        {/* mid-tick */}
+        <span
+          className="absolute top-0 h-full pointer-events-none"
+          style={{
+            left: "50%",
+            width: "1px",
+            background: "color-mix(in srgb, var(--gold) 13%, transparent)",
+          }}
+        />
+        {/* fill */}
+        <div
+          className={isLow ? "animate-hp-low" : ""}
+          style={{
+            height: "100%",
+            width: `${percent}%`,
+            background: "linear-gradient(90deg, #10b981, #34d399)",
+            boxShadow: "inset 0 0 4px color-mix(in srgb, #10b981 53%, transparent)",
+            transition: "width 500ms cubic-bezier(.2,.8,.2,1)",
+          }}
         />
       </div>
-      <p className="text-xs text-gray-500 mt-1">
-        HP: {current} / {max}
-      </p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Corner ticks helper
+// ---------------------------------------------------------------------------
+
+function CornerTicks() {
+  const tickStyle = {
+    position: "absolute" as const,
+    width: "12px",
+    height: "12px",
+    pointerEvents: "none" as const,
+  };
+  const gold40 = "color-mix(in srgb, var(--gold) 40%, transparent)";
+
+  return (
+    <>
+      <span
+        style={{
+          ...tickStyle,
+          top: 0,
+          left: 0,
+          borderTop: `1px solid ${gold40}`,
+          borderLeft: `1px solid ${gold40}`,
+        }}
+      />
+      <span
+        style={{
+          ...tickStyle,
+          top: 0,
+          right: 0,
+          borderTop: `1px solid ${gold40}`,
+          borderRight: `1px solid ${gold40}`,
+        }}
+      />
+      <span
+        style={{
+          ...tickStyle,
+          bottom: 0,
+          left: 0,
+          borderBottom: `1px solid ${gold40}`,
+          borderLeft: `1px solid ${gold40}`,
+        }}
+      />
+      <span
+        style={{
+          ...tickStyle,
+          bottom: 0,
+          right: 0,
+          borderBottom: `1px solid ${gold40}`,
+          borderRight: `1px solid ${gold40}`,
+        }}
+      />
+    </>
   );
 }
 
@@ -234,7 +346,7 @@ export default function MultiBattleArena({
   }, [onAction]);
 
   // -------------------------------------------------------------------------
-  // Name map for battle log (mob playerIds → names)
+  // Name map for battle log (mob playerIds -> names)
   // -------------------------------------------------------------------------
 
   const nameMap = useMemo(() => {
@@ -314,11 +426,16 @@ export default function MultiBattleArena({
 
         {/* Player HP section */}
         <div
-          className={`relative overflow-hidden rounded-xl border border-[var(--border-subtle)] p-4 ${
+          className={`relative overflow-hidden p-[18px] ${
             playerShaking ? "animate-shake" : ""
           }`}
-          style={{ background: "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))" }}
+          style={{
+            background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
+            border: "1px solid color-mix(in srgb, var(--gold) 13%, transparent)",
+          }}
         >
+          <CornerTicks />
+
           {profile.house && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-15">
               <Image
@@ -330,35 +447,76 @@ export default function MultiBattleArena({
               />
             </div>
           )}
-          <div className="relative flex items-center gap-3 mb-2">
+
+          <div className="relative flex items-center gap-3 mb-3">
             {profile.avatarUrl ? (
               <Image
                 src={profile.avatarUrl}
                 alt={profile.name}
-                width={36}
-                height={36}
-                className="rounded-full border border-[var(--border-subtle)] object-cover"
+                width={48}
+                height={48}
+                className="rounded-full object-cover"
+                style={{
+                  border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+                  width: "48px",
+                  height: "48px",
+                }}
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[var(--accent-primary)]/20 border border-[var(--border-subtle)] flex items-center justify-center">
-                <span className="text-sm font-bold text-[var(--accent-primary)]">
+              <div
+                className="rounded-full flex items-center justify-center"
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  background: "color-mix(in srgb, var(--accent-primary) 20%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+                }}
+              >
+                <span
+                  className="font-bold"
+                  style={{
+                    fontFamily: "var(--font-cormorant), serif",
+                    fontSize: "20px",
+                    color: "var(--accent-primary)",
+                  }}
+                >
                   {profile.name.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
-            <span className="text-sm font-semibold text-white">{profile.name}</span>
-            {profile.house && (
-              <span className="text-[10px] text-gray-500 uppercase" style={{ fontFamily: "var(--font-cinzel), serif" }}>
-                {profile.house.name}
+            <div className="flex flex-col">
+              <span
+                className="text-white truncate"
+                style={{
+                  fontFamily: "var(--font-cormorant), serif",
+                  fontSize: "20px",
+                }}
+              >
+                {profile.name}
               </span>
-            )}
+              {profile.house && (
+                <span
+                  className="uppercase"
+                  style={{
+                    fontFamily: "var(--font-cinzel), serif",
+                    fontSize: "9px",
+                    letterSpacing: "0.3em",
+                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                  }}
+                >
+                  {profile.house.name}
+                </span>
+              )}
+            </div>
           </div>
+
           <div className="relative">
             <HpBar current={playerHp} max={playerMaxHp} />
             <div className="mt-2">
               <StatusBadges effects={playerStatusEffects} />
             </div>
           </div>
+
           <SkillVfx
             skillName={activeVfx?.target === "player" ? activeVfx.skillName : null}
             visible={activeVfx?.target === "player" || false}
@@ -367,7 +525,7 @@ export default function MultiBattleArena({
         </div>
 
         {/* Skills + Log row */}
-        <div className="grid grid-cols-2 gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <MultiSkillBar
               skills={skills}
@@ -381,7 +539,15 @@ export default function MultiBattleArena({
               <button
                 type="button"
                 onClick={handleCancelTargeting}
-                className="mt-2 w-full py-2 text-xs text-red-400 hover:text-red-300 cursor-pointer transition-colors"
+                className="mt-2 w-full py-2 cursor-pointer transition-colors uppercase hover:opacity-80"
+                style={{
+                  fontFamily: "var(--font-cinzel), serif",
+                  fontSize: "10px",
+                  letterSpacing: "0.2em",
+                  color: "#d96a52",
+                  border: "1px solid #d96a5244",
+                  background: "transparent",
+                }}
               >
                 Cancelar selecao de alvo
               </button>
@@ -390,7 +556,17 @@ export default function MultiBattleArena({
               type="button"
               onClick={onForfeit}
               disabled={acting}
-              className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-2 w-full py-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
+              style={{
+                fontFamily: "var(--font-garamond), serif",
+                fontStyle: "italic",
+                fontSize: "12px",
+                color: "#d96a52",
+                textDecoration: "underline",
+                textDecorationColor: "#d96a5244",
+                background: "transparent",
+                border: "none",
+              }}
             >
               Desistir da batalha
             </button>
@@ -457,10 +633,13 @@ export default function MultiBattleArena({
 
         {/* Player HP */}
         <div
-          className={`relative overflow-hidden rounded-lg border border-[var(--border-subtle)] p-2 sm:p-3 ${
+          className={`relative overflow-hidden p-[10px] ${
             playerShaking ? "animate-shake" : ""
           }`}
-          style={{ background: "var(--bg-card)" }}
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid color-mix(in srgb, var(--gold) 13%, transparent)",
+          }}
         >
           {profile.house && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-15">
@@ -478,21 +657,49 @@ export default function MultiBattleArena({
               <Image
                 src={profile.avatarUrl}
                 alt={profile.name}
-                width={28}
-                height={28}
-                className="rounded-full border border-[var(--border-subtle)] object-cover"
+                width={36}
+                height={36}
+                className="rounded-full object-cover"
+                style={{
+                  border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+                  width: "36px",
+                  height: "36px",
+                }}
               />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-[var(--accent-primary)]/20 border border-[var(--border-subtle)] flex items-center justify-center">
-                <span className="text-xs font-bold text-[var(--accent-primary)]">
+              <div
+                className="rounded-full flex items-center justify-center"
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  background: "color-mix(in srgb, var(--accent-primary) 20%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+                }}
+              >
+                <span
+                  className="font-bold"
+                  style={{
+                    fontFamily: "var(--font-cormorant), serif",
+                    fontSize: "14px",
+                    color: "var(--accent-primary)",
+                  }}
+                >
                   {profile.name.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
-            <span className="text-xs sm:text-sm font-semibold text-white truncate">{profile.name}</span>
+            <span
+              className="text-white truncate"
+              style={{
+                fontFamily: "var(--font-cormorant), serif",
+                fontSize: "16px",
+              }}
+            >
+              {profile.name}
+            </span>
           </div>
           <div className="relative">
-            <HpBar current={playerHp} max={playerMaxHp} />
+            <HpBar current={playerHp} max={playerMaxHp} showLabel={false} />
             <div className="mt-1">
               <StatusBadges effects={playerStatusEffects} />
             </div>
@@ -518,7 +725,15 @@ export default function MultiBattleArena({
             <button
               type="button"
               onClick={handleCancelTargeting}
-              className="mt-2 w-full py-2 text-xs text-red-400 hover:text-red-300 cursor-pointer transition-colors"
+              className="mt-2 w-full py-2 cursor-pointer transition-colors uppercase hover:opacity-80"
+              style={{
+                fontFamily: "var(--font-cinzel), serif",
+                fontSize: "10px",
+                letterSpacing: "0.2em",
+                color: "#d96a52",
+                border: "1px solid #d96a5244",
+                background: "transparent",
+              }}
             >
               Cancelar selecao de alvo
             </button>
@@ -527,7 +742,17 @@ export default function MultiBattleArena({
             type="button"
             onClick={onForfeit}
             disabled={acting}
-            className="mt-2 w-full py-2 text-xs text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="mt-2 w-full py-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
+            style={{
+              fontFamily: "var(--font-garamond), serif",
+              fontStyle: "italic",
+              fontSize: "12px",
+              color: "#d96a52",
+              textDecoration: "underline",
+              textDecorationColor: "#d96a5244",
+              background: "transparent",
+              border: "none",
+            }}
           >
             Desistir da batalha
           </button>
@@ -548,6 +773,13 @@ export default function MultiBattleArena({
         }
         :global(.animate-shake) {
           animation: shake 0.4s ease-in-out;
+        }
+        @keyframes hpLowPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        :global(.animate-hp-low) {
+          animation: hpLowPulse 0.9s ease-in-out infinite;
         }
       `}</style>
     </div>
