@@ -70,7 +70,11 @@ export function getPlayerCoopPveBattle(
   userId: string
 ): { battleId: string; session: CoopPveBattleSession } | undefined {
   for (const [battleId, session] of battles) {
-    if (session.playerSockets.has(userId)) {
+    // Check both playerSockets AND state.team (player may not be in sockets if disconnected during creation)
+    const isInSockets = session.playerSockets.has(userId);
+    const isInTeam = session.state.team.some((p) => p.playerId === userId);
+
+    if (isInSockets || isInTeam) {
       if (Date.now() - session.lastActivityAt > SESSION_TTL_MS) {
         cleanupSession(session);
         battles.delete(battleId);
