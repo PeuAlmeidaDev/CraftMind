@@ -141,9 +141,26 @@ export default function GameLayout({
     const socket: Socket = io(socketUrl, {
       auth: { token },
       autoConnect: false,
+      forceNew: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
+
+    socket.on("connect", () => {
+      console.log("[Layout] Socket conectado:", socket.id);
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("[Layout] Socket desconectado:", reason);
+      if (reason === "io server disconnect") {
+        socket.connect();
+      }
+    });
+
+    socket.on("connect_error", (err) => {
+      console.log("[Layout] Socket connect_error:", err.message);
     });
 
     socket.on("friend:request-received", () => {
