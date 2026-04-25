@@ -274,15 +274,16 @@ export default function BattleArena({
   const [playerShaking, setPlayerShaking] = useState(false);
   const [mobShaking, setMobShaking] = useState(false);
 
-  type ActiveVfx = {
+  type VfxQueueItem = {
     skillName: string;
     target: "player" | "mob";
-  } | null;
+  };
 
-  const [activeVfx, setActiveVfx] = useState<ActiveVfx>(null);
+  const [vfxQueue, setVfxQueue] = useState<VfxQueueItem[]>([]);
+  const activeVfx = vfxQueue[0] ?? null;
 
   const handleVfxComplete = useCallback(() => {
-    setActiveVfx(null);
+    setVfxQueue(prev => prev.slice(1));
   }, []);
 
   type FloatingNumber = { id: number; value: number; type: "damage" | "heal" };
@@ -340,6 +341,8 @@ export default function BattleArena({
     const newEntries = events.slice(prevEventsLength.current);
     prevEventsLength.current = events.length;
 
+    const newVfx: VfxQueueItem[] = [];
+
     for (const entry of newEntries) {
       const hasDamage = entry.damage !== undefined && entry.damage > 0;
       const hasHealing = entry.healing !== undefined && entry.healing > 0;
@@ -363,8 +366,8 @@ export default function BattleArena({
         }
       }
 
-      // Trigger VFX overlay
-      if (entry.skillName && (hasDamage || hasHealing) && activeVfx === null) {
+      // Collect VFX for sequential queue
+      if (entry.skillName && (hasDamage || hasHealing)) {
         let target: "player" | "mob" | undefined;
 
         if (entry.targetId) {
@@ -374,9 +377,13 @@ export default function BattleArena({
         }
 
         if (target) {
-          setActiveVfx({ skillName: entry.skillName, target });
+          newVfx.push({ skillName: entry.skillName, target });
         }
       }
+    }
+
+    if (newVfx.length > 0) {
+      setVfxQueue(prev => [...prev, ...newVfx]);
     }
 
     const timer = setTimeout(() => {
