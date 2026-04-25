@@ -98,23 +98,27 @@ export default function InviteFriendModal({
     });
   }, [open, fetchFriends]);
 
-  // Emit online check whenever friends list or socket changes, and modal is open
+  // Emit online check when friends are loaded AND layout socket is available
+  // Re-emit every 5s while modal is open to catch reconnecting players
   useEffect(() => {
     if (!open || !layoutSocket || friends.length === 0) return;
 
     const emitCheck = () => {
-      const userIds = friends.map((f) => f.user.id);
-      layoutSocket.emit("coop-pve:friends:online-check", { userIds });
+      if (layoutSocket.connected) {
+        const userIds = friends.map((f) => f.user.id);
+        layoutSocket.emit("coop-pve:friends:online-check", { userIds });
+      }
     };
 
-    if (layoutSocket.connected) {
-      emitCheck();
-    } else {
-      layoutSocket.once("connect", emitCheck);
-      return () => {
-        layoutSocket.off("connect", emitCheck);
-      };
-    }
+    // Emit immediately
+    emitCheck();
+
+    // Re-emit every 5 seconds to catch reconnecting players
+    const interval = setInterval(emitCheck, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, [layoutSocket, friends, open]);
 
   if (!open) return null;
