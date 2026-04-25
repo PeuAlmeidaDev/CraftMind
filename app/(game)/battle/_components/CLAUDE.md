@@ -9,7 +9,7 @@ Componentes Client-side (`"use client"`) usados exclusivamente pela pagina `/bat
 | `BattleIdle.tsx` | Tela "Camara de Guerra" pre-batalha com grid de 3 mode cards (1v1 featured, Multi Mobs, Coop PvE). Props: `onStart`, `loading`, `playerName`, `houseName`. Usa fontes Cinzel/Cormorant/Garamond/JetBrains e CSS vars do tema. Importa `HOUSE_LORE` para motto no footer. |
 | `BattleArena.tsx` | Layout responsivo de batalha: desktop (cards com imagem) e mobile (barras compactas). Renderiza mob, player, HP, status effects, BattleLog e SkillBar inline. Shake animation via styled-jsx. Usa MobPlaceholder para retrato do mob e bandeira da casa via next/image. |
 | `SkillBar.tsx` | Grid 2x2 com 4 slots de skill + botao pular turno |
-| `BattleLog.tsx` | Feed de eventos do turno com scroll automatico |
+| `BattleLog.tsx` | "Cronica do Combate" — feed de eventos com scroll automatico. PHASE_STYLE usa objetos `{color, bold?, italic?}` com inline styles (nao classes Tailwind). Cor do border-left por actor: player=var(--ember), mob=#d96a52, neutro=gold 40%. Sub-texto extraido de damage/healing/buff/debuff do TurnLogEntry. Compartilhado com `/battle-multi`. |
 | `BattleResult.tsx` | **NAO USADO** — resultado agora e inline em `page.tsx`. Mantido como referencia para possivel extracao futura. |
 | `SkillVfx.tsx` | Overlay de VFX por skill (slash/arcane/heal/fire). Mapeamento `skillName -> tipo` interno. CSS puro em `skill-vfx.css`. Renderizado dentro dos cards de player e mob no BattleArena. |
 | `skill-vfx.css` | Keyframes e estilos dos 4 efeitos visuais: slash (700ms), arcane (800ms), heal (1100ms), fire (750ms). Classe base `.vfx` com `.active` para disparar. |
