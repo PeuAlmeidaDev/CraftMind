@@ -130,12 +130,7 @@ function ArcaneCssMarkup() {
 }
 
 function HealMarkup() {
-  return (
-    <div className="vfx vfx-heal active">
-      <div className="vfx-heal__aura" />
-      <div className="vfx-heal__cross" />
-    </div>
-  );
+  return null;
 }
 
 function FireMarkup() {
