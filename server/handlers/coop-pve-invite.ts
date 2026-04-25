@@ -966,6 +966,8 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       statuses[id] = isOnline(id);
     }
 
+    console.log(`[Socket.io] online-check de ${userId}: ${JSON.stringify(statuses)}`);
+
     socket.emit("coop-pve:friends:online-status", { statuses });
   });
 
