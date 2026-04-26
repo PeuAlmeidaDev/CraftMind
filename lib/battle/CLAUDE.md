@@ -32,6 +32,8 @@ O estado original nunca e mutado. `resolveTurn` faz deep clone no topo e todas a
 | `pve-multi-store.ts` | Store em memoria (Map) para batalhas PvE Multi ativas. Exporta `getMultiPveBattle`, `setMultiPveBattle`, `removeMultiPveBattle`, `hasActiveMultiBattle`, `getActiveMultiBattleByUser`, `isSessionTimedOut`, `INACTIVITY_TIMEOUT_MS`. TTL 30min, cleanup tambem remove sessoes IN_PROGRESS com inatividade > 1 min |
 | `coop-pve-types.ts` | Tipos para batalha cooperativa PvE (2v3 / 2v5 / 3v5): `CoopPveBattleState`, `CoopPveAction`, `CoopPveTurnResult`, `CoopPveBattleConfig`, `CoopPveMobConfig`, `CoopPvePlayerConfig`, `CoopPveBattleSession` |
 | `coop-pve-turn.ts` | `initCoopPveBattle()` e `resolveCoopPveTurn()` — orquestrador do turno coop PvE 2v3/2v5/3v5. Players resolvem primeiro (speed DESC), depois mobs (speed DESC, desempate index). Usa adapters (BattleState fake) como coop-turn.ts |
+| `pvp-team-types.ts` | Tipos para batalha PvP Team (2v2): `PvpTeamBattleState`, `PvpTeamAction`, `PvpTeamTurnResult`, `PvpTeamBattleConfig`, `PvpTeamBattleSession` |
+| `pvp-team-turn.ts` | `initPvpTeamBattle()` e `resolvePvpTeamTurn()` — orquestrador do turno PvP Team 2v2. Usa adapters (BattleState fake) como coop-turn.ts. 4 jogadores (2 times de 2), turnos simultaneos, resolucao por prioridade > speed > random |
 | `index.ts` | Barrel export |
 
 ## Fluxo do resolveTurn
@@ -269,6 +271,47 @@ Modo de batalha onde 2-3 jogadores enfrentam 3-5 mobs simultaneos. Estado usa `C
 - `"VICTORY"` = todos os mobs derrotados
 - `"DEFEAT"` = todos os players mortos ou MAX_TURNS excedido
 - `"PENDING"` = batalha em andamento
+
+## Batalha PvP Team (2v2)
+
+Modo de batalha onde 2 jogadores enfrentam 2 jogadores em turnos simultaneos. Estado usa `PvpTeamBattleState` com `team1: PlayerState[]` (2 players) + `team2: PlayerState[]` (2 players). Sem EXP — apenas W/L/D e ranking points.
+
+### Fluxo do resolvePvpTeamTurn
+
+```
+0. Guard: se status === "FINISHED" retornar imediatamente
+1. Deep clone do estado
+2. Coletar jogadores vivos, validar acoes (1 por player vivo)
+3. Preencher acoes faltantes como skip
+4. Ordenar por prioridade > speed > random
+5. Para cada acao: incapacitacao, statusDamage, validar skill, combo, accuracy, resolver alvos, dano, counters, efeitos via adapter, cooldown, checar team wipe
+6. tickEntitiesEndOfTurn para todos vivos
+7. tickCooldowns
+8. Checar mortes por ON_EXPIRE / team wipe
+9. Incrementar turno
+10. Se turnNumber > MAX_TURNS -> empate (winnerTeam = null)
+```
+
+### Resolucao de alvos (resolvePvpTeamTargets)
+
+- `SELF` -> caster
+- `SINGLE_ALLY` -> aliado escolhido (via targetId) ou fallback para si mesmo
+- `ALL_ALLIES` -> ambos do time vivos
+- `SINGLE_ENEMY` -> inimigo escolhido (via targetIndex) ou fallback primeiro vivo
+- `ALL_ENEMIES` -> ambos do time oposto vivos
+- `ALL` -> todos os 4 vivos
+
+### Condicoes de fim
+
+- Todos de um time HP <= 0 -> outro time vence (winnerTeam = 1 ou 2)
+- Ambos times eliminados -> empate (winnerTeam = null)
+- MAX_TURNS (50) atingido -> empate
+
+### Ranking Points
+
+- Vitoria: +25
+- Derrota: -15 (minimo 0)
+- Empate: +5
 
 ## Convencoes
 
