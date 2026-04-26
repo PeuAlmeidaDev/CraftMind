@@ -63,8 +63,10 @@ api/
     ├── coop/
     │   ├── eligible/route.ts  # GET (verificar elegibilidade para boss fight cooperativo — protegida, requer 5 tarefas completas no dia)
     │   └── history/route.ts   # GET (historico paginado de boss fights coop — protegida, default 20/page, max 50, apenas FINISHED)
-    └── coop-pve/
-        └── history/route.ts   # GET (historico paginado de batalhas coop PvE 2v3/2v5 — protegida, default 20/page, max 50, apenas com resultado)
+    ├── coop-pve/
+    │   └── history/route.ts   # GET (historico paginado de batalhas coop PvE 2v3/2v5 — protegida, default 20/page, max 50, apenas com resultado)
+    └── pvp-team/
+        └── history/route.ts   # GET (historico paginado de batalhas PvP Team 2v2 — protegida, default 20/page, inclui teammates e opponents)
 ```
 
 ## Formato de resposta padrão

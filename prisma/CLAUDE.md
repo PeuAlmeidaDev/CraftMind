@@ -23,12 +23,15 @@
 | `CoopBattle` | Registro de batalha cooperativa: bossId, date (Date), status (MATCHING/etc), result, turns, expGained, log (JSON). Indice em `[date, status]` |
 | `CoopBattleParticipant` | Jogador em batalha coop: coopBattleId, userId, dominantCategory (HabitCategory). Constraint unique em `[coopBattleId, userId]` |
 | `Friendship` | Relacao de amizade: senderId, receiverId, status (FriendshipStatus enum: PENDING/ACCEPTED/DECLINED/BLOCKED). Constraint unique em `[senderId, receiverId]`. Indice em receiverId. onDelete Cascade em ambas as relacoes |
+| `PvpStats` | Estatisticas PvP por modo: characterId, mode (PvpMode enum), wins, losses, draws, rankingPoints (min 0). Constraint unique em `[characterId, mode]`. Indice em `[mode, rankingPoints]`. onDelete Cascade com Character |
+| `TeamBattle` | Registro de batalha em equipe: mode (PvpMode), winnerTeam (1/2/null), status (BattleStatus), turns, log (JSON), finishedAt |
+| `TeamBattleParticipant` | Jogador em batalha de equipe: teamBattleId, userId, characterId, team (1 ou 2). Constraint unique em `[teamBattleId, userId]`. Indice em userId |
 
 ## Convenções de schema
 
 - Sempre usar `id String @id @default(cuid())` — nunca `Int @default(autoincrement())`.
 - Timestamps: `createdAt DateTime @default(now())` e `updatedAt DateTime @updatedAt` em todo model.
-- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`, `PveBattleMode` (SOLO, MULTI, COOP_2V3, COOP_2V5, COOP_3V5).
+- Enums para campos com valores fixos: `HabitCategory`, `BattleStatus`, `HouseName`, `FriendshipStatus`, `PveBattleMode` (SOLO, MULTI, COOP_2V3, COOP_2V5, COOP_3V5), `PvpMode` (SOLO_1V1, TEAM_2V2, TEAM_3V3, TEAM_5V5).
 - Dados variáveis por registro (atributos concedidos, log de batalha): usar `Json` com tipo TypeScript em `types/`.
 
 ## Comandos

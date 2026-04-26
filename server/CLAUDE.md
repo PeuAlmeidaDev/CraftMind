@@ -16,11 +16,11 @@ Liveness probe para Railway / load balancer. Retorna `{ "status": "ok" }` com st
 
 ### GET /internal/active-battle
 
-Consulta se um usuario tem batalha ativa em qualquer store do servidor Socket.io (PvP, Boss, Coop PvE). Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
+Consulta se um usuario tem batalha ativa em qualquer store do servidor Socket.io (PvP, Boss, Coop PvE, PvP Team). Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
 
 Query param: `userId=<string>`
 
-Resposta: `{ hasBattle: true, battleType: "pvp"|"boss"|"coop-pve", battleId: string }` ou `{ hasBattle: false }`
+Resposta: `{ hasBattle: true, battleType: "pvp"|"boss"|"coop-pve"|"pvp-team", battleId: string }` ou `{ hasBattle: false }`
 
 Usado pela API route `GET /api/battle/active` no Next.js.
 
@@ -71,6 +71,9 @@ io.use((socket, next) => {
 | `handlers/coop-pve-matchmaking.ts` | Fila e emparelhamento para Coop PvE 2v3/2v5/3v5 (2-3 players vs N mobs, stat scaling 3v5) |
 | `handlers/coop-pve-battle.ts` | Acoes de batalha coop PvE (2v3/2v5/3v5), timer de turno, reconexao, persistencia |
 | `handlers/coop-pve-invite.ts` | Convites de amigos para batalha coop PvE (send, accept, decline, online-check, disconnect cleanup) |
+| `handlers/pvp-team-matchmaking.ts` | Fila solo e emparelhamento para PvP Team 2v2 (4 jogadores, shuffle + split em 2 times) |
+| `handlers/pvp-team-battle.ts` | Acoes de batalha PvP Team 2v2, timer de turno, reconexao, auto-skip, persistencia (ranking points) |
+| `handlers/pvp-team-invite.ts` | Convites de amigos para formar dupla PvP Team (send, accept -> duo queue, decline, online-check) |
 
 ## Lib (helpers do servidor)
 
@@ -91,6 +94,9 @@ io.use((socket, next) => {
 | `stores/coop-pve-queue-store.ts` | Fila de batalha coop PvE in-memory por modo (Map CoopPveMode -> CoopPveQueueEntry[]). Match de 2 jogadores (2v3/2v5) ou 3 jogadores (3v5) no mesmo modo |
 | `stores/coop-pve-battle-store.ts` | Batalhas coop PvE ativas in-memory (Map battleId -> CoopPveBattleSession). TTL 30min, cleanup 5min |
 | `stores/coop-pve-invite-store.ts` | Convites pendentes de coop PvE in-memory (Map inviteId -> CoopPveInvite). TTL 30s por convite, 1 por sender |
+| `stores/pvp-team-queue-store.ts` | Filas de PvP Team in-memory: soloQueue (jogadores individuais) e duoQueue (duplas pre-formadas). Match quando 4 na solo ou 2 duplas na duo |
+| `stores/pvp-team-battle-store.ts` | Batalhas PvP Team ativas in-memory (Map battleId -> PvpTeamBattleSession). TTL 30min, cleanup 5min |
+| `stores/pvp-team-invite-store.ts` | Convites pendentes de PvP Team duo in-memory (Map inviteId -> PvpTeamInvite). TTL 30s, 1 por sender |
 
 ## Eventos disponiveis
 
@@ -194,6 +200,57 @@ io.use((socket, next) => {
 | `coop-pve:invite:expired` | `{ inviteId }` | Convite expirou (30s TTL) — emitido para ambos |
 | `coop-pve:invite:error` | `{ message }` | Erro generico no fluxo de convite |
 
+### PvP Team — Cliente -> Servidor
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `pvp-team:queue:join` | - | Entrar na fila solo PvP Team 2v2 |
+| `pvp-team:queue:leave` | - | Sair da fila |
+| `pvp-team:match:accept` | `{ battleId }` | Aceitar match PvP Team |
+| `pvp-team:match:decline` | `{ battleId }` | Recusar match PvP Team |
+| `pvp-team:battle:request-state` | - | Solicitar estado da batalha (ao carregar pagina) |
+| `pvp-team:battle:action` | `{ battleId, skillId, targetIndex?, targetId? }` | Escolher skill no turno |
+
+### PvP Team — Servidor -> Cliente
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `pvp-team:queue:status` | `{ position, size }` | Status da posicao na fila |
+| `pvp-team:queue:error` | `{ message }` | Erro na fila PvP Team |
+| `pvp-team:queue:timeout` | `{ message }` | Tempo na fila expirou (5min) |
+| `pvp-team:queue:left` | `{ message }` | Confirmacao de saida da fila |
+| `pvp-team:match:found` | `{ battleId, myTeam, teammates, opponents, acceptTimeoutMs }` | Match encontrado |
+| `pvp-team:match:accepted` | `{ accepted, total }` | Contagem de aceites |
+| `pvp-team:match:timeout` | `{ message }` | Tempo para aceitar expirou |
+| `pvp-team:match:cancelled` | `{ message }` | Match cancelado (decline/disconnect) |
+| `pvp-team:battle:start` | `{ battleId }` | Batalha iniciada |
+| `pvp-team:battle:state` | `{ state, events }` | Estado apos turno (inimigos sanitizados) |
+| `pvp-team:battle:end` | `{ winnerTeam }` | Batalha encerrada (1, 2 ou null=empate) |
+| `pvp-team:battle:error` | `{ message }` | Erro na batalha |
+| `pvp-team:action:received` | `{ playerId, total, expected }` | Acao recebida de um jogador |
+| `pvp-team:battle:player-disconnected` | `{ playerId, gracePeriodMs }` | Jogador desconectou |
+| `pvp-team:battle:player-reconnected` | `{ playerId }` | Jogador reconectou |
+| `pvp-team:battle:player-auto-skip` | `{ playerId, message }` | Jogador marcado como auto-skip permanente |
+
+### PvP Team Invite — Cliente -> Servidor
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `pvp-team:invite:send` | `{ targetUserId }` | Enviar convite para amigo |
+| `pvp-team:invite:accept` | `{ inviteId }` | Aceitar convite (dupla entra na duo queue) |
+| `pvp-team:invite:decline` | `{ inviteId }` | Recusar convite |
+| `pvp-team:friends:online-check` | `{ userIds: string[] }` | Checar quais amigos estao online (max 50) |
+
+### PvP Team Invite — Servidor -> Cliente
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `pvp-team:invite:received` | `{ inviteId, from: { userId, name } }` | Convite recebido (para target) |
+| `pvp-team:invite:sent` | `{ inviteId, targetUserId }` | Confirmacao de envio (para sender) |
+| `pvp-team:invite:declined` | `{ inviteId }` | Convite recusado (para sender) |
+| `pvp-team:invite:expired` | `{ inviteId }` | Convite expirou (30s TTL) |
+| `pvp-team:invite:error` | `{ message }` | Erro generico no fluxo de convite |
+
 ### Amizade — Servidor -> Cliente (via /internal/notify)
 
 | Evento | Payload | Descricao |
@@ -218,6 +275,12 @@ io.use((socket, next) => {
 | Reconnect grace (Coop PvE) | 30s | Se ambos desconectam -> derrota |
 | Session TTL (Coop PvE) | 30min | Remove sessao inativa |
 | Invite TTL (Coop PvE) | 30s | Convite expira automaticamente |
+| Turn timer (PvP Team) | 30s | Auto-skip para quem nao enviou |
+| Queue timeout (PvP Team) | 5min | Remove jogador da fila |
+| Match accept (PvP Team) | 30s | Cancela match se nem todos aceitaram |
+| Reconnect grace (PvP Team) | 30s | Auto-skip permanente se nao reconectar |
+| Session TTL (PvP Team) | 30min | Remove sessao inativa |
+| Invite TTL (PvP Team) | 30s | Convite duo expira automaticamente |
 
 ## Fluxo da Boss Fight
 

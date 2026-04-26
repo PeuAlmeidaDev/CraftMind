@@ -85,6 +85,7 @@ model User {
   pveBattles         PveBattle[]
   refreshTokens      RefreshToken[]
   coopParticipations CoopBattleParticipant[]
+  teamBattleParticipants TeamBattleParticipant[]
 
   // Amizades
   sentFriendRequests     Friendship[] @relation("FriendshipSender")
@@ -153,6 +154,7 @@ model Character {
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   characterSkills CharacterSkill[]
+  pvpStats       PvpStats[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -475,6 +477,77 @@ model CoopBattleParticipant {
   user       User       @relation(fields: [userId], references: [id])
 
   @@unique([coopBattleId, userId])
+  @@index([userId])
+
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// PVP MODE — Modos de PvP (stats separados por modo)
+// ============================================================
+
+enum PvpMode {
+  SOLO_1V1
+  TEAM_2V2
+  TEAM_3V3
+  TEAM_5V5
+}
+
+// ============================================================
+// PVP STATS — Estatísticas de PvP por modo (W/L/D + ranking)
+// ============================================================
+
+model PvpStats {
+  id            String  @id @default(cuid())
+  characterId   String
+  mode          PvpMode
+  wins          Int     @default(0)
+  losses        Int     @default(0)
+  draws         Int     @default(0)
+  rankingPoints Int     @default(0)
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, mode])
+  @@index([mode, rankingPoints])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// TEAM BATTLE — Registro de batalha em equipe (2v2, 3v3, 5v5)
+// ============================================================
+
+model TeamBattle {
+  id         String       @id @default(cuid())
+  mode       PvpMode
+  winnerTeam Int?         // 1, 2, ou null (empate)
+  status     BattleStatus @default(IN_PROGRESS)
+  turns      Int          @default(0)
+  log        Json         @default("[]")
+
+  participants TeamBattleParticipant[]
+
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+}
+
+// ============================================================
+// TEAM BATTLE PARTICIPANT — Jogador em batalha de equipe
+// ============================================================
+
+model TeamBattleParticipant {
+  id           String @id @default(cuid())
+  teamBattleId String
+  userId       String
+  characterId  String
+  team         Int    // 1 ou 2
+
+  teamBattle TeamBattle @relation(fields: [teamBattleId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([teamBattleId, userId])
   @@index([userId])
 
   createdAt DateTime @default(now())

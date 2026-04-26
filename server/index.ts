@@ -13,10 +13,14 @@ import { registerBossBattleHandlers, handleBossReconnection } from "./handlers/b
 import { registerCoopPveMatchmakingHandlers } from "./handlers/coop-pve-matchmaking";
 import { registerCoopPveBattleHandlers, handleCoopPveReconnection } from "./handlers/coop-pve-battle";
 import { registerCoopPveInviteHandlers } from "./handlers/coop-pve-invite";
+import { registerPvpTeamMatchmakingHandlers } from "./handlers/pvp-team-matchmaking";
+import { registerPvpTeamBattleHandlers, handlePvpTeamReconnection } from "./handlers/pvp-team-battle";
+import { registerPvpTeamInviteHandlers } from "./handlers/pvp-team-invite";
 import { registerSocket, unregisterSocket, getSocketIds, isOnline } from "./stores/user-store";
 import { getPlayerBattle } from "./stores/pvp-store";
 import { getPlayerBossBattle } from "./stores/boss-battle-store";
 import { getPlayerCoopPveBattle } from "./stores/coop-pve-battle-store";
+import { getPlayerPvpTeamBattle } from "./stores/pvp-team-battle-store";
 
 // ---------------------------------------------------------------------------
 // Tipagem do socket.data via generic do Server
@@ -104,6 +108,13 @@ const httpServer = http.createServer((req, res) => {
     if (coopPveResult) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ hasBattle: true, battleType: "coop-pve", battleId: coopPveResult.battleId }));
+      return;
+    }
+
+    const pvpTeamResult = getPlayerPvpTeamBattle(userId);
+    if (pvpTeamResult) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ hasBattle: true, battleType: "pvp-team", battleId: pvpTeamResult.battleId }));
       return;
     }
 
@@ -303,6 +314,14 @@ io.on("connection", (socket) => {
     );
   }
 
+  // Verificar reconexao pendente em PvP Team battle ativa
+  const pvpTeamReconnected = handlePvpTeamReconnection(io, socket, socket.data.userId);
+  if (pvpTeamReconnected) {
+    console.log(
+      `[Socket.io] ${socket.data.userId} reconectou em PvP Team battle`
+    );
+  }
+
   registerMatchmakingHandlers(io, socket);
   registerBattleHandlers(io, socket);
   registerBossMatchmakingHandlers(io, socket);
@@ -310,6 +329,9 @@ io.on("connection", (socket) => {
   registerCoopPveMatchmakingHandlers(io, socket);
   registerCoopPveBattleHandlers(io, socket);
   registerCoopPveInviteHandlers(io, socket);
+  registerPvpTeamMatchmakingHandlers(io, socket);
+  registerPvpTeamBattleHandlers(io, socket);
+  registerPvpTeamInviteHandlers(io, socket);
 
   socket.on("disconnect", (reason) => {
     unregisterSocket(userId, socket.id);
