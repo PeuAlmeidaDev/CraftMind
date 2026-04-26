@@ -79,6 +79,23 @@ const MODES: ModeCard[] = [
     enemies: 3,
     buttonLabel: "Reunir Aliado",
   },
+  {
+    glyph: "⚔",
+    glyphSize: 36,
+    subtitle: "PVP · EQUIPE 2v2",
+    name: "PvP Team",
+    tag: {
+      label: "PVP",
+      color: "#f87171",
+      border: "#f8717155",
+    },
+    intensity: 5,
+    description:
+      "Forme uma dupla e enfrente outros jogadores em batalha por turnos 2 contra 2.",
+    allies: 2,
+    enemies: 2,
+    buttonLabel: "Entrar na Arena",
+  },
 ];
 
 /* ── Sub-components ────────────────────────────────────────── */
@@ -237,6 +254,8 @@ export default function BattleIdle({
       onStart();
     } else if (mode.name === "Multi Mobs") {
       router.push("/battle-multi");
+    } else if (mode.name === "PvP Team") {
+      router.push("/pvp-team");
     } else {
       router.push("/coop-pve");
     }
