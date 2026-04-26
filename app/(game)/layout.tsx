@@ -12,10 +12,12 @@ import { useMusicPlayer } from "./_hooks/useMusicPlayer";
 import { useFriends } from "./_hooks/useFriends";
 import { BossQueueProvider } from "./_hooks/useBossQueue";
 import { PvpTeamQueueProvider } from "./_hooks/usePvpTeamQueue";
+import { Pvp1v1QueueProvider } from "./_hooks/usePvp1v1Queue";
 import BossQueueBar from "./_components/BossQueueBar";
 import BossMatchModal from "./_components/BossMatchModal";
 import PvpTeamQueueBar from "./_components/PvpTeamQueueBar";
 import PvpTeamMatchModal from "./_components/PvpTeamMatchModal";
+import Pvp1v1QueueBar from "./_components/Pvp1v1QueueBar";
 import PvpTeamInviteNotification from "./_components/PvpTeamInviteNotification";
 import CoopPveInviteNotification from "./_components/CoopPveInviteNotification";
 import { LayoutSocketProvider } from "./_hooks/useLayoutSocket";
@@ -60,7 +62,7 @@ export default function GameLayout({
   const layoutSocketRef = useRef<Socket | null>(null);
   const [layoutSocket, setLayoutSocket] = useState<Socket | null>(null);
 
-  const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight") || pathname.startsWith("/pvp-team")) ? "battle" : "ambient";
+  const musicContext = (pathname.startsWith("/battle") || pathname.startsWith("/boss-fight") || pathname.startsWith("/pvp-team") || pathname.startsWith("/pvp-1v1")) ? "battle" : "ambient";
   const music = useMusicPlayer(musicContext);
 
   const {
@@ -554,12 +556,15 @@ export default function GameLayout({
       <LayoutSocketProvider value={layoutSocket}>
       <BossQueueProvider>
       <PvpTeamQueueProvider>
+      <Pvp1v1QueueProvider>
         <main className="mx-auto max-w-6xl px-4 pt-20 pb-20">{children}</main>
         <BossQueueBar />
         <BossMatchModal />
         <PvpTeamQueueBar />
         <PvpTeamMatchModal />
         <PvpTeamInviteNotification />
+        <Pvp1v1QueueBar />
+      </Pvp1v1QueueProvider>
       </PvpTeamQueueProvider>
       </BossQueueProvider>
       </LayoutSocketProvider>

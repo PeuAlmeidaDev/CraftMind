@@ -82,6 +82,23 @@ const MODES: ModeCard[] = [
   {
     glyph: "⚔",
     glyphSize: 36,
+    subtitle: "PVP · DUELO 1v1",
+    name: "PvP Duelo",
+    tag: {
+      label: "PVP",
+      color: "#f87171",
+      border: "#f8717155",
+    },
+    intensity: 4,
+    description:
+      "Enfrente outro jogador em um duelo direto por turnos. Ranking points em jogo.",
+    allies: 1,
+    enemies: 1,
+    buttonLabel: "Duelar",
+  },
+  {
+    glyph: "⚔",
+    glyphSize: 36,
     subtitle: "PVP · EQUIPE 2v2",
     name: "PvP Team",
     tag: {
@@ -254,6 +271,8 @@ export default function BattleIdle({
       onStart();
     } else if (mode.name === "Multi Mobs") {
       router.push("/battle-multi");
+    } else if (mode.name === "PvP Duelo") {
+      router.push("/pvp-1v1");
     } else if (mode.name === "PvP Team") {
       router.push("/pvp-team");
     } else {

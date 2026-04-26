@@ -6,7 +6,7 @@ Componentes Client-side (`"use client"`) usados exclusivamente pela pagina `/bat
 
 | Arquivo | Descricao |
 |---|---|
-| `BattleIdle.tsx` | Tela "Camara de Guerra" pre-batalha com grid de 3 mode cards (1v1 featured, Multi Mobs, Coop PvE). Props: `onStart`, `loading`, `playerName`, `houseName`. Usa fontes Cinzel/Cormorant/Garamond/JetBrains e CSS vars do tema. Importa `HOUSE_LORE` para motto no footer. |
+| `BattleIdle.tsx` | Tela "Camara de Guerra" pre-batalha com grid de 5 mode cards (1v1 featured col-span-2, Multi Mobs, Coop PvE, PvP Duelo 1v1, PvP Team 2v2). Props: `onStart`, `loading`, `playerName`, `houseName`. Usa fontes Cinzel/Cormorant/Garamond/JetBrains e CSS vars do tema. Importa `HOUSE_LORE` para motto no footer. |
 | `BattleArena.tsx` | Layout responsivo de batalha: desktop (cards com imagem) e mobile (barras compactas). Renderiza mob, player, HP, status effects, BattleLog e SkillBar inline. Shake animation via styled-jsx. Usa MobPlaceholder para retrato do mob e bandeira da casa via next/image. |
 | `SkillBar.tsx` | Grid 2x2 com 4 slots de skill + botao pular turno |
 | `BattleLog.tsx` | "Cronica do Combate" — feed de eventos com scroll automatico. PHASE_STYLE usa objetos `{color, bold?, italic?}` com inline styles (nao classes Tailwind). Cor do border-left por actor: player=var(--ember), mob=#d96a52, neutro=gold 40%. Sub-texto extraido de damage/healing/buff/debuff do TurnLogEntry. Compartilhado com `/battle-multi`. |
