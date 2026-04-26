@@ -8,6 +8,7 @@
 | `character/page.tsx` | `/character` | 5 | Tela do personagem com atributos e habilidades |
 | `battle/page.tsx` | `/battle` | 6-7 | Tela de batalha por turnos |
 | `lobby/page.tsx` | `/lobby` | 8 | Matchmaking e sala de espera |
+| `pvp-1v1/page.tsx` | `/pvp-1v1` | 7 | Batalha PvP 1v1 em tempo real (lobby + arena + resultado) |
 
 ## Proteção de acesso
 
@@ -19,7 +20,8 @@ A primeira camada de protecao e o middleware (`middleware.ts` na raiz), que vali
 
 - `page.tsx`: Client Component (`"use client"`) — busca dados via fetch com `Authorization: Bearer <token>` do localStorage.
 - Componentes interativos (batalha, formulários de hábito): `"use client"` em arquivos separados em `components/`.
-- Socket.io: inicializado apenas em Client Components da rota `/battle` e `/lobby`.
+- Socket.io: inicializado apenas em Client Components da rota `/battle`, `/lobby`, `/pvp-1v1`, `/pvp-team`, `/boss-fight`, `/coop-pve`.
+- Providers de queue (Pvp1v1QueueProvider, PvpTeamQueueProvider, BossQueueProvider) ficam no layout para persistir estado entre navegacoes.
 
 ## Convenções de dados
 

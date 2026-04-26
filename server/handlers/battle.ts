@@ -17,6 +17,11 @@ import { prisma } from "../lib/prisma";
 const TURN_TIMEOUT_MS = 30_000;
 const RECONNECT_GRACE_MS = 30_000;
 
+// Ranking points para PvP 1v1
+const RANKING_1V1_WIN = 30;
+const RANKING_1V1_LOSS = -20;
+const RANKING_1V1_DRAW = 5;
+
 // ---------------------------------------------------------------------------
 // Tipo auxiliar para estado sanitizado enviado ao jogador
 // ---------------------------------------------------------------------------
@@ -147,6 +152,64 @@ async function persistBattleResult(
     }
 
     await Promise.all(updates);
+
+    // ---- Ranking SOLO_1V1 ----
+    const rankingUpdates: Promise<unknown>[] = [];
+
+    for (const { charId, pId } of [
+      { charId: char1.id, pId: player1Id },
+      { charId: char2.id, pId: player2Id },
+    ]) {
+      const result = getResult(pId);
+      const rankingChange =
+        result === "VICTORY"
+          ? RANKING_1V1_WIN
+          : result === "DEFEAT"
+            ? RANKING_1V1_LOSS
+            : RANKING_1V1_DRAW;
+      const winsInc = result === "VICTORY" ? 1 : 0;
+      const lossesInc = result === "DEFEAT" ? 1 : 0;
+      const drawsInc = result === "DRAW" ? 1 : 0;
+
+      const existing = await tx.pvpStats.findUnique({
+        where: {
+          characterId_mode: {
+            characterId: charId,
+            mode: "SOLO_1V1",
+          },
+        },
+      });
+
+      if (existing) {
+        const newRanking = Math.max(0, existing.rankingPoints + rankingChange);
+        rankingUpdates.push(
+          tx.pvpStats.update({
+            where: { id: existing.id },
+            data: {
+              wins: existing.wins + winsInc,
+              losses: existing.losses + lossesInc,
+              draws: existing.draws + drawsInc,
+              rankingPoints: newRanking,
+            },
+          })
+        );
+      } else {
+        rankingUpdates.push(
+          tx.pvpStats.create({
+            data: {
+              characterId: charId,
+              mode: "SOLO_1V1",
+              wins: winsInc,
+              losses: lossesInc,
+              draws: drawsInc,
+              rankingPoints: Math.max(0, rankingChange),
+            },
+          })
+        );
+      }
+    }
+
+    await Promise.all(rankingUpdates);
 
     console.log(
       `[Socket.io] Batalha ${battleId} persistida. EXP: ${player1Id}=${exp1}, ${player2Id}=${exp2}`
