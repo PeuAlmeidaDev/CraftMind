@@ -424,6 +424,9 @@ function Pvp1v1Content() {
     socket.on("battle:player-reconnected", handlePlayerReconnected);
     socket.on("battle:error", handleError);
 
+    // Solicitar estado da batalha (caso tenha perdido o initial emit)
+    socket.emit("battle:request-state");
+
     return () => {
       stopTurnTimer();
       socket.off("battle:state", handleBattleState);
