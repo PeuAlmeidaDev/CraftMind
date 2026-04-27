@@ -12,6 +12,7 @@ import {
 } from "../stores/queue-store";
 import { prisma } from "../lib/prisma";
 import { setPvpBattle, getPlayerBattle } from "../stores/pvp-store";
+import { sanitizeStateForPlayer } from "./battle";
 import { isInBossQueue } from "../stores/boss-queue-store";
 import { getPlayerBossBattle } from "../stores/boss-battle-store";
 import { isInCoopPveQueue } from "../stores/coop-pve-queue-store";
@@ -267,6 +268,16 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
       socket.join(battleId);
 
       io.to(battleId).emit("matchmaking:found", { battleId });
+
+      // Enviar estado inicial sanitizado para cada jogador
+      matchSocket.emit("battle:state", {
+        state: sanitizeStateForPlayer(state, match.userId),
+        events: [],
+      });
+      socket.emit("battle:state", {
+        state: sanitizeStateForPlayer(state, userId),
+        events: [],
+      });
 
       console.log(
         `[Socket.io] Match encontrado: ${match.userId} vs ${userId} -> batalha ${battleId}`

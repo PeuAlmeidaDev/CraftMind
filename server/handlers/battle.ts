@@ -39,7 +39,7 @@ type SanitizedBattleState = Omit<BattleState, "players"> & {
 // Sanitizar estado para um jogador especifico (funcao pura)
 // ---------------------------------------------------------------------------
 
-function sanitizeStateForPlayer(
+export function sanitizeStateForPlayer(
   state: BattleState,
   playerId: string
 ): SanitizedBattleState {
@@ -315,6 +315,29 @@ export function startTurnTimer(
 export function registerBattleHandlers(io: Server, socket: Socket): void {
   const userId = socket.data.userId;
 
+  // ---- battle:request-state ----
+  socket.on("battle:request-state", () => {
+    const result = getPlayerBattle(userId);
+    if (!result) {
+      socket.emit("battle:error", { message: "Nenhuma batalha ativa" });
+      return;
+    }
+
+    const { battleId, session } = result;
+
+    // Re-join room (pode ter perdido ao navegar)
+    socket.join(battleId);
+
+    // Atualizar socketId no store
+    updatePlayerSocket(battleId, userId, socket.id);
+
+    socket.emit("battle:state", {
+      state: sanitizeStateForPlayer(session.state, userId),
+      events: [],
+    });
+  });
+
+  // ---- battle:action ----
   socket.on("battle:action", (payload: unknown) => {
     // Validar payload
     if (typeof payload !== "object" || payload === null) {
