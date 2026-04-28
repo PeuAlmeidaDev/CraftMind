@@ -35,6 +35,9 @@ const SKILL_VFX_MAP: Record<string, VfxType> = {
   "Execucao Perfeita": "slash",
   "Cadeia Implacavel": "slash",
 
+  // FIRE (magical fire)
+  "Bola de Fogo": "fire",
+
   // ARCANE (magical damage)
   "Fagulha Arcana": "arcane",
   "Rajada de Vento": "arcane",

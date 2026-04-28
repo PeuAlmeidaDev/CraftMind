@@ -150,6 +150,13 @@ const skills: SkillData[] = [
 
   // --- T1: Dano magico single-target ---
   {
+    name: 'Bola de Fogo',
+    description: 'Esfera flamejante que incendeia o alvo com puro poder magico',
+    tier: 1, cooldown: 0, target: 'SINGLE_ENEMY', damageType: 'MAGICAL', basePower: 40, hits: 1, accuracy: 95,
+    effects: [],
+    mastery: { maxLevel: 3, bonusPerLevel: 5 },
+  },
+  {
     name: 'Fagulha Arcana',
     description: 'Pequena esfera de energia magica lancada contra o alvo',
     tier: 1, cooldown: 0, target: 'SINGLE_ENEMY', damageType: 'MAGICAL', basePower: 35, hits: 1, accuracy: 95,
