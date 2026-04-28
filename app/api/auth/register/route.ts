@@ -152,25 +152,39 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Equipar skill inicial "Ataque Rapido" no slot 0
-      const starterSkill = await tx.skill.findUnique({
-        where: { name: "Ataque Rapido" },
-        select: { id: true },
-      });
+      // Equipar skills iniciais: "Ataque Rapido" (slot 0) e "Bola de Fogo" (slot 1)
+      const [starterPhysical, starterMagical] = await Promise.all([
+        tx.skill.findUnique({
+          where: { name: "Ataque Rapido" },
+          select: { id: true },
+        }),
+        tx.skill.findUnique({
+          where: { name: "Bola de Fogo" },
+          select: { id: true },
+        }),
+      ]);
 
-      if (!starterSkill) {
+      if (!starterPhysical || !starterMagical) {
         throw new Error(
-          "Skill inicial 'Ataque Rapido' nao encontrada. Execute npx prisma db seed."
+          "Skills iniciais 'Ataque Rapido' e/ou 'Bola de Fogo' nao encontradas. Execute npx prisma db seed."
         );
       }
 
-      await tx.characterSkill.create({
-        data: {
-          characterId: createdCharacter.id,
-          skillId: starterSkill.id,
-          equipped: true,
-          slotIndex: 0,
-        },
+      await tx.characterSkill.createMany({
+        data: [
+          {
+            characterId: createdCharacter.id,
+            skillId: starterPhysical.id,
+            equipped: true,
+            slotIndex: 0,
+          },
+          {
+            characterId: createdCharacter.id,
+            skillId: starterMagical.id,
+            equipped: true,
+            slotIndex: 1,
+          },
+        ],
       });
 
       return { user: createdUser, character: createdCharacter };
