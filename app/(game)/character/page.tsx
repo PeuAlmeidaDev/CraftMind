@@ -15,6 +15,9 @@ import SkillLoadout from "./_components/SkillLoadout";
 import SkillSelectModal from "./_components/SkillSelectModal";
 import SkillInventory from "./_components/SkillInventory";
 import HouseBanner from "./_components/HouseBanner";
+import CardSlots from "./_components/CardSlots";
+import type { UserCardSummary } from "./_components/CardSlots";
+import CardPickerModal from "./_components/CardPickerModal";
 import EmberField from "@/components/ui/EmberField";
 import { HOUSE_LORE } from "@/lib/constants-house";
 
@@ -39,11 +42,15 @@ export default function CharacterPage() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [equippedSkills, setEquippedSkills] = useState<CharacterSkillSlot[]>([]);
   const [unequippedSkills, setUnequippedSkills] = useState<CharacterSkillSlot[]>([]);
+  const [userCards, setUserCards] = useState<UserCardSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [selectedCardSlot, setSelectedCardSlot] = useState<number | null>(null);
 
   /** Guarda se uma acao de equip/unequip esta em andamento */
   const skillActionRef = useRef(false);
+  /** Guarda se uma acao de equip/unequip de cristal esta em andamento */
+  const cardActionRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,16 +65,18 @@ export default function CharacterPage() {
       const opts = authFetchOptions(token, controller.signal);
 
       try {
-        const [profileRes, characterRes, skillsRes] = await Promise.all([
+        const [profileRes, characterRes, skillsRes, cardsRes] = await Promise.all([
           fetch("/api/user/profile", opts),
           fetch("/api/character", opts),
           fetch("/api/character/skills", opts),
+          fetch("/api/cards", opts),
         ]);
 
         if (
           profileRes.status === 401 ||
           characterRes.status === 401 ||
-          skillsRes.status === 401
+          skillsRes.status === 401 ||
+          cardsRes.status === 401
         ) {
           clearAuthAndRedirect(router);
           return;
@@ -93,6 +102,13 @@ export default function CharacterPage() {
           };
           setEquippedSkills(skillsJson.data.equipped);
           setUnequippedSkills(skillsJson.data.unequipped);
+        }
+
+        if (cardsRes.ok) {
+          const cardsJson = (await cardsRes.json()) as {
+            data: { userCards: UserCardSummary[] };
+          };
+          setUserCards(cardsJson.data.userCards);
         }
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -176,6 +192,71 @@ export default function CharacterPage() {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Cristais equipados
+  // -----------------------------------------------------------------------
+
+  const refetchCards = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    const res = await fetch("/api/cards", authFetchOptions(token));
+    if (res.ok) {
+      const json = (await res.json()) as {
+        data: { userCards: UserCardSummary[] };
+      };
+      setUserCards(json.data.userCards);
+    }
+  }, []);
+
+  function handleCardSlotClick(slotIndex: number) {
+    setSelectedCardSlot(slotIndex);
+  }
+
+  async function handleEquipCard(userCardId: string, slotIndex: number) {
+    if (cardActionRef.current) return;
+    const token = getToken();
+    if (!token) return;
+    cardActionRef.current = true;
+    try {
+      const res = await fetch("/api/cards/equip", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ userCardId, slotIndex }),
+      });
+      if (res.ok) {
+        await refetchCards();
+        setSelectedCardSlot(null);
+      }
+    } finally {
+      cardActionRef.current = false;
+    }
+  }
+
+  async function handleUnequipCard(slotIndex: number) {
+    if (cardActionRef.current) return;
+    const token = getToken();
+    if (!token) return;
+    cardActionRef.current = true;
+    try {
+      const res = await fetch("/api/cards/unequip", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ slotIndex }),
+      });
+      if (res.ok) await refetchCards();
+    } finally {
+      cardActionRef.current = false;
+    }
+  }
+
   const allSkills = [...equippedSkills, ...unequippedSkills];
 
   const houseName = profile?.house?.name ?? null;
@@ -251,6 +332,11 @@ export default function CharacterPage() {
               onSlotClick={handleSlotClick}
               onUnequip={handleUnequip}
             />
+            <CardSlots
+              userCards={userCards}
+              onSlotClick={handleCardSlotClick}
+              onUnequip={handleUnequipCard}
+            />
             <SkillInventory skills={allSkills} />
           </div>
         </div>
@@ -276,6 +362,15 @@ export default function CharacterPage() {
         allSkills={allSkills}
         onSelect={handleEquip}
         onClose={() => setSelectedSlot(null)}
+      />
+
+      {/* Modal de selecao de cristal */}
+      <CardPickerModal
+        open={selectedCardSlot !== null}
+        slotIndex={selectedCardSlot ?? 0}
+        userCards={userCards}
+        onSelect={handleEquipCard}
+        onClose={() => setSelectedCardSlot(null)}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { hasActiveBattle, setPveBattle } from "@/lib/battle/pve-store";
 import { initBattle } from "@/lib/battle/init";
+import { loadEquippedCardsAndApply } from "@/lib/cards/load-equipped";
 import { getPlayerTier, rollMobTier, selectRandomMob } from "@/lib/exp/matchmaking";
 import type { EquippedSkill, BaseStats } from "@/lib/battle/types";
 import type { AiProfile } from "@/lib/battle/ai-profiles";
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
       },
     }));
 
-    const playerStats: BaseStats = {
+    const baseStats: BaseStats = {
       physicalAtk: character.physicalAtk,
       physicalDef: character.physicalDef,
       magicAtk: character.magicAtk,
@@ -155,6 +156,12 @@ export async function POST(request: NextRequest) {
       hp: character.hp,
       speed: character.speed,
     };
+
+    const playerStats: BaseStats = await loadEquippedCardsAndApply(
+      prisma,
+      userId,
+      baseStats,
+    );
 
     const mobStats: BaseStats = {
       physicalAtk: mob.physicalAtk,
@@ -208,7 +215,7 @@ export async function POST(request: NextRequest) {
         imageUrl: mob.imageUrl ?? null,
       },
       player: {
-        hp: character.hp,
+        hp: playerStats.hp,
         skills: playerSkills.map((s) => s.skill.name),
       },
       initialState: {

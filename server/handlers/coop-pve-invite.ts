@@ -11,6 +11,7 @@ import type {
 } from "../../lib/battle/coop-pve-types";
 import type { AiProfile } from "../../lib/battle/ai-profiles";
 import { convertToEquippedSkills, extractBaseStats, CHARACTER_SKILLS_SELECT } from "../lib/convert-skills";
+import { loadEquippedCardsAndApply } from "../../lib/cards/load-equipped";
 import { initCoopPveBattle } from "../../lib/battle/coop-pve-turn";
 import { isInQueue } from "../stores/queue-store";
 import { getPlayerBattle } from "../stores/pvp-store";
@@ -545,12 +546,18 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
       }
 
       const battleId = crypto.randomUUID();
-      const team = characters.map((char) => ({
-        userId: char.userId,
-        characterId: char.id,
-        stats: extractBaseStats(char) as BaseStats,
-        skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
-      }));
+      const team = await Promise.all(
+        characters.map(async (char) => ({
+          userId: char.userId,
+          characterId: char.id,
+          stats: (await loadEquippedCardsAndApply(
+            prisma,
+            char.userId,
+            extractBaseStats(char),
+          )) as BaseStats,
+          skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
+        })),
+      );
 
       const battleConfig: CoopPveBattleConfig = {
         battleId,
@@ -791,12 +798,18 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
 
     // Criar battle config
     const battleId = crypto.randomUUID();
-    const team = characters.map((char) => ({
-      userId: char.userId,
-      characterId: char.id,
-      stats: extractBaseStats(char) as BaseStats,
-      skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
-    }));
+    const team = await Promise.all(
+      characters.map(async (char) => ({
+        userId: char.userId,
+        characterId: char.id,
+        stats: (await loadEquippedCardsAndApply(
+          prisma,
+          char.userId,
+          extractBaseStats(char),
+        )) as BaseStats,
+        skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
+      })),
+    );
 
     const battleConfig: CoopPveBattleConfig = {
       battleId,

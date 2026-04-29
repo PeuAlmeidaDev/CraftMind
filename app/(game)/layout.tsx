@@ -30,6 +30,7 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/character", label: "Personagem" },
   { href: "/battle", label: "Batalha" },
+  { href: "/bestiary", label: "Bestiario" },
 ] as const;
 
 type UserProfile = {
@@ -239,44 +240,6 @@ export default function GameLayout({
               </Link>
             ))}
           </nav>
-
-          {/* Player search (desktop) */}
-          <div className="hidden max-w-xs flex-1 lg:block">
-            <PlayerSearchBar onPlayerFound={setSearchedPlayer} />
-          </div>
-
-          {/* Friends button (desktop) */}
-          <button
-            type="button"
-            onClick={() => setFriendsOpen(true)}
-            className="relative hidden cursor-pointer p-2 transition-colors hover:bg-[var(--bg-primary)] hover:text-white lg:block"
-            style={{
-              color: "color-mix(in srgb, var(--gold) 60%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
-            }}
-            aria-label="Amigos"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            {pendingCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-sm bg-[var(--ember)] px-1 text-[0.6rem] font-bold text-white">
-                {pendingCount}
-              </span>
-            )}
-          </button>
 
           {/* User info + Logout (desktop) */}
           <div className="flex items-center gap-3">
@@ -580,6 +543,52 @@ export default function GameLayout({
         />
       )}
 
+      {/* FAB de amigos / busca de player (apenas desktop) */}
+      {user && (
+        <button
+          type="button"
+          onClick={() => setFriendsOpen(true)}
+          className="fixed bottom-6 right-6 z-30 hidden h-14 w-14 cursor-pointer items-center justify-center transition-transform hover:scale-105 active:scale-95 lg:flex"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 90%, transparent), color-mix(in srgb, var(--accent-primary) 60%, var(--bg-primary)))",
+            border: "1px solid color-mix(in srgb, var(--accent-primary) 70%, transparent)",
+            boxShadow:
+              "0 8px 22px color-mix(in srgb, var(--accent-primary) 35%, transparent), 0 0 0 1px color-mix(in srgb, var(--gold) 14%, transparent) inset",
+            color: "white",
+          }}
+          aria-label="Abrir painel de amigos"
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          {pendingCount > 0 && (
+            <span
+              className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center px-1 text-[10px] font-bold text-white"
+              style={{
+                background: "var(--ember)",
+                border: "1px solid var(--bg-primary)",
+                borderRadius: 999,
+              }}
+            >
+              {pendingCount}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Friends drawer */}
       <FriendsList
         open={friendsOpen}
@@ -596,6 +605,10 @@ export default function GameLayout({
         acceptingIds={acceptingIds}
         decliningIds={decliningIds}
         removingIds={removingIds}
+        onPlayerFound={(p) => {
+          setSearchedPlayer(p);
+          setFriendsOpen(false);
+        }}
       />
     </div>
   );

@@ -6,6 +6,7 @@ import type { HabitCategory } from "@prisma/client";
 import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
 import type { CoopBattlePlayerConfig } from "../../lib/battle/coop-types";
 import { convertToEquippedSkills, extractBaseStats } from "../lib/convert-skills";
+import { loadEquippedCardsAndApply } from "../../lib/cards/load-equipped";
 import { initCoopBattle } from "../../lib/battle/coop-turn";
 import { isInQueue } from "../stores/queue-store";
 import { getPlayerBattle } from "../stores/pvp-store";
@@ -228,7 +229,11 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
       return;
     }
 
-    const verifiedStats: BaseStats = extractBaseStats(character);
+    const verifiedStats: BaseStats = await loadEquippedCardsAndApply(
+      prisma,
+      userId,
+      extractBaseStats(character),
+    );
     const verifiedSkills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
 
     // Adicionar na fila

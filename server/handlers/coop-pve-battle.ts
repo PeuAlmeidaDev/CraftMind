@@ -20,6 +20,31 @@ import {
   updateCoopPvePlayerSocket,
 } from "../stores/coop-pve-battle-store";
 import { prisma } from "../lib/prisma";
+import { applyCardDropAndStats } from "../../lib/cards/drop";
+
+/**
+ * Soma o dano causado por `attackerId` em `targetPlayerId` no log da batalha.
+ * No coop PvE, mobs sao identificados pelos `playerId` UUID do estado de batalha
+ * (nao pelo `mobId` do banco). Por isso fazemos lookup por `playerId` aqui.
+ */
+function sumDamageDealtByPlayer(
+  log: ReadonlyArray<TurnLogEntry>,
+  attackerId: string,
+  targetPlayerId: string,
+): number {
+  let total = 0;
+  for (const entry of log) {
+    if (
+      entry.phase === "DAMAGE" &&
+      entry.actorId === attackerId &&
+      entry.targetId === targetPlayerId &&
+      typeof entry.damage === "number"
+    ) {
+      total += entry.damage;
+    }
+  }
+  return total;
+}
 
 const TURN_TIMEOUT_MS = 30_000;
 const RECONNECT_GRACE_MS = 30_000;
@@ -180,6 +205,34 @@ async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void
 
           console.log(
             `[Socket.io] Coop PvE ${battleId}: ${playerId} ganhou ${gained} EXP`
+          );
+        }
+      }
+
+      // Drop de cristais + atualizacao de MobKillStat por instancia de mob.
+      // Cada instancia conta separadamente: mobs derrotados pelo player viram
+      // VICTORY individual (incrementa victories, rola drop) mesmo em batalha
+      // DEFEAT geral; mobs sobreviventes viram DEFEAT individual.
+      // Damage dealt e calculado por instancia (mob.playerId), nao por mobId.
+      for (const mob of state.mobs) {
+        const damageDealt = sumDamageDealtByPlayer(
+          state.turnLog,
+          playerId,
+          mob.playerId,
+        );
+        const mobResult = mob.defeated ? "VICTORY" : "DEFEAT";
+
+        try {
+          await applyCardDropAndStats(tx, {
+            userId: playerId,
+            mobId: mob.mobId,
+            result: mobResult,
+            damageDealt,
+          });
+        } catch (err) {
+          console.log(
+            `[Socket.io] Erro ao aplicar drop/stats em coop ${battleId} ` +
+              `para player ${playerId} / mob ${mob.mobId}: ${String(err)}`,
           );
         }
       }
