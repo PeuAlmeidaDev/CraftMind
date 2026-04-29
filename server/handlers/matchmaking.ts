@@ -24,6 +24,7 @@ import {
   extractBaseStats,
   CHARACTER_SKILLS_SELECT,
 } from "../lib/convert-skills";
+import { loadEquippedCardsAndApply } from "../../lib/cards/load-equipped";
 
 type JoinPayload = {
   characterId: string;
@@ -148,7 +149,11 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const verifiedStats = extractBaseStats(character);
+    const verifiedStats = await loadEquippedCardsAndApply(
+      prisma,
+      userId,
+      extractBaseStats(character),
+    );
     const verifiedSkills = convertToEquippedSkills(character.characterSkills);
 
     const match = findMatch(userId);
@@ -215,7 +220,11 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
         return;
       }
 
-      const freshMatchStats = extractBaseStats(matchCharacter);
+      const freshMatchStats = await loadEquippedCardsAndApply(
+        prisma,
+        match.userId,
+        extractBaseStats(matchCharacter),
+      );
       const freshMatchSkills = convertToEquippedSkills(matchCharacter.characterSkills);
 
       const battleId = crypto.randomUUID();

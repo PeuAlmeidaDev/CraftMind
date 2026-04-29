@@ -16,6 +16,7 @@ api/
 │   ├── habits/route.ts   # GET (habitos do usuario logado — protegida)
 │   ├── profile/route.ts  # GET (perfil do usuario: nome, email, casa, avatarUrl, character — protegida)
 │   ├── avatar/route.ts   # POST (upload de avatar via Cloudinary — protegida, formData, max 5MB, JPEG/PNG/WebP)
+│   ├── intro-seen/route.ts # PUT (marcar intro da casa como vista — protegida, sem body)
 │   ├── by-name/
 │   │   └── [name]/
 │   │       └── profile/route.ts  # GET (perfil publico por nome — protegida, mesmos dados de [id]/profile)

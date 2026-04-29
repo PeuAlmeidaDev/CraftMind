@@ -4,7 +4,7 @@
 
 | Model | Descrição |
 |---|---|
-| `User` | Jogador: id (cuid), email, passwordHash, name, avatarUrl (String?, URL Cloudinary), houseId, createdAt |
+| `User` | Jogador: id (cuid), email, passwordHash, name, avatarUrl (String?, URL Cloudinary), houseId, introSeen (Boolean, default false — marca se o jogador ja viu a intro da casa), createdAt |
 | `House` | Casa: Arion, Lycus, Noctis, Nereid |
 | `Character` | Atributos do personagem: userId (1-1), physicalAtk, physicalDef, magicAtk, magicDef, hp, speed, level (default 1), currentExp (default 0), freePoints (default 0), bossEssence (default 0) |
 | `Habit` | Definição de hábito: name, category (enum), attributeGrants (JSON) |

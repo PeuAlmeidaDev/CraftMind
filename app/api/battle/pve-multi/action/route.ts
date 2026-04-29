@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -10,9 +11,94 @@ import {
   isSessionTimedOut,
 } from "@/lib/battle/pve-multi-store";
 import { resolveMultiPveTurn } from "@/lib/battle/pve-multi-turn";
+import type { MobState } from "@/lib/battle/pve-multi-types";
+import type { TurnLogEntry } from "@/lib/battle/types";
 import { pveMultiActionSchema } from "@/lib/validations/pve-multi";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
 import { processLevelUp } from "@/lib/exp/level-up";
+import { applyCardDropAndStats } from "@/lib/cards/drop";
+import type { CardRarity } from "@/types/cards";
+
+const RARITY_RANK: Record<CardRarity, number> = {
+  COMUM: 1,
+  INCOMUM: 2,
+  RARO: 3,
+  EPICO: 4,
+  LENDARIO: 5,
+};
+
+type DroppedCardPayload = {
+  id: string;
+  name: string;
+  rarity: string;
+  mobId: string;
+};
+
+/** Soma o dano causado pelo player (actorId) a um alvo especifico (targetId === mob.playerId). */
+function sumDamageDealtToTarget(
+  log: ReadonlyArray<TurnLogEntry>,
+  attackerId: string,
+  targetPlayerId: string,
+): number {
+  let total = 0;
+  for (const entry of log) {
+    if (
+      entry.phase === "DAMAGE" &&
+      entry.actorId === attackerId &&
+      entry.targetId === targetPlayerId &&
+      typeof entry.damage === "number"
+    ) {
+      total += entry.damage;
+    }
+  }
+  return total;
+}
+
+/**
+ * Para cada mob da batalha multi, atualiza MobKillStat e tenta drop.
+ * - Se mob.defeated => VICTORY individual (incrementa victories, rola drop).
+ * - Caso contrario => DEFEAT individual (incrementa defeats, sem drop).
+ *
+ * Retorna o melhor cristal dropado (maior raridade) ou null.
+ */
+async function applyDropsAndStatsForMobs(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  mobs: ReadonlyArray<MobState>,
+  log: ReadonlyArray<TurnLogEntry>,
+): Promise<DroppedCardPayload | null> {
+  let best: DroppedCardPayload | null = null;
+  let bestRank = 0;
+  for (const mob of mobs) {
+    const damageDealt = sumDamageDealtToTarget(log, userId, mob.playerId);
+    const result = mob.defeated ? "VICTORY" : "DEFEAT";
+    try {
+      const dropResult = await applyCardDropAndStats(tx, {
+        userId,
+        mobId: mob.mobId,
+        result,
+        damageDealt,
+      });
+      if (dropResult.cardDropped) {
+        const rank = RARITY_RANK[dropResult.cardDropped.rarity as CardRarity] ?? 0;
+        if (rank > bestRank) {
+          bestRank = rank;
+          best = {
+            id: dropResult.cardDropped.id,
+            name: dropResult.cardDropped.name,
+            rarity: dropResult.cardDropped.rarity,
+            mobId: dropResult.cardDropped.mobId,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[pve-multi/action] applyCardDropAndStats falhou para mob ${mob.mobId}: ${String(err)}`,
+      );
+    }
+  }
+  return best;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,17 +136,20 @@ export async function POST(request: NextRequest) {
     if (isSessionTimedOut(session)) {
       const state = session.state;
 
-      await prisma.pveBattle.create({
-        data: {
-          userId,
-          mobId: state.mobs[0].mobId,
-          result: "DEFEAT",
-          expGained: 0,
-          turns: state.turnNumber,
-          log: state.turnLog as object[],
-          mode: "MULTI",
-          mobIds: state.mobs.map((m) => m.mobId),
-        },
+      const cardDropped = await prisma.$transaction(async (tx) => {
+        await tx.pveBattle.create({
+          data: {
+            userId,
+            mobId: state.mobs[0].mobId,
+            result: "DEFEAT",
+            expGained: 0,
+            turns: state.turnNumber,
+            log: state.turnLog as object[],
+            mode: "MULTI",
+            mobIds: state.mobs.map((m) => m.mobId),
+          },
+        });
+        return applyDropsAndStatsForMobs(tx, userId, state.mobs, state.turnLog);
       });
 
       removeMultiPveBattle(battleId);
@@ -74,6 +163,7 @@ export async function POST(request: NextRequest) {
         playerHp: state.player.currentHp,
         mobsHp: state.mobs.map((m) => m.currentHp),
         mobsDefeated: state.mobs.map((m) => m.defeated),
+        cardDropped,
       });
     }
 
@@ -139,16 +229,16 @@ export async function POST(request: NextRequest) {
             freePoints: character.freePoints,
           });
 
-          await prisma.$transaction([
-            prisma.character.update({
+          const cardDropped = await prisma.$transaction(async (tx) => {
+            await tx.character.update({
               where: { userId },
               data: {
                 level: levelResult.newLevel,
                 currentExp: levelResult.newExp,
                 freePoints: levelResult.newFreePoints,
               },
-            }),
-            prisma.pveBattle.create({
+            });
+            await tx.pveBattle.create({
               data: {
                 userId,
                 mobId: primaryMobId,
@@ -159,8 +249,14 @@ export async function POST(request: NextRequest) {
                 mode: "MULTI",
                 mobIds,
               },
-            }),
-          ]);
+            });
+            return applyDropsAndStatsForMobs(
+              tx,
+              userId,
+              newState.mobs,
+              newState.turnLog,
+            );
+          });
 
           removeMultiPveBattle(battleId);
 
@@ -174,21 +270,30 @@ export async function POST(request: NextRequest) {
             expGained: expWithPenalty,
             levelsGained: levelResult.levelsGained,
             newLevel: levelResult.newLevel,
+            cardDropped,
           });
         }
 
-        // Character nao encontrado — persistir sem EXP
-        await prisma.pveBattle.create({
-          data: {
+        // Character nao encontrado — persistir sem EXP, mas ainda atualizar stats/drop
+        const cardDropped = await prisma.$transaction(async (tx) => {
+          await tx.pveBattle.create({
+            data: {
+              userId,
+              mobId: primaryMobId,
+              result: "VICTORY",
+              expGained: 0,
+              turns: newState.turnNumber,
+              log: newState.turnLog as object[],
+              mode: "MULTI",
+              mobIds,
+            },
+          });
+          return applyDropsAndStatsForMobs(
+            tx,
             userId,
-            mobId: primaryMobId,
-            result: "VICTORY",
-            expGained: 0,
-            turns: newState.turnNumber,
-            log: newState.turnLog as object[],
-            mode: "MULTI",
-            mobIds,
-          },
+            newState.mobs,
+            newState.turnLog,
+          );
         });
 
         removeMultiPveBattle(battleId);
@@ -201,21 +306,31 @@ export async function POST(request: NextRequest) {
           battleOver: true,
           result: "VICTORY",
           expGained: 0,
+          cardDropped,
         });
       }
 
-      // DEFEAT
-      await prisma.pveBattle.create({
-        data: {
+      // DEFEAT — mobs que o player matou ANTES de morrer ainda contam VICTORY
+      // individual; os que sobreviveram contam DEFEAT.
+      const cardDropped = await prisma.$transaction(async (tx) => {
+        await tx.pveBattle.create({
+          data: {
+            userId,
+            mobId: primaryMobId,
+            result: "DEFEAT",
+            expGained: 0,
+            turns: newState.turnNumber,
+            log: newState.turnLog as object[],
+            mode: "MULTI",
+            mobIds,
+          },
+        });
+        return applyDropsAndStatsForMobs(
+          tx,
           userId,
-          mobId: primaryMobId,
-          result: "DEFEAT",
-          expGained: 0,
-          turns: newState.turnNumber,
-          log: newState.turnLog as object[],
-          mode: "MULTI",
-          mobIds,
-        },
+          newState.mobs,
+          newState.turnLog,
+        );
       });
 
       removeMultiPveBattle(battleId);
@@ -228,6 +343,7 @@ export async function POST(request: NextRequest) {
         battleOver: true,
         result: "DEFEAT",
         expGained: 0,
+        cardDropped,
       });
     }
 

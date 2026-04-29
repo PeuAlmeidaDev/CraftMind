@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
 import { convertToEquippedSkills, extractBaseStats, CHARACTER_SKILLS_SELECT } from "../lib/convert-skills";
+import { loadEquippedCardsAndApply } from "../../lib/cards/load-equipped";
 import { isOnline, getSocketIds } from "../stores/user-store";
 import {
   setInvite as setPvpTeamInvite,
@@ -443,7 +444,11 @@ export function registerPvpTeamInviteHandlers(io: Server, socket: Socket): void 
       userId: senderId,
       socketId: senderSocketId,
       characterId: senderChar.id,
-      stats: extractBaseStats(senderChar) as BaseStats,
+      stats: (await loadEquippedCardsAndApply(
+        prisma,
+        senderId,
+        extractBaseStats(senderChar),
+      )) as BaseStats,
       skills: convertToEquippedSkills(senderChar.characterSkills) as EquippedSkill[],
       joinedAt: Date.now(),
     };
@@ -452,7 +457,11 @@ export function registerPvpTeamInviteHandlers(io: Server, socket: Socket): void 
       userId,
       socketId: targetSocketId,
       characterId: targetChar.id,
-      stats: extractBaseStats(targetChar) as BaseStats,
+      stats: (await loadEquippedCardsAndApply(
+        prisma,
+        userId,
+        extractBaseStats(targetChar),
+      )) as BaseStats,
       skills: convertToEquippedSkills(targetChar.characterSkills) as EquippedSkill[],
       joinedAt: Date.now(),
     };

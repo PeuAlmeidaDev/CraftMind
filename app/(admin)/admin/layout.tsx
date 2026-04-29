@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", exact: true },
   { label: "Skills", href: "/admin/skills", exact: false },
   { label: "Mobs", href: "/admin/mobs", exact: false },
+  { label: "Cards", href: "/admin/cards", exact: false },
   { label: "Usuarios", href: "/admin/users", exact: false },
 ];
 

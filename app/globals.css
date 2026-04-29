@@ -84,3 +84,74 @@
   0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--ember) 40%, transparent); }
   50%      { box-shadow: 0 0 20px color-mix(in srgb, var(--ember) 60%, transparent); }
 }
+
+/* ============================================================
+ * Cristais de Memoria — efeito holografico de carta foil
+ * (Reusa glassShine, victoryParticle, emberDrift definidos acima)
+ * ============================================================ */
+
+/* Reflexo unico que varre a carta uma vez por ciclo (na cor da casa). */
+@keyframes housefoilSweep {
+  0%   { transform: translateX(-110%) skewX(-18deg); opacity: 0; }
+  20%  { opacity: 0.9; }
+  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+}
+
+/* Classe utilitaria: foil holografico — uma faixa diagonal varrendo na cor
+ * da casa do usuario (var(--accent-primary)). Aplicar como overlay absolute.
+ * Nao usa mix-blend-mode para preservar a cor da casa pura. */
+.card-foil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.card-foil::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 35%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent-primary) 18%, transparent) 35%,
+    color-mix(in srgb, var(--accent-primary) 55%, transparent) 50%,
+    color-mix(in srgb, var(--accent-primary) 18%, transparent) 65%,
+    transparent 100%
+  );
+  filter: blur(2px);
+  animation: housefoilSweep 5s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+/* Cores e box-shadow por raridade de cristal. */
+.rarity-comum {
+  --rarity-color: #9ba3ad;
+  --rarity-glow: rgba(155, 163, 173, 0.45);
+}
+.rarity-incomum {
+  --rarity-color: #6bd47a;
+  --rarity-glow: rgba(107, 212, 122, 0.5);
+}
+.rarity-raro {
+  --rarity-color: #6b9dff;
+  --rarity-glow: rgba(107, 157, 255, 0.55);
+}
+.rarity-epico {
+  --rarity-color: #b06bff;
+  --rarity-glow: rgba(176, 107, 255, 0.6);
+}
+.rarity-lendario {
+  --rarity-color: #f4c45a;
+  --rarity-glow: rgba(244, 196, 90, 0.65);
+}
+.rarity-border {
+  border-color: var(--rarity-color, color-mix(in srgb, var(--gold) 40%, transparent));
+  box-shadow: 0 0 14px var(--rarity-glow, transparent);
+}
+.rarity-drop-shadow {
+  filter: drop-shadow(0 0 10px var(--rarity-glow, transparent));
+}
+

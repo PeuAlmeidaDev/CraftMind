@@ -14,7 +14,28 @@ import { chooseAction } from "@/lib/battle/ai";
 import { pveBattleActionSchema } from "@/lib/validations/battle";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
 import { processLevelUp } from "@/lib/exp/level-up";
-import type { TurnAction } from "@/lib/battle/types";
+import { applyCardDropAndStats } from "@/lib/cards/drop";
+import type { TurnAction, TurnLogEntry } from "@/lib/battle/types";
+
+/** Soma o dano causado pelo player (actorId === userId) ao mob (targetId === mobId). */
+function sumDamageDealt(
+  log: ReadonlyArray<TurnLogEntry>,
+  attackerId: string,
+  targetId: string,
+): number {
+  let total = 0;
+  for (const entry of log) {
+    if (
+      entry.phase === "DAMAGE" &&
+      entry.actorId === attackerId &&
+      entry.targetId === targetId &&
+      typeof entry.damage === "number"
+    ) {
+      total += entry.damage;
+    }
+  }
+  return total;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,15 +71,28 @@ export async function POST(request: NextRequest) {
 
     // Timeout por inatividade (1 min sem acao)
     if (isSessionTimedOut(session)) {
-      await prisma.pveBattle.create({
-        data: {
+      const damageDealt = sumDamageDealt(
+        session.state.turnLog,
+        userId,
+        session.mobId,
+      );
+      await prisma.$transaction(async (tx) => {
+        await tx.pveBattle.create({
+          data: {
+            userId,
+            mobId: session.mobId,
+            result: "DEFEAT",
+            expGained: 0,
+            turns: session.state.turnNumber,
+            log: session.state.turnLog as object[],
+          },
+        });
+        await applyCardDropAndStats(tx, {
           userId,
           mobId: session.mobId,
           result: "DEFEAT",
-          expGained: 0,
-          turns: session.state.turnNumber,
-          log: session.state.turnLog as object[],
-        },
+          damageDealt,
+        });
       });
 
       removePveBattle(battleId);
@@ -73,6 +107,7 @@ export async function POST(request: NextRequest) {
         expGained: 0,
         levelsGained: 0,
         newLevel: 0,
+        cardDropped: null,
       });
     }
 
@@ -108,9 +143,16 @@ export async function POST(request: NextRequest) {
         result = "DEFEAT";
       }
 
+      const damageDealt = sumDamageDealt(
+        newState.turnLog,
+        userId,
+        session.mobId,
+      );
+
       let expGained = 0;
       let levelsGained = 0;
       let newLevel = 0;
+      let cardDropped: { id: string; name: string; rarity: string; mobId: string } | null = null;
 
       if (result === "VICTORY") {
         // Buscar mob e character para calculo de EXP
@@ -147,17 +189,17 @@ export async function POST(request: NextRequest) {
           levelsGained = levelResult.levelsGained;
           newLevel = levelResult.newLevel;
 
-          // Transaction: atualizar character + criar registro PveBattle
-          await prisma.$transaction([
-            prisma.character.update({
+          // Transaction: atualizar character + criar registro PveBattle + drop/stats de cristal
+          const dropResult = await prisma.$transaction(async (tx) => {
+            await tx.character.update({
               where: { userId },
               data: {
                 level: levelResult.newLevel,
                 currentExp: levelResult.newExp,
                 freePoints: levelResult.newFreePoints,
               },
-            }),
-            prisma.pveBattle.create({
+            });
+            await tx.pveBattle.create({
               data: {
                 userId,
                 mobId: session.mobId,
@@ -166,11 +208,49 @@ export async function POST(request: NextRequest) {
                 turns: newState.turnNumber,
                 log: newState.turnLog as object[],
               },
-            }),
-          ]);
+            });
+            return applyCardDropAndStats(tx, {
+              userId,
+              mobId: session.mobId,
+              result,
+              damageDealt,
+            });
+          });
+
+          if (dropResult.cardDropped) {
+            cardDropped = {
+              id: dropResult.cardDropped.id,
+              name: dropResult.cardDropped.name,
+              rarity: dropResult.cardDropped.rarity,
+              mobId: dropResult.cardDropped.mobId,
+            };
+          }
         } else {
-          // Mob ou character nao encontrado — persistir historico sem EXP
-          await prisma.pveBattle.create({
+          // Mob ou character nao encontrado — persistir historico sem EXP, mas
+          // ainda atualizar MobKillStat (drop nao dispara sem mob.tier).
+          await prisma.$transaction(async (tx) => {
+            await tx.pveBattle.create({
+              data: {
+                userId,
+                mobId: session.mobId,
+                result,
+                expGained: 0,
+                turns: newState.turnNumber,
+                log: newState.turnLog as object[],
+              },
+            });
+            await applyCardDropAndStats(tx, {
+              userId,
+              mobId: session.mobId,
+              result,
+              damageDealt,
+            });
+          });
+        }
+      } else {
+        // Derrota ou empate: registrar batalha sem EXP + atualizar MobKillStat
+        await prisma.$transaction(async (tx) => {
+          await tx.pveBattle.create({
             data: {
               userId,
               mobId: session.mobId,
@@ -180,18 +260,12 @@ export async function POST(request: NextRequest) {
               log: newState.turnLog as object[],
             },
           });
-        }
-      } else {
-        // Derrota ou empate: registrar batalha sem EXP
-        await prisma.pveBattle.create({
-          data: {
+          await applyCardDropAndStats(tx, {
             userId,
             mobId: session.mobId,
             result,
-            expGained: 0,
-            turns: newState.turnNumber,
-            log: newState.turnLog as object[],
-          },
+            damageDealt,
+          });
         });
       }
 
@@ -206,6 +280,7 @@ export async function POST(request: NextRequest) {
         expGained,
         levelsGained,
         newLevel,
+        cardDropped,
       });
     }
 

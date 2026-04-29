@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Friend, FriendRequest } from "@/app/(game)/_hooks/useFriends";
+import PlayerSearchBar, { type PlayerPublicProfile } from "./PlayerSearchBar";
 
 type FriendsListProps = {
   open: boolean;
@@ -18,6 +19,8 @@ type FriendsListProps = {
   acceptingIds: Set<string>;
   decliningIds: Set<string>;
   removingIds: Set<string>;
+  /** Disparado quando o usuario busca um player no header do drawer. */
+  onPlayerFound?: (player: PlayerPublicProfile) => void;
 };
 
 const HOUSE_DISPLAY: Record<string, string> = {
@@ -274,6 +277,7 @@ export default function FriendsList({
   acceptingIds,
   decliningIds,
   removingIds,
+  onPlayerFound,
 }: FriendsListProps) {
 
   // Close on Escape
@@ -369,6 +373,17 @@ export default function FriendsList({
             </svg>
           </button>
         </div>
+
+        {/* Player search no topo do drawer */}
+        {onPlayerFound && (
+          <div className="shrink-0 border-b border-[var(--border-subtle)] px-4 py-3">
+            <PlayerSearchBar
+              onPlayerFound={(p) => {
+                onPlayerFound(p);
+              }}
+            />
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4">

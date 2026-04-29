@@ -17,11 +17,11 @@ datasource db {
 // ============================================================
 
 enum HabitCategory {
-  PHYSICAL     // Físicos — Ataque Físico, Defesa Física, Vida
+  PHYSICAL // Físicos — Ataque Físico, Defesa Física, Vida
   INTELLECTUAL // Intelectuais — Ataque Mágico + chance de habilidade
-  MENTAL       // Mentais — Defesa Mágica, Velocidade
-  SOCIAL       // Sociais — a definir
-  SPIRITUAL    // Espirituais — a definir
+  MENTAL // Mentais — Defesa Mágica, Velocidade
+  SOCIAL // Sociais — a definir
+  SPIRITUAL // Espirituais — a definir
 }
 
 enum FriendshipStatus {
@@ -32,17 +32,25 @@ enum FriendshipStatus {
 }
 
 enum BattleStatus {
-  WAITING    // aguardando oponente
+  WAITING // aguardando oponente
   IN_PROGRESS
   FINISHED
   CANCELLED
 }
 
 enum HouseName {
-  ARION   // Leão — Físicos
-  LYCUS   // Lobo — Físicos + Intelectual + Mental
-  NOCTIS  // Coruja — Intelectual + Espiritual
-  NEREID  // Sereia — Social + Mental
+  ARION // Leão — Físicos
+  LYCUS // Lobo — Físicos + Intelectual + Mental
+  NOCTIS // Coruja — Intelectual + Espiritual
+  NEREID // Sereia — Social + Mental
+}
+
+enum CardRarity {
+  COMUM // Tier 1
+  INCOMUM // Tier 2
+  RARO // Tier 3
+  EPICO // Tier 4
+  LENDARIO // Tier 5
 }
 
 // ============================================================
@@ -52,8 +60,8 @@ enum HouseName {
 model House {
   id          String    @id @default(cuid())
   name        HouseName @unique
-  animal      String    // ex: "Leão"
-  description String    // essência da casa
+  animal      String // ex: "Leão"
+  description String // essência da casa
   users       User[]
 
   createdAt DateTime @default(now())
@@ -79,17 +87,21 @@ model User {
   dailyTasks DailyTask[]
 
   // Batalhas em que o usuário participou
-  battlesAsPlayer1   Battle[] @relation("BattlePlayer1")
-  battlesAsPlayer2   Battle[] @relation("BattlePlayer2")
-  battlesWon         Battle[] @relation("BattleWinner")
-  pveBattles         PveBattle[]
-  refreshTokens      RefreshToken[]
-  coopParticipations CoopBattleParticipant[]
+  battlesAsPlayer1       Battle[]                @relation("BattlePlayer1")
+  battlesAsPlayer2       Battle[]                @relation("BattlePlayer2")
+  battlesWon             Battle[]                @relation("BattleWinner")
+  pveBattles             PveBattle[]
+  refreshTokens          RefreshToken[]
+  coopParticipations     CoopBattleParticipant[]
   teamBattleParticipants TeamBattleParticipant[]
 
   // Amizades
   sentFriendRequests     Friendship[] @relation("FriendshipSender")
   receivedFriendRequests Friendship[] @relation("FriendshipReceiver")
+
+  // Cristais de Memoria + Bestiario
+  userCards    UserCard[]
+  mobKillStats MobKillStat[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,11 +120,11 @@ model Friendship {
   sender   User @relation("FriendshipSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("FriendshipReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
 
-  @@unique([senderId, receiverId])
-  @@index([receiverId])
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId])
 }
 
 // ============================================================
@@ -146,15 +158,15 @@ model Character {
   magicAtk    Int    @default(10) // Ataque Mágico
   magicDef    Int    @default(10) // Defesa Mágica
   hp          Int    @default(100) // Pontos de Vida máximos
-  speed       Int    @default(10)  // Velocidade (ordem de turno)
+  speed       Int    @default(10) // Velocidade (ordem de turno)
   level       Int    @default(1)
   currentExp  Int    @default(0)
   freePoints  Int    @default(0)
   bossEssence Int    @default(0)
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   characterSkills CharacterSkill[]
-  pvpStats       PvpStats[]
+  pvpStats        PvpStats[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -190,9 +202,9 @@ model UserHabit {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   habit Habit @relation(fields: [habitId], references: [id])
 
-  @@unique([userId, habitId])
-
   createdAt DateTime @default(now())
+
+  @@unique([userId, habitId])
 }
 
 // ============================================================
@@ -213,13 +225,13 @@ model HabitLog {
   // Meia-noite UTC do dia da conclusão — usado na constraint unique
   date DateTime @db.Date
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  habit Habit @relation(fields: [habitId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit     Habit    @relation(fields: [habitId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Um usuário não pode registrar o mesmo hábito mais de uma vez por dia
   @@unique([userId, habitId, date])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -257,16 +269,16 @@ model CharacterSkill {
   characterId String
   skillId     String
   equipped    Boolean @default(false) // máximo 4 equipadas por personagem
-  slotIndex   Int?    // 0–3 quando equipped = true
+  slotIndex   Int? // 0–3 quando equipped = true
 
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
   skill     Skill     @relation(fields: [skillId], references: [id])
 
-  @@unique([characterId, skillId])
-  @@unique([characterId, slotIndex]) // dois skills não podem ocupar o mesmo slot
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([characterId, skillId])
+  @@unique([characterId, slotIndex]) // dois skills não podem ocupar o mesmo slot
 }
 
 // ============================================================
@@ -277,21 +289,21 @@ model DailyTask {
   id              String    @id @default(cuid())
   userId          String
   habitId         String
-  description     String    // ex: "Faça 3 séries de flexões"
+  description     String // ex: "Faça 3 séries de flexões"
   tag             String?
-  attributeGrants Json      // { physicalAttack?: number, physicalDefense?: number, magicAttack?: number, magicDefense?: number, hp?: number, speed?: number }
-  dueDate         DateTime  // dia para o qual a tarefa foi gerada
+  attributeGrants Json // { physicalAttack?: number, physicalDefense?: number, magicAttack?: number, magicDefense?: number, hp?: number, speed?: number }
+  dueDate         DateTime // dia para o qual a tarefa foi gerada
   completed       Boolean   @default(false)
   completedAt     DateTime? // null até ser completada
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   habit Habit @relation(fields: [habitId], references: [id])
 
-  @@unique([userId, description, dueDate])
-  @@index([userId, dueDate])
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, description, dueDate])
+  @@index([userId, dueDate])
 }
 
 // ============================================================
@@ -299,7 +311,7 @@ model DailyTask {
 // ============================================================
 
 model Battle {
-  id        String      @id @default(cuid())
+  id        String       @id @default(cuid())
   player1Id String
   player2Id String
   winnerId  String?
@@ -313,12 +325,12 @@ model Battle {
   player2 User  @relation("BattlePlayer2", fields: [player2Id], references: [id])
   winner  User? @relation("BattleWinner", fields: [winnerId], references: [id])
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([player1Id])
   @@index([player2Id])
   @@index([status])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -326,12 +338,14 @@ model Battle {
 // ============================================================
 
 model Mob {
-  id          String @id @default(cuid())
-  name        String @unique
-  description String
-  tier        Int
-  aiProfile   String
-  imageUrl    String?
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String
+  loreExpanded String?
+  curiosity    String?
+  tier         Int
+  aiProfile    String
+  imageUrl     String?
 
   physicalAtk Int
   physicalDef Int
@@ -340,8 +354,10 @@ model Mob {
   hp          Int
   speed       Int
 
-  skills MobSkill[]
-  pveBattles PveBattle[]
+  skills       MobSkill[]
+  pveBattles   PveBattle[]
+  card         Card?
+  mobKillStats MobKillStat[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -377,23 +393,23 @@ enum PveBattleMode {
 }
 
 model PveBattle {
-  id        String        @id @default(cuid())
-  userId    String
-  mobId     String
-  result    String?
-  expGained Int           @default(0)
-  turns     Int           @default(0)
-  log       Json          @default("[]")
-  mode      PveBattleMode @default(SOLO)
+  id         String        @id @default(cuid())
+  userId     String
+  mobId      String
+  result     String?
+  expGained  Int           @default(0)
+  turns      Int           @default(0)
+  log        Json          @default("[]")
+  mode       PveBattleMode @default(SOLO)
   teamMateId String?
-  mobIds    String[]      @default([])
+  mobIds     String[]      @default([])
 
   user User @relation(fields: [userId], references: [id])
   mob  Mob  @relation(fields: [mobId], references: [id])
 
-  @@index([userId, createdAt])
-
   createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 // ============================================================
@@ -416,8 +432,8 @@ model Boss {
   hp          Int
   speed       Int
 
-  skills       BossSkill[]
-  coopBattles  CoopBattle[]
+  skills      BossSkill[]
+  coopBattles CoopBattle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -457,10 +473,10 @@ model CoopBattle {
   boss         Boss                    @relation(fields: [bossId], references: [id])
   participants CoopBattleParticipant[]
 
-  @@index([date, status])
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([date, status])
 }
 
 // ============================================================
@@ -476,10 +492,10 @@ model CoopBattleParticipant {
   coopBattle CoopBattle @relation(fields: [coopBattleId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id])
 
+  createdAt DateTime @default(now())
+
   @@unique([coopBattleId, userId])
   @@index([userId])
-
-  createdAt DateTime @default(now())
 }
 
 // ============================================================
@@ -508,11 +524,11 @@ model PvpStats {
 
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
-  @@unique([characterId, mode])
-  @@index([mode, rankingPoints])
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([characterId, mode])
+  @@index([mode, rankingPoints])
 }
 
 // ============================================================
@@ -522,7 +538,7 @@ model PvpStats {
 model TeamBattle {
   id         String       @id @default(cuid())
   mode       PvpMode
-  winnerTeam Int?         // 1, 2, ou null (empate)
+  winnerTeam Int? // 1, 2, ou null (empate)
   status     BattleStatus @default(IN_PROGRESS)
   turns      Int          @default(0)
   log        Json         @default("[]")
@@ -542,13 +558,87 @@ model TeamBattleParticipant {
   teamBattleId String
   userId       String
   characterId  String
-  team         Int    // 1 ou 2
+  team         Int // 1 ou 2
 
   teamBattle TeamBattle @relation(fields: [teamBattleId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id])
 
+  createdAt DateTime @default(now())
+
   @@unique([teamBattleId, userId])
   @@index([userId])
+}
+
+// ============================================================
+// CARD — Cristal de Memoria (1 por mob, drop pos-batalha)
+// ============================================================
+
+model Card {
+  id         String     @id @default(cuid())
+  mobId      String     @unique
+  name       String     @unique
+  flavorText String
+  rarity     CardRarity
+  // URL Cloudinary da arte da carta (separada da imageUrl do mob).
+  // Pode ser null enquanto o asset nao foi gerado/uploaded.
+  cardArtUrl String?
+  // Array tipado de CardEffect (validado em lib/validations/cards.ts).
+  // Ver types/cards.ts para o discriminated union: STAT_FLAT | STAT_PERCENT | TRIGGER | STATUS_RESIST.
+  effects    Json       @default("[]")
+
+  mob       Mob        @relation(fields: [mobId], references: [id], onDelete: Cascade)
+  userCards UserCard[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// USER CARD — Copia de cristal pertencente a um usuario
+// ============================================================
+
+model UserCard {
+  id        String  @id @default(cuid())
+  userId    String
+  cardId    String
+  equipped  Boolean @default(false)
+  slotIndex Int? // 0, 1 ou 2 quando equipped = true; null caso contrario
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Politica de duplicata: so a primeira copia do cristal e guardada.
+  @@unique([userId, cardId])
+  // Dois cristais nao podem ocupar o mesmo slot do mesmo usuario.
+  @@unique([userId, slotIndex])
+  @@index([userId])
+}
+
+// ============================================================
+// MOB KILL STAT — Projecao agregada de kills/derrotas por user/mob
+//                 (alimenta o bestiario evolutivo)
+// ============================================================
+
+model MobKillStat {
+  id          String   @id @default(cuid())
+  userId      String
+  mobId       String
+  victories   Int      @default(0)
+  defeats     Int      @default(0)
+  damageDealt Int      @default(0)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mob  Mob  @relation(fields: [mobId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, mobId])
+  @@index([userId])
+  @@index([mobId])
 }

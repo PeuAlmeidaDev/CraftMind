@@ -6,6 +6,7 @@ import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
 import type { CoopPveMode, CoopPveMobConfig, CoopPveBattleConfig, CoopPveBattleSession } from "../../lib/battle/coop-pve-types";
 import type { AiProfile } from "../../lib/battle/ai-profiles";
 import { convertToEquippedSkills, extractBaseStats, CHARACTER_SKILLS_SELECT } from "../lib/convert-skills";
+import { loadEquippedCardsAndApply } from "../../lib/cards/load-equipped";
 import { initCoopPveBattle } from "../../lib/battle/coop-pve-turn";
 import { isInQueue } from "../stores/queue-store";
 import { getPlayerBattle } from "../stores/pvp-store";
@@ -144,7 +145,11 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
       return;
     }
 
-    const stats: BaseStats = extractBaseStats(character);
+    const stats: BaseStats = await loadEquippedCardsAndApply(
+      prisma,
+      userId,
+      extractBaseStats(character),
+    );
     const skills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
 
     // Adicionar na fila

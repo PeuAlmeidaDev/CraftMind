@@ -7,6 +7,8 @@ import { HOUSE_LORE } from "@/lib/constants-house";
 import EmberField from "@/components/ui/EmberField";
 import BattleIdle from "./_components/BattleIdle";
 import BattleArena from "./_components/BattleArena";
+import CardDropReveal from "./_components/CardDropReveal";
+import type { DroppedCard } from "./_components/CardDropReveal";
 
 // ---------------------------------------------------------------------------
 // Types (exported for child components)
@@ -124,6 +126,8 @@ export default function BattlePage() {
   const [acting, setActing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [cardDropped, setCardDropped] = useState<DroppedCard | null>(null);
+  const [showCardReveal, setShowCardReveal] = useState(false);
 
   // -----------------------------------------------------------------------
   // Abort in-flight fetches on unmount
@@ -449,6 +453,13 @@ export default function BattlePage() {
             expGained?: number;
             levelsGained?: number;
             newLevel?: number;
+            cardDropped?: {
+              id: string;
+              name: string;
+              rarity: string;
+              mobId: string;
+              flavorText?: string;
+            } | null;
           };
         };
 
@@ -505,6 +516,30 @@ export default function BattlePage() {
             levelsGained: data.levelsGained!,
             newLevel: data.newLevel!,
           };
+          // Se houve drop de cristal, exibir reveal ANTES do resultado padrao.
+          // Hidrata DroppedCard usando mob corrente (mob.imageUrl/name/tier).
+          if (data.cardDropped && mob) {
+            const drop = data.cardDropped;
+            const validRarity = ["COMUM", "INCOMUM", "RARO", "EPICO", "LENDARIO"].includes(
+              drop.rarity,
+            );
+            if (validRarity) {
+              const hydrated: DroppedCard = {
+                id: drop.id,
+                name: drop.name,
+                flavorText: drop.flavorText ?? "Um fragmento da memoria desta criatura, cristalizado no eclipse.",
+                rarity: drop.rarity as DroppedCard["rarity"],
+                mob: {
+                  id: drop.mobId,
+                  name: mob.name,
+                  tier: mob.tier,
+                  imageUrl: mob.imageUrl,
+                },
+              };
+              setCardDropped(hydrated);
+              setShowCardReveal(true);
+            }
+          }
           setBattleResult(r);
         }
       } catch {
@@ -577,7 +612,7 @@ export default function BattlePage() {
     } finally {
       setActing(false);
     }
-  }, [battleId, router]);
+  }, [battleId, mob, router]);
 
   const handlePlayAgain = useCallback(() => {
     setBattleId(null);
@@ -592,6 +627,8 @@ export default function BattlePage() {
     setPlayerStatusEffects([]);
     setMobStatusEffects([]);
     setActing(false);
+    setCardDropped(null);
+    setShowCardReveal(false);
     setPhase("IDLE");
   }, []);
 
@@ -867,6 +904,14 @@ export default function BattlePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Card drop reveal — sobre o resultado quando houve drop */}
+      {showCardReveal && cardDropped && (
+        <CardDropReveal
+          card={cardDropped}
+          onContinue={() => setShowCardReveal(false)}
+        />
       )}
     </div>
   );

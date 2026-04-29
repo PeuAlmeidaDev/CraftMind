@@ -5,6 +5,7 @@ import type { Server, Socket } from "socket.io";
 import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
 import type { PvpTeamBattleConfig, PvpTeamBattleSession } from "../../lib/battle/pvp-team-types";
 import { convertToEquippedSkills, extractBaseStats, CHARACTER_SKILLS_SELECT } from "../lib/convert-skills";
+import { loadEquippedCardsAndApply } from "../../lib/cards/load-equipped";
 import { initPvpTeamBattle } from "../../lib/battle/pvp-team-turn";
 import { isInQueue } from "../stores/queue-store";
 import { getPlayerBattle } from "../stores/pvp-store";
@@ -188,7 +189,11 @@ export function registerPvpTeamMatchmakingHandlers(io: Server, socket: Socket): 
       return;
     }
 
-    const stats: BaseStats = extractBaseStats(character);
+    const stats: BaseStats = await loadEquippedCardsAndApply(
+      prisma,
+      userId,
+      extractBaseStats(character),
+    );
     const skills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
 
     const added = addToSoloQueue({
