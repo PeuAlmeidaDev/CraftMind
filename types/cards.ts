@@ -74,13 +74,13 @@ export const TIER_TO_RARITY: Record<number, CardRarity> = {
   5: CardRarity.LENDARIO,
 };
 
-/** Drop rate por tier (0-1). T1=30%, T2=20%, T3=12%, T4=7%, T5=4%. */
+/** Drop rate por tier (0-1). T1=10%, T2=5%, T3=3%, T4=1%, T5=0.5%. */
 export const TIER_DROP_RATE: Record<number, number> = {
-  1: 0.3,
-  2: 0.2,
-  3: 0.12,
-  4: 0.07,
-  5: 0.04,
+  1: 0.1,
+  2: 0.05,
+  3: 0.03,
+  4: 0.01,
+  5: 0.005,
 };
 
 // ---------------------------------------------------------------------------
