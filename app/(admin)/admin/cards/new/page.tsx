@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "../../_components/toast";
 import FormField from "../../_components/form-field";
@@ -18,65 +18,106 @@ const RARITY_OPTIONS = [
   { value: "LENDARIO", label: "Lendario" },
 ];
 
-type CardData = {
-  id: string;
-  mobId: string;
-  name: string;
-  flavorText: string;
-  rarity: string;
-  cardArtUrl: string | null;
-  effects: Effect[];
-  mob: { id: string; name: string; tier: number; imageUrl: string | null };
+const TIER_TO_RARITY: Record<number, string> = {
+  1: "COMUM",
+  2: "INCOMUM",
+  3: "RARO",
+  4: "EPICO",
+  5: "LENDARIO",
 };
 
-export default function EditCardPage() {
+type MobOption = {
+  id: string;
+  name: string;
+  tier: number;
+  imageUrl: string | null;
+};
+
+type CardListItem = {
+  id: string;
+  mobId: string;
+};
+
+export default function NewCardPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [card, setCard] = useState<CardData | null>(null);
 
+  const [mobs, setMobs] = useState<MobOption[]>([]);
+  const [usedMobIds, setUsedMobIds] = useState<Set<string>>(new Set());
+
+  const [mobId, setMobId] = useState("");
   const [name, setName] = useState("");
   const [flavorText, setFlavorText] = useState("");
   const [rarity, setRarity] = useState("COMUM");
-  const [effects, setEffects] = useState<Effect[]>([]);
-
-  const [uploading, setUploading] = useState(false);
-  const [deletingImage, setDeletingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [effects, setEffects] = useState<Effect[]>([
+    { type: "STAT_FLAT", stat: "physicalAtk", value: 5 },
+  ]);
 
   useEffect(() => {
-    fetch(`/api/admin/cards/${id}`)
-      .then((r) => {
-        if (r.status === 404) {
-          setNotFound(true);
-          return null;
-        }
-        return r.json();
+    Promise.all([
+      fetch("/api/admin/mobs").then((r) => r.json()),
+      fetch("/api/admin/cards").then((r) => r.json()),
+    ])
+      .then(([mobsRes, cardsRes]) => {
+        const ms: MobOption[] = (mobsRes.data ?? []).map(
+          (m: { id: string; name: string; tier: number; imageUrl: string | null }) => ({
+            id: m.id,
+            name: m.name,
+            tier: m.tier,
+            imageUrl: m.imageUrl,
+          }),
+        );
+        setMobs(ms);
+        const taken = new Set<string>(
+          (cardsRes.data ?? []).map((c: CardListItem) => c.mobId),
+        );
+        setUsedMobIds(taken);
       })
-      .then((json) => {
-        if (!json) return;
-        const data: CardData = json.data;
-        setCard(data);
-        setName(data.name);
-        setFlavorText(data.flavorText);
-        setRarity(data.rarity);
-        setEffects(Array.isArray(data.effects) ? data.effects : []);
-      })
-      .catch(() => showToast("Erro ao carregar card", "error"))
+      .catch(() => showToast("Erro ao carregar mobs", "error"))
       .finally(() => setLoading(false));
-  }, [id, showToast]);
+  }, [showToast]);
+
+  // Mobs disponiveis = sem cristal ainda. Auto-seleciona primeiro disponivel.
+  const availableMobs = useMemo(
+    () => mobs.filter((m) => !usedMobIds.has(m.id)),
+    [mobs, usedMobIds],
+  );
+
+  useEffect(() => {
+    if (!mobId && availableMobs.length > 0) {
+      const first = availableMobs[0];
+      setMobId(first.id);
+      // Preenche raridade e nome sugeridos baseados no mob.
+      setRarity(TIER_TO_RARITY[first.tier] ?? "COMUM");
+      if (!name) setName(`Cristal do ${first.name}`);
+    }
+  }, [availableMobs, mobId, name]);
+
+  const selectedMob = useMemo(
+    () => mobs.find((m) => m.id === mobId) ?? null,
+    [mobs, mobId],
+  );
+
+  function onMobChange(newId: string) {
+    setMobId(newId);
+    const mob = mobs.find((m) => m.id === newId);
+    if (mob) {
+      setRarity(TIER_TO_RARITY[mob.tier] ?? "COMUM");
+      // Sobrescreve o nome sugerido apenas se o user nao customizou ainda
+      // (heuristica: se ainda comeca com "Cristal do ").
+      if (!name || name.startsWith("Cristal do ") || name.startsWith("Cristal da ")) {
+        setName(`Cristal do ${mob.name}`);
+      }
+    }
+  }
 
   function updateEffect(index: number, patch: Partial<Effect>) {
     setEffects((prev) =>
-      prev.map((eff, i) =>
-        i === index ? ({ ...eff, ...patch } as Effect) : eff,
-      ),
+      prev.map((eff, i) => (i === index ? ({ ...eff, ...patch } as Effect) : eff)),
     );
   }
 
@@ -94,55 +135,14 @@ export default function EditCardPage() {
     setEffects((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function handleImageUpload(file: File) {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`/api/admin/cards/${id}/image`, {
-        method: "POST",
-        body: formData,
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        showToast(json.error ?? "Erro no upload", "error");
-        return;
-      }
-      setCard((prev) =>
-        prev ? { ...prev, cardArtUrl: json.data.cardArtUrl } : prev,
-      );
-      showToast("Arte atualizada", "success");
-    } catch {
-      showToast("Erro de conexao", "error");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleImageDelete() {
-    setDeletingImage(true);
-    try {
-      const res = await fetch(`/api/admin/cards/${id}/image`, {
-        method: "DELETE",
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        showToast(json.error ?? "Erro ao remover", "error");
-        return;
-      }
-      setCard((prev) => (prev ? { ...prev, cardArtUrl: null } : prev));
-      showToast("Arte removida", "success");
-    } catch {
-      showToast("Erro de conexao", "error");
-    } finally {
-      setDeletingImage(false);
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
 
+    if (!mobId) {
+      setErrors({ mobId: "Selecione um mob" });
+      return;
+    }
     if (!name.trim()) {
       setErrors({ name: "Nome obrigatorio" });
       return;
@@ -154,10 +154,11 @@ export default function EditCardPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/cards/${id}`, {
-        method: "PUT",
+      const res = await fetch("/api/admin/cards", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mobId,
           name: name.trim(),
           flavorText: flavorText.trim(),
           rarity,
@@ -166,14 +167,12 @@ export default function EditCardPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        showToast(json.error ?? "Erro ao salvar", "error");
-        if (json.details) {
-          console.error("Validation details:", json.details);
-        }
+        showToast(json.error ?? "Erro ao criar", "error");
+        if (json.details) console.error("Validation details:", json.details);
         return;
       }
-      showToast("Card salvo", "success");
-      router.push("/admin/cards");
+      showToast("Cristal criado", "success");
+      router.push(`/admin/cards/${json.data.id}`);
     } catch {
       showToast("Erro de conexao", "error");
     } finally {
@@ -189,107 +188,62 @@ export default function EditCardPage() {
     );
   }
 
-  if (notFound || !card) {
+  if (availableMobs.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-400">Card nao encontrado</p>
-        <Link
-          href="/admin/cards"
-          className="text-[var(--accent-primary)] hover:underline text-sm mt-3 inline-block"
-        >
-          ← Voltar para cards
-        </Link>
+      <div className="max-w-2xl">
+        <div className="flex items-center gap-2 mb-6">
+          <Link href="/admin/cards" className="text-gray-400 hover:text-white text-sm">
+            ← Cristais
+          </Link>
+          <span className="text-gray-600">/</span>
+          <h2 className="text-xl font-bold text-white">Novo cristal</h2>
+        </div>
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center">
+          <p className="text-gray-300 mb-2">Todos os mobs ja possuem cristal.</p>
+          <p className="text-xs text-gray-500">
+            No schema atual cada mob suporta apenas 1 cristal. Para criar
+            variacoes (ex: cristal raro do mesmo mob com efeito extra) sera
+            necessario remover a constraint <code>mobId @unique</code> no
+            modelo <code>Card</code>.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const previewUrl = card.cardArtUrl ?? card.mob.imageUrl;
-
   return (
     <div className="max-w-4xl">
       <div className="flex items-center gap-2 mb-6">
-        <Link
-          href="/admin/cards"
-          className="text-gray-400 hover:text-white transition text-sm"
-        >
-          ← Cards
+        <Link href="/admin/cards" className="text-gray-400 hover:text-white text-sm">
+          ← Cristais
         </Link>
         <span className="text-gray-600">/</span>
-        <h2 className="text-xl font-bold text-white">{card.name}</h2>
+        <h2 className="text-xl font-bold text-white">Novo cristal</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-        {/* Coluna esquerda — preview e upload */}
+        {/* Coluna esquerda — preview do mob selecionado */}
         <div className="flex flex-col gap-3">
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
-            <p className="text-xs text-gray-500 mb-2">Arte da carta</p>
+            <p className="text-xs text-gray-500 mb-2">Mob de origem</p>
             <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-[var(--bg-secondary)]">
-              {previewUrl ? (
+              {selectedMob?.imageUrl ? (
                 <img
-                  src={previewUrl}
-                  alt={card.name}
+                  src={selectedMob.imageUrl}
+                  alt={selectedMob.name}
                   className="h-full w-full object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
                   <span className="text-4xl text-gray-600">
-                    {card.name.charAt(0)}
-                  </span>
-                </div>
-              )}
-              {!card.cardArtUrl && (
-                <div className="absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-center">
-                  <span className="text-[9px] uppercase tracking-wider text-amber-400">
-                    Usando foto do mob
+                    {selectedMob?.name.charAt(0) ?? "?"}
                   </span>
                 </div>
               )}
             </div>
-
-            <div className="flex gap-2 mt-3">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex-1 text-xs py-1.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition cursor-pointer disabled:opacity-50"
-              >
-                {uploading ? "Enviando..." : "Trocar foto"}
-              </button>
-              {card.cardArtUrl && (
-                <button
-                  type="button"
-                  onClick={handleImageDelete}
-                  disabled={deletingImage}
-                  className="flex-1 text-xs py-1.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition cursor-pointer disabled:opacity-50"
-                >
-                  {deletingImage ? "..." : "Excluir foto"}
-                </button>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageUpload(file);
-                e.target.value = "";
-              }}
-            />
-          </div>
-
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-xs text-gray-400 space-y-1">
-            <p>
-              <span className="text-gray-500">Mob:</span>{" "}
-              <span className="text-white">{card.mob.name}</span>
-            </p>
-            <p>
-              <span className="text-gray-500">Tier:</span> T{card.mob.tier}
-            </p>
             <p className="text-[10px] text-gray-600 italic mt-2">
-              A raridade pode ser alterada manualmente, mas convencionalmente
-              acompanha o tier do mob (T1=Comum, T5=Lendario).
+              A arte da carta podera ser feita upload depois de criada.
+              Enquanto null, o bestiario usa a foto do mob.
             </p>
           </div>
         </div>
@@ -297,6 +251,31 @@ export default function EditCardPage() {
         {/* Coluna direita — form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Mob <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={mobId}
+                onChange={(e) => onMobChange(e.target.value)}
+                className="w-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
+              >
+                {availableMobs.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    T{m.tier} — {m.name}
+                  </option>
+                ))}
+              </select>
+              {errors.mobId && (
+                <p className="text-red-400 text-xs mt-1">{errors.mobId}</p>
+              )}
+              <p className="text-[10px] text-gray-500 mt-1.5">
+                Mostrando apenas mobs sem cristal. {usedMobIds.size} ja com
+                cristal · {availableMobs.length} disponivel
+                {availableMobs.length === 1 ? "" : "s"}.
+              </p>
+            </div>
+
             <FormField
               label="Nome"
               name="name"
@@ -347,7 +326,7 @@ export default function EditCardPage() {
 
             {effects.length === 0 ? (
               <p className="text-xs text-gray-500 italic py-4 text-center">
-                Sem efeitos. Clique em &quot;+ Adicionar&quot; para criar.
+                Sem efeitos. Clique em &quot;+ Adicionar&quot;.
               </p>
             ) : (
               <div className="flex flex-col gap-3">
@@ -377,7 +356,7 @@ export default function EditCardPage() {
               disabled={saving}
               className="px-5 py-2 text-sm font-medium text-white bg-[var(--accent-primary)] hover:brightness-110 rounded-lg transition disabled:opacity-50 cursor-pointer"
             >
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? "Criando..." : "Criar cristal"}
             </button>
           </div>
         </form>
@@ -385,4 +364,3 @@ export default function EditCardPage() {
     </div>
   );
 }
-

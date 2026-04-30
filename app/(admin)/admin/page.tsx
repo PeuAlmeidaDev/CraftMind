@@ -37,7 +37,7 @@ export default function AdminDashboard() {
   const cards = [
     { label: "Skills", count: counts?.skills ?? 0, href: "/admin/skills" },
     { label: "Mobs", count: counts?.mobs ?? 0, href: "/admin/mobs" },
-    { label: "Cards", count: counts?.cards ?? 0, href: "/admin/cards" },
+    { label: "Cristais", count: counts?.cards ?? 0, href: "/admin/cards" },
   ];
 
   return (
