@@ -137,10 +137,18 @@ export default function AdminCardsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-white">Cards</h2>
-        <span className="text-xs text-gray-500">
-          {cards.length} cards · 1 por mob
-        </span>
+        <div>
+          <h2 className="text-xl font-bold text-white">Cristais</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {cards.length} cristais · 1 por mob (schema atual)
+          </p>
+        </div>
+        <Link
+          href="/admin/cards/new"
+          className="px-4 py-2 text-sm font-medium text-white bg-[var(--accent-primary)] hover:brightness-110 rounded-lg transition"
+        >
+          Novo Cristal
+        </Link>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
@@ -172,7 +180,7 @@ export default function AdminCardsPage() {
 
       {filtered.length === 0 ? (
         <p className="text-gray-500 text-sm py-8 text-center">
-          Nenhum card encontrado
+          Nenhum cristal encontrado
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
