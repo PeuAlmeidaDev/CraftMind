@@ -9,30 +9,32 @@ describe("rollCardDrop", () => {
   });
 
   it("retorna true quando random < rate", () => {
-    // Tier 1 = 30% — random 0.0 < 0.3
+    // Tier 1 = 10% — random 0.0 < 0.1
     expect(rollCardDrop(1, () => 0)).toBe(true);
   });
 
   it("retorna false quando random >= rate (limite exclusivo)", () => {
-    // Tier 1 = 30% — random 0.3 NAO e menor que 0.3
-    expect(rollCardDrop(1, () => 0.3)).toBe(false);
-    // Tier 5 = 4% — random 0.04 NAO e menor que 0.04
-    expect(rollCardDrop(5, () => 0.04)).toBe(false);
+    // Tier 1 = 10% — random 0.1 NAO e menor que 0.1
+    expect(rollCardDrop(1, () => 0.1)).toBe(false);
+    // Tier 5 = 0.5% — random 0.005 NAO e menor que 0.005
+    expect(rollCardDrop(5, () => 0.005)).toBe(false);
   });
 
-  // Distribuicao estatistica em 1000 rolls — esperamos ficar dentro
-  // de uma margem de +/-5 pontos percentuais por tier.
+  // Distribuicao estatistica em 10000 rolls — margem proporcional ao rate.
+  // Rates baixos (T5=0.5%) precisam de mais amostras para nao terem ruido alto.
   for (const tierStr of Object.keys(TIER_DROP_RATE)) {
     const tier = Number(tierStr);
     const expected = TIER_DROP_RATE[tier];
-    const expectedHits = Math.floor(expected * 1000);
-    const margin = 50; // +/- 5pp em 1000 rolls
+    const samples = 10000;
+    const expectedHits = Math.floor(expected * samples);
+    // Margem absoluta = max(30, 50% do esperado). Cobre rates baixos sem ficar trivial.
+    const margin = Math.max(30, Math.floor(expectedHits * 0.5));
 
-    it(`distribuicao em 1000 rolls para tier ${tier} (${(expected * 100).toFixed(0)}%)`, () => {
+    it(`distribuicao em ${samples} rolls para tier ${tier} (${(expected * 100).toFixed(2)}%)`, () => {
       // RNG deterministico — Mulberry32
       const rng = createMulberry32(0xdead00 + tier);
       let hits = 0;
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < samples; i++) {
         if (rollCardDrop(tier, rng)) hits += 1;
       }
       expect(hits).toBeGreaterThanOrEqual(expectedHits - margin);
