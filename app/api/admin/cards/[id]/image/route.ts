@@ -29,10 +29,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (file.type === "image/gif" && card.rarity !== "LENDARIO") {
+    if (file.type === "image/gif" && card.requiredStars !== 3) {
       return apiError(
-        "GIF animado e exclusivo de cartas lendarias",
-        "RARITY_LOCKED",
+        "GIF animado e exclusivo de cartas 3 estrelas",
+        "STARS_LOCKED",
         422,
       );
     }
@@ -49,17 +49,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       folder: "craft-mind/cards",
       public_id: `card-${id}`,
       overwrite: true,
-      transformation: [{ width: 768, height: 1024, crop: "fill" }],
+      resource_type: "image",
+      eager: [
+        {
+          width: 768,
+          height: 1024,
+          crop: "fill",
+          quality: "auto",
+          fetch_format: "auto",
+        },
+      ],
+      timeout: 120000,
     });
+
+    const finalUrl = result.eager?.[0]?.secure_url ?? result.secure_url;
 
     const updated = await prisma.card.update({
       where: { id },
-      data: { cardArtUrl: result.secure_url },
+      data: { cardArtUrl: finalUrl },
     });
 
     return apiSuccess(updated);
   } catch (error) {
-    console.error("[POST /api/admin/cards/:id/image]", error);
+    const err = error as { message?: string; http_code?: number; name?: string };
+    console.error("[POST /api/admin/cards/:id/image]", {
+      name: err.name,
+      message: err.message,
+      httpCode: err.http_code,
+    });
     return apiError("Erro interno do servidor", "INTERNAL_ERROR", 500);
   }
 }
