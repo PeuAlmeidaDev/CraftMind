@@ -462,11 +462,27 @@ export default function BestiaryDetailModal({
                   label="Raridade"
                   value={RARITY_LABEL[selectedCard.rarity]}
                 />
-                <StatRow
-                  label="Chance de drop"
-                  value={`${selectedCard.dropChance}%`}
-                />
               </div>
+              {selectedCard.hasCard && selectedCard.userCardLevel !== null && selectedCard.userCardXp !== null && (
+                <div className="mt-3 border-t pt-3" style={{ borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)" }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.3em]"
+                      style={{ fontFamily: "var(--font-cinzel)", color: "color-mix(in srgb, var(--gold) 70%, transparent)" }}
+                    >
+                      Nivel do cristal
+                    </span>
+                    <span
+                      className="text-[12px] font-medium"
+                      style={{ fontFamily: "var(--font-cinzel)", color: "var(--rarity-color)", letterSpacing: "0.15em" }}
+                    >
+                      Lv {selectedCard.userCardLevel}
+                      {selectedCard.userCardLevel >= 5 && " (MAX)"}
+                    </span>
+                  </div>
+                  <XpBar xp={selectedCard.userCardXp} level={selectedCard.userCardLevel} />
+                </div>
+              )}
               {selectedCard.hasCard && selectedCard.flavorText ? (
                 <p
                   className="mt-3 border-t pt-3 text-[13px] italic leading-relaxed"
@@ -829,6 +845,53 @@ function StatRow({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+const CARD_LEVEL_THRESHOLDS = [0, 0, 100, 250, 500, 1000] as const;
+
+function XpBar({ xp, level }: { xp: number; level: number }) {
+  const safeLevel = Math.max(1, Math.min(5, Math.floor(level)));
+  if (safeLevel >= 5) {
+    return (
+      <div
+        className="text-[10px] italic text-center"
+        style={{ fontFamily: "var(--font-garamond)", color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
+      >
+        XP cumulativo: {xp}
+      </div>
+    );
+  }
+  const currentLevelMin = CARD_LEVEL_THRESHOLDS[safeLevel];
+  const nextLevelMax = CARD_LEVEL_THRESHOLDS[safeLevel + 1];
+  const progress = Math.max(0, Math.min(1, (xp - currentLevelMin) / (nextLevelMax - currentLevelMin)));
+  const xpInLevel = xp - currentLevelMin;
+  const xpNeeded = nextLevelMax - currentLevelMin;
+  return (
+    <div className="flex flex-col gap-1">
+      <div
+        className="relative h-2 w-full overflow-hidden"
+        style={{
+          background: "color-mix(in srgb, var(--bg-primary) 70%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--gold) 18%, transparent)",
+        }}
+      >
+        <div
+          className="h-full transition-[width] duration-300"
+          style={{
+            width: `${progress * 100}%`,
+            background: "linear-gradient(to right, var(--rarity-color), var(--ember))",
+          }}
+        />
+      </div>
+      <div
+        className="flex justify-between text-[9px]"
+        style={{ fontFamily: "var(--font-mono)", color: "color-mix(in srgb, var(--gold) 60%, transparent)" }}
+      >
+        <span>{xpInLevel} / {xpNeeded} XP</span>
+        <span>Lv {safeLevel + 1} em {xpNeeded - xpInLevel} XP</span>
+      </div>
     </div>
   );
 }

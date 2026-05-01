@@ -12,6 +12,8 @@ export type UserCardSummary = {
   id: string;
   equipped: boolean;
   slotIndex: number | null;
+  xp: number;
+  level: number;
   card: {
     id: string;
     name: string;
@@ -171,6 +173,21 @@ function FilledSlot({
     >
       {/* Foil holografico animado */}
       <div className="card-foil" />
+
+      {/* Badge de level no canto superior esquerdo */}
+      <div
+        className="absolute top-1.5 left-1.5 z-10 flex h-6 min-w-[24px] items-center justify-center px-1.5"
+        style={{
+          fontFamily: "var(--font-cinzel)",
+          color: "var(--rarity-color)",
+          background: "color-mix(in srgb, var(--bg-primary) 85%, transparent)",
+          border: "1px solid var(--rarity-color)",
+          fontSize: 9,
+          letterSpacing: "0.15em",
+        }}
+      >
+        Lv {userCard.level}
+      </div>
 
       {/* Imagem do mob (mirror) */}
       <div className="relative h-[55%] w-full overflow-hidden">

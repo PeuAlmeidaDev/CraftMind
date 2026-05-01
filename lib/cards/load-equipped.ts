@@ -37,7 +37,7 @@ export async function loadEquippedCardsAndApply(
   }
 
   // Validar effects de cada carta com Zod. Se uma falhar, ignorar.
-  const safeCards: { effects: CardEffect[] }[] = [];
+  const safeCards: { effects: CardEffect[]; level: number }[] = [];
   for (const uc of userCards) {
     const parsed = cardEffectsArraySchema.safeParse(uc.card.effects);
     if (!parsed.success) {
@@ -49,7 +49,7 @@ export async function loadEquippedCardsAndApply(
     // O Zod garante a forma; castamos para CardEffect[] (o discriminated union
     // do tipo aplicativo). O schema Zod usa optional em campos por inferencia
     // interna mas .safeParse retorna objetos com todos os campos preenchidos.
-    safeCards.push({ effects: parsed.data as unknown as CardEffect[] });
+    safeCards.push({ effects: parsed.data as unknown as CardEffect[], level: uc.level });
   }
 
   return applyCardEffects(baseStats, safeCards);

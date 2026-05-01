@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
       id: uc.id,
       equipped: uc.equipped,
       slotIndex: uc.slotIndex,
+      xp: uc.xp,
+      level: uc.level,
       card: {
         id: uc.card.id,
         name: uc.card.name,

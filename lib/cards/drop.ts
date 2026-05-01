@@ -13,14 +13,19 @@
 // cair Lendaria (ex: 0.3%) deve ser exatamente seu dropChance. Se rolassemos a
 // Comum primeiro e ela passasse no roll, a Lendaria nunca seria avaliada.
 //
-// Politica "primeira copia por cardId": se o usuario ja possui aquele cardId,
-// a iteracao avanca para a proxima variante (em vez de retornar null), porque
-// pode haver outra variante ainda nao coletada nesta mesma rolagem.
+// Politica de duplicatas (atualizada):
+// - Se user NAO tem a variante que rolou positivo: cria UserCard novo (drop classico).
+// - Se user JA tem: a duplicata e convertida em XP/level no UserCard existente
+//   (via applyXpGain de lib/cards/level.ts) e a iteracao PARA. O XP varia pela
+//   raridade da carta (50/100/200/400/800 para COMUM/INCOMUM/RARO/EPICO/LENDARIO).
 //
-// Se nenhuma variante elegivel passar no roll (ou todas as que passaram ja
-// estavam coletadas), retorna { cardDropped: null }.
+// Se nenhuma variante elegivel passar no roll, retorna
+// { cardDropped: null, xpGained: null }.
 
 import type { Prisma, PrismaClient, Card } from "@prisma/client";
+import { applyXpGain } from "./level";
+import type { ApplyXpResult } from "./level";
+import type { CardRarity } from "@/types/cards";
 
 export type BattleResult = "VICTORY" | "DEFEAT" | "DRAW";
 
@@ -37,21 +42,31 @@ export type ApplyCardDropAndStatsInput = {
 };
 
 export type ApplyCardDropAndStatsResult = {
-  /** Card dropada (primeira copia). null caso nao haja drop ou duplicata bloqueada. */
+  /** Card NOVA dropada (primeira copia). null caso o drop nao tenha sido uma carta nova. */
   cardDropped: Card | null;
+  /** Info de XP ganho por duplicata. null caso o drop nao tenha sido uma duplicata. */
+  xpGained: {
+    card: Card;
+    xp: number;
+    newXp: number;
+    newLevel: number;
+    leveledUp: boolean;
+  } | null;
 };
 
 /**
- * Atualiza MobKillStat e (se aplicavel) cria UserCard em uma transacao Prisma.
+ * Atualiza MobKillStat e (se aplicavel) cria UserCard ou aplica XP em uma
+ * UserCard existente, em uma transacao Prisma.
  *
  * Regras:
  * - Sempre incrementa o lado correspondente do MobKillStat (victories ou defeats)
  *   e o damage acumulado.
  * - Drop so dispara em VICTORY.
  * - Itera as variantes elegiveis (requiredStars <= encounterStars) em ordem
- *   decrescente de requiredStars. Para na primeira variante que dropa e o
- *   usuario ainda nao possui (politica "primeira copia").
- * - Se o user ja possui a card que rolou positivo, continua para a proxima.
+ *   decrescente de requiredStars.
+ * - Para na primeira variante que passa no roll: cria UserCard se nao existir,
+ *   ou converte em XP via applyXpGain se ja existir (ambos os casos finalizam
+ *   o drop — nao tenta variantes de menor estrela).
  *
  * Aceita um `PrismaClient` ou `TransactionClient` para permitir composicao
  * com outras transacoes externas.
@@ -95,7 +110,7 @@ export async function applyCardDropAndStats(
 
   // 2. Drop so em VICTORY
   if (!isVictory) {
-    return { cardDropped: null };
+    return { cardDropped: null, xpGained: null };
   }
 
   // 3. Buscar mob com todas as variantes de Card
@@ -105,7 +120,7 @@ export async function applyCardDropAndStats(
   });
 
   if (!mob || mob.cards.length === 0) {
-    return { cardDropped: null };
+    return { cardDropped: null, xpGained: null };
   }
 
   // 4. Filtrar variantes elegiveis (requiredStars <= encounterStars)
@@ -115,13 +130,13 @@ export async function applyCardDropAndStats(
     .sort((a, b) => b.requiredStars - a.requiredStars);
 
   if (eligibleCards.length === 0) {
-    return { cardDropped: null };
+    return { cardDropped: null, xpGained: null };
   }
 
   const rng = randomFn ?? Math.random;
 
-  // 5. Iterar variantes em ordem decrescente. Para no primeiro drop bem-sucedido
-  //    em que o user ainda nao possui a copia.
+  // 5. Iterar variantes em ordem decrescente. Para na primeira variante que
+  //    passa no roll: nova => cria UserCard; duplicata => aplica XP.
   for (const card of eligibleCards) {
     const passed = rng() * 100 < card.dropChance;
     if (!passed) {
@@ -130,12 +145,34 @@ export async function applyCardDropAndStats(
 
     const existing = await client.userCard.findUnique({
       where: { userId_cardId: { userId, cardId: card.id } },
-      select: { id: true },
+      select: { id: true, xp: true, level: true },
     });
 
     if (existing) {
-      // Usuario ja possui esta variante — tenta a proxima.
-      continue;
+      // Duplicata — converte em XP/level no UserCard existente. Para o iter
+      // (drop "concluido" como XP).
+      const xpResult: ApplyXpResult = applyXpGain(
+        existing.xp,
+        existing.level,
+        card.rarity as CardRarity,
+      );
+      await client.userCard.update({
+        where: { id: existing.id },
+        data: {
+          xp: xpResult.newXp,
+          level: xpResult.newLevel,
+        },
+      });
+      return {
+        cardDropped: null,
+        xpGained: {
+          card,
+          xp: xpResult.xpGained,
+          newXp: xpResult.newXp,
+          newLevel: xpResult.newLevel,
+          leveledUp: xpResult.leveledUp,
+        },
+      };
     }
 
     await client.userCard.create({
@@ -147,8 +184,8 @@ export async function applyCardDropAndStats(
       },
     });
 
-    return { cardDropped: card };
+    return { cardDropped: card, xpGained: null };
   }
 
-  return { cardDropped: null };
+  return { cardDropped: null, xpGained: null };
 }

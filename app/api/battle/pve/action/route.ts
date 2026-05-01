@@ -13,6 +13,7 @@ import { resolveTurn } from "@/lib/battle/turn";
 import { chooseAction } from "@/lib/battle/ai";
 import { pveBattleActionSchema } from "@/lib/validations/battle";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
+import { STAR_STAT_MULTIPLIER, type EncounterStars } from "@/lib/mobs/encounter-stars";
 import { processLevelUp } from "@/lib/exp/level-up";
 import { applyCardDropAndStats } from "@/lib/cards/drop";
 import type { TurnAction, TurnLogEntry } from "@/lib/battle/types";
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
         levelsGained: 0,
         newLevel: 0,
         cardDropped: null,
+        cardXpGained: null,
       });
     }
 
@@ -154,6 +156,14 @@ export async function POST(request: NextRequest) {
       let levelsGained = 0;
       let newLevel = 0;
       let cardDropped: { id: string; name: string; rarity: string; mobId: string } | null = null;
+      let xpGained: {
+        cardId: string;
+        cardName: string;
+        rarity: string;
+        xp: number;
+        newLevel: number;
+        leveledUp: boolean;
+      } | null = null;
 
       if (result === "VICTORY") {
         // Buscar mob e character para calculo de EXP
@@ -179,6 +189,8 @@ export async function POST(request: NextRequest) {
         if (mob && character) {
           const baseExp = calculateMobExp(mob);
           expGained = calculateExpGained(baseExp, character.level, mob.tier);
+          const stars = (session.encounterStars ?? 1) as EncounterStars;
+          expGained = Math.max(1, Math.floor(expGained * STAR_STAT_MULTIPLIER[stars]));
           const totalExp = character.currentExp + expGained;
 
           const levelResult = processLevelUp({
@@ -225,6 +237,16 @@ export async function POST(request: NextRequest) {
               name: dropResult.cardDropped.name,
               rarity: dropResult.cardDropped.rarity,
               mobId: dropResult.cardDropped.mobId,
+            };
+          }
+          if (dropResult.xpGained) {
+            xpGained = {
+              cardId: dropResult.xpGained.card.id,
+              cardName: dropResult.xpGained.card.name,
+              rarity: dropResult.xpGained.card.rarity,
+              xp: dropResult.xpGained.xp,
+              newLevel: dropResult.xpGained.newLevel,
+              leveledUp: dropResult.xpGained.leveledUp,
             };
           }
         } else {
@@ -285,6 +307,7 @@ export async function POST(request: NextRequest) {
         levelsGained,
         newLevel,
         cardDropped,
+        cardXpGained: xpGained,
       });
     }
 

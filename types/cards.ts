@@ -130,6 +130,9 @@ export type BestiaryMobSkill = {
  *   ver a arte da variante, mesmo sem ter coletado).
  * - `flavorText` so e exposto quando `hasCard === true` (estilo Pokedex —
  *   gera curiosidade e premia a coleta).
+ * - `userCardXp` e `userCardLevel` sao expostos quando `hasCard === true`
+ *   (refletem o progresso da copia do usuario nesta variante) e ficam
+ *   `null` caso contrario.
  */
 export type BestiaryCardInfo = {
   id: string;
@@ -145,6 +148,10 @@ export type BestiaryCardInfo = {
   cardArtUrl: string | null;
   /** Texto de lore da carta — null quando `hasCard === false`. */
   flavorText: string | null;
+  /** XP acumulado na copia do user. Null quando hasCard === false. */
+  userCardXp: number | null;
+  /** Level da copia do user (1-5). Null quando hasCard === false. */
+  userCardLevel: number | null;
 };
 
 export type BestiaryEntry = {

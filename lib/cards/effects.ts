@@ -8,6 +8,9 @@
 //
 // TRIGGER e STATUS_RESIST sao IGNORADOS nesta fase (apenas console.warn na primeira
 // chamada de cada tipo, para facilitar debug).
+// Cada carta tem um multiplicador `level` (1.0 a 1.8) que escala os bonuses
+// STAT_FLAT (Math.floor por effect) e STAT_PERCENT (linear sem floor) antes
+// de serem somados aos acumuladores.
 //
 // O input `equippedCards` aceita tanto o tipo do Prisma (Json) quanto o array
 // ja parseado (CardEffect[]). A validacao Zod fica em `lib/validations/cards.ts`.
@@ -15,6 +18,7 @@
 import type { CardEffect, CardStatFlatEffect, CardStatPercentEffect } from "@/types/cards";
 import type { BaseStats } from "@/lib/battle/types";
 import type { StatName } from "@/types/skill";
+import { getLevelMultiplier } from "./level";
 
 /** Stat keys validos para BaseStats (sem "accuracy"). */
 type CardTargetStat = keyof BaseStats;
@@ -41,7 +45,7 @@ function isCardTargetStat(stat: StatName): stat is CardTargetStat {
  */
 export function applyCardEffects(
   baseStats: BaseStats,
-  equippedCards: ReadonlyArray<{ effects: ReadonlyArray<CardEffect> }>,
+  equippedCards: ReadonlyArray<{ effects: ReadonlyArray<CardEffect>; level: number }>,
 ): BaseStats {
   // Copia mutavel
   const flatBonuses: Record<CardTargetStat, number> = {
@@ -67,6 +71,7 @@ export function applyCardEffects(
   let warnedAccuracy = false;
 
   for (const card of equippedCards) {
+    const multiplier = getLevelMultiplier(card.level);
     for (const effect of card.effects) {
       switch (effect.type) {
         case "STAT_FLAT": {
@@ -80,7 +85,7 @@ export function applyCardEffects(
             }
             break;
           }
-          flatBonuses[flat.stat] += flat.value;
+          flatBonuses[flat.stat] += Math.floor(flat.value * multiplier);
           break;
         }
         case "STAT_PERCENT": {
@@ -94,7 +99,7 @@ export function applyCardEffects(
             }
             break;
           }
-          percentBonuses[pct.stat] += pct.percent;
+          percentBonuses[pct.stat] += pct.percent * multiplier;
           break;
         }
         case "TRIGGER": {

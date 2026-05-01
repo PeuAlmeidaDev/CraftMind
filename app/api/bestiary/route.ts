@@ -55,13 +55,15 @@ export async function GET(request: NextRequest) {
       prisma.mobKillStat.findMany({ where: { userId } }),
       prisma.userCard.findMany({
         where: { userId },
-        select: { cardId: true },
+        select: { cardId: true, xp: true, level: true },
       }),
     ]);
 
     const killStatByMobId = new Map(killStats.map((k) => [k.mobId, k]));
-    // Set para lookup O(1) de variantes possuidas (evita N+1 / N queries).
-    const ownedCardIds = new Set(userCards.map((u) => u.cardId));
+    // Map para lookup O(1) de variantes possuidas + xp/level da copia do user.
+    const ownedCardsByCardId = new Map(
+      userCards.map((u) => [u.cardId, { xp: u.xp, level: u.level }] as const),
+    );
 
     const entries = mobs.map((mob) => {
       const ks = killStatByMobId.get(mob.id) ?? null;
@@ -69,7 +71,8 @@ export async function GET(request: NextRequest) {
       // Decisao de UX: cardArtUrl e exposto desde SEEN (user ja viu o mob),
       // flavorText so e revelado quando hasCard === true (Pokedex hiding).
       const cards: BestiaryCardInfo[] = mob.cards.map((c) => {
-        const hasCard = ownedCardIds.has(c.id);
+        const ownership = ownedCardsByCardId.get(c.id) ?? null;
+        const hasCard = ownership !== null;
         return {
           id: c.id,
           name: c.name,
@@ -79,6 +82,8 @@ export async function GET(request: NextRequest) {
           hasCard,
           cardArtUrl: c.cardArtUrl,
           flavorText: hasCard ? c.flavorText : null,
+          userCardXp: ownership?.xp ?? null,
+          userCardLevel: ownership?.level ?? null,
         };
       });
 

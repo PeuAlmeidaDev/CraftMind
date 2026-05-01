@@ -15,9 +15,9 @@ import type { MobState } from "@/lib/battle/pve-multi-types";
 import type { TurnLogEntry } from "@/lib/battle/types";
 import { pveMultiActionSchema } from "@/lib/validations/pve-multi";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
+import { STAR_STAT_MULTIPLIER, type EncounterStars } from "@/lib/mobs/encounter-stars";
 import { processLevelUp } from "@/lib/exp/level-up";
 import { applyCardDropAndStats } from "@/lib/cards/drop";
-import type { EncounterStars } from "@/lib/mobs/encounter-stars";
 import type { CardRarity } from "@/types/cards";
 
 const RARITY_RANK: Record<CardRarity, number> = {
@@ -33,6 +33,21 @@ type DroppedCardPayload = {
   name: string;
   rarity: string;
   mobId: string;
+};
+
+type CardXpGainedPayload = {
+  cardId: string;
+  cardName: string;
+  rarity: string;
+  mobId: string;
+  xp: number;
+  newLevel: number;
+  leveledUp: boolean;
+};
+
+type DropsAndStatsResult = {
+  cardDropped: DroppedCardPayload | null;
+  cardXpGainedList: CardXpGainedPayload[];
 };
 
 /** Soma o dano causado pelo player (actorId) a um alvo especifico (targetId === mob.playerId). */
@@ -60,7 +75,10 @@ function sumDamageDealtToTarget(
  * - Se mob.defeated => VICTORY individual (incrementa victories, rola drop).
  * - Caso contrario => DEFEAT individual (incrementa defeats, sem drop).
  *
- * Retorna o melhor cristal dropado (maior raridade) ou null.
+ * Retorna:
+ * - `cardDropped`: melhor cristal NOVO dropado (maior raridade) ou null.
+ * - `cardXpGainedList`: lista de XP ganho por cristais duplicados (um por mob
+ *   que rolou positivo numa variante ja possuida).
  */
 async function applyDropsAndStatsForMobs(
   tx: Prisma.TransactionClient,
@@ -68,9 +86,10 @@ async function applyDropsAndStatsForMobs(
   mobs: ReadonlyArray<MobState>,
   log: ReadonlyArray<TurnLogEntry>,
   encounterStarsByMobId: Record<string, EncounterStars>,
-): Promise<DroppedCardPayload | null> {
+): Promise<DropsAndStatsResult> {
   let best: DroppedCardPayload | null = null;
   let bestRank = 0;
+  const cardXpGainedList: CardXpGainedPayload[] = [];
   for (const mob of mobs) {
     const damageDealt = sumDamageDealtToTarget(log, userId, mob.playerId);
     const result = mob.defeated ? "VICTORY" : "DEFEAT";
@@ -95,13 +114,24 @@ async function applyDropsAndStatsForMobs(
           };
         }
       }
+      if (dropResult.xpGained) {
+        cardXpGainedList.push({
+          cardId: dropResult.xpGained.card.id,
+          cardName: dropResult.xpGained.card.name,
+          rarity: dropResult.xpGained.card.rarity,
+          mobId: dropResult.xpGained.card.mobId,
+          xp: dropResult.xpGained.xp,
+          newLevel: dropResult.xpGained.newLevel,
+          leveledUp: dropResult.xpGained.leveledUp,
+        });
+      }
     } catch (err) {
       console.warn(
         `[pve-multi/action] applyCardDropAndStats falhou para mob ${mob.mobId}: ${String(err)}`,
       );
     }
   }
-  return best;
+  return { cardDropped: best, cardXpGainedList };
 }
 
 export async function POST(request: NextRequest) {
@@ -140,7 +170,7 @@ export async function POST(request: NextRequest) {
     if (isSessionTimedOut(session)) {
       const state = session.state;
 
-      const cardDropped = await prisma.$transaction(async (tx) => {
+      const dropsResult = await prisma.$transaction(async (tx) => {
         await tx.pveBattle.create({
           data: {
             userId,
@@ -173,7 +203,8 @@ export async function POST(request: NextRequest) {
         playerHp: state.player.currentHp,
         mobsHp: state.mobs.map((m) => m.currentHp),
         mobsDefeated: state.mobs.map((m) => m.defeated),
-        cardDropped,
+        cardDropped: dropsResult.cardDropped,
+        cardXpGainedList: dropsResult.cardXpGainedList,
       });
     }
 
@@ -224,7 +255,12 @@ export async function POST(request: NextRequest) {
 
               if (mobData) {
                 const baseExp = calculateMobExp(mobData);
-                totalExp += calculateExpGained(baseExp, character.level, mobData.tier);
+                const mobStars = (session.encounterStars?.[mob.mobId] ?? 1) as EncounterStars;
+                const expForThisMob = Math.max(
+                  1,
+                  Math.floor(calculateExpGained(baseExp, character.level, mobData.tier) * STAR_STAT_MULTIPLIER[mobStars]),
+                );
+                totalExp += expForThisMob;
               }
             }
           }
@@ -239,7 +275,7 @@ export async function POST(request: NextRequest) {
             freePoints: character.freePoints,
           });
 
-          const cardDropped = await prisma.$transaction(async (tx) => {
+          const dropsResult = await prisma.$transaction(async (tx) => {
             await tx.character.update({
               where: { userId },
               data: {
@@ -281,12 +317,13 @@ export async function POST(request: NextRequest) {
             expGained: expWithPenalty,
             levelsGained: levelResult.levelsGained,
             newLevel: levelResult.newLevel,
-            cardDropped,
+            cardDropped: dropsResult.cardDropped,
+            cardXpGainedList: dropsResult.cardXpGainedList,
           });
         }
 
         // Character nao encontrado — persistir sem EXP, mas ainda atualizar stats/drop
-        const cardDropped = await prisma.$transaction(async (tx) => {
+        const dropsResult = await prisma.$transaction(async (tx) => {
           await tx.pveBattle.create({
             data: {
               userId,
@@ -318,13 +355,14 @@ export async function POST(request: NextRequest) {
           battleOver: true,
           result: "VICTORY",
           expGained: 0,
-          cardDropped,
+          cardDropped: dropsResult.cardDropped,
+          cardXpGainedList: dropsResult.cardXpGainedList,
         });
       }
 
       // DEFEAT — mobs que o player matou ANTES de morrer ainda contam VICTORY
       // individual; os que sobreviveram contam DEFEAT.
-      const cardDropped = await prisma.$transaction(async (tx) => {
+      const dropsResult = await prisma.$transaction(async (tx) => {
         await tx.pveBattle.create({
           data: {
             userId,
@@ -356,7 +394,8 @@ export async function POST(request: NextRequest) {
         battleOver: true,
         result: "DEFEAT",
         expGained: 0,
-        cardDropped,
+        cardDropped: dropsResult.cardDropped,
+        cardXpGainedList: dropsResult.cardXpGainedList,
       });
     }
 
