@@ -126,6 +126,53 @@
   animation-delay: 0.3s;
 }
 
+/* Foil holografico premium — exclusivo de cartas 3 estrelas. Coexiste com
+ * o .card-foil base (sweep da casa). Reativo a mouse via CSS vars --mx/--my
+ * setadas por React. Fallback estatico no centro quando nao ha hover. */
+.card-holo-3 {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  --mx: 50%;
+  --my: 50%;
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+}
+.card-holo-3.is-active {
+  opacity: 1;
+}
+.card-holo-3::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  background: conic-gradient(
+    from 210deg at var(--mx) var(--my),
+    #ff5f6d 0deg,
+    #ffc371 60deg,
+    #47e2a5 120deg,
+    #4d9eff 180deg,
+    #b06bff 240deg,
+    #ff5fb0 300deg,
+    #ff5f6d 360deg
+  );
+  mix-blend-mode: color-dodge;
+  opacity: 0.55;
+  filter: blur(6px) saturate(1.4);
+}
+.card-holo-3::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent calc(var(--mx) - 30%),
+    rgba(255, 255, 255, 0.32) var(--mx),
+    transparent calc(var(--mx) + 30%)
+  );
+  mix-blend-mode: overlay;
+}
+
 /* Cores e box-shadow por raridade de cristal. */
 .rarity-comum {
   --rarity-color: #9ba3ad;

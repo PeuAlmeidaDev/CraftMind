@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { BestiaryEntry, BestiaryCardInfo, CardRarity } from "@/types/cards";
 import {
@@ -182,6 +182,25 @@ export default function BestiaryDetailModal({
     };
   }, [open, handleKeyDown]);
 
+  const [holoActive, setHoloActive] = useState(false);
+  const [holoCoords, setHoloCoords] = useState<{ mx: string; my: string }>({
+    mx: "50%",
+    my: "50%",
+  });
+
+  const handleHoloMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / rect.width) * 100;
+    const my = ((e.clientY - rect.top) / rect.height) * 100;
+    setHoloCoords({ mx: `${mx}%`, my: `${my}%` });
+    setHoloActive(true);
+  }, []);
+
+  const handleHoloLeave = useCallback(() => {
+    setHoloActive(false);
+    setHoloCoords({ mx: "50%", my: "50%" });
+  }, []);
+
   if (!open || !entry) return null;
 
   const isUndiscovered = entry.unlockTier === BestiaryUnlockTier.UNDISCOVERED;
@@ -216,6 +235,8 @@ export default function BestiaryDetailModal({
     ? selectedCard.cardArtUrl ?? entry.imageUrl
     : ownedCards[ownedCards.length - 1]?.cardArtUrl ?? entry.imageUrl;
   const focusedOwned = selectedCard ? selectedCard.hasCard : true;
+
+  const isHolo3 = selectedCard?.requiredStars === 3 && focusedOwned;
 
   const next = nextThreshold(entry.victories);
 
@@ -324,6 +345,8 @@ export default function BestiaryDetailModal({
           >
             <div
               className="relative aspect-[3/4] w-full max-w-[280px] overflow-hidden"
+              onMouseMove={isHolo3 ? handleHoloMove : undefined}
+              onMouseLeave={isHolo3 ? handleHoloLeave : undefined}
               style={{
                 border: `1px solid color-mix(in srgb, ${cardRarity ? "var(--rarity-color)" : tierColor} 55%, transparent)`,
                 boxShadow: `0 12px 28px var(--bg-primary), 0 0 24px color-mix(in srgb, ${accentColor} 22%, transparent)`,
@@ -331,6 +354,18 @@ export default function BestiaryDetailModal({
             >
               {/* Foil holografico se descoberto+ */}
               {isDiscovered && <div className="card-foil" style={{ zIndex: 3 }} />}
+              {isHolo3 && (
+                <div
+                  className={`card-holo-3 ${holoActive ? "is-active" : ""}`}
+                  style={
+                    {
+                      zIndex: 4,
+                      "--mx": holoCoords.mx,
+                      "--my": holoCoords.my,
+                    } as React.CSSProperties
+                  }
+                />
+              )}
 
               {isUndiscovered ? (
                 <div
