@@ -5,6 +5,9 @@ import { apiSuccess, apiError } from "@/lib/api-response";
 import { distributePointsSchema } from "@/lib/validations/battle";
 import { distributePoints } from "@/lib/exp/level-up";
 import { hasActiveBattle } from "@/lib/battle/pve-store";
+import { loadEquippedCardsAndApply } from "@/lib/cards/load-equipped";
+import type { BaseStats } from "@/lib/battle/types";
+import type { BonusStats } from "@/types/character";
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,7 +101,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return apiSuccess(txResult.data);
+    const baseStats: BaseStats = {
+      physicalAtk: txResult.data.physicalAtk,
+      physicalDef: txResult.data.physicalDef,
+      magicAtk: txResult.data.magicAtk,
+      magicDef: txResult.data.magicDef,
+      hp: txResult.data.hp,
+      speed: txResult.data.speed,
+    };
+
+    const effective = await loadEquippedCardsAndApply(prisma, userId, baseStats);
+
+    const bonusStats: BonusStats = {
+      physicalAtk: effective.physicalAtk - baseStats.physicalAtk,
+      physicalDef: effective.physicalDef - baseStats.physicalDef,
+      magicAtk: effective.magicAtk - baseStats.magicAtk,
+      magicDef: effective.magicDef - baseStats.magicDef,
+      hp: effective.hp - baseStats.hp,
+      speed: effective.speed - baseStats.speed,
+    };
+
+    return apiSuccess({ ...txResult.data, bonusStats });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return apiError(error.message, error.code, error.statusCode);

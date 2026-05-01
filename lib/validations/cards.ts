@@ -59,6 +59,56 @@ export const cardEffectsArraySchema = z.array(cardEffectSchema);
 export type CardEffectInput = z.infer<typeof cardEffectSchema>;
 
 // ---------------------------------------------------------------------------
+// Variantes (requiredStars + dropChance)
+// ---------------------------------------------------------------------------
+//
+// requiredStars: estrela minima do encontro PvE para esta variante ser elegivel
+//   ao drop (1, 2 ou 3). Combinada com `mobId` forma a constraint unica
+//   `[mobId, requiredStars]` no Prisma — cada mob tem no maximo 3 variantes.
+//
+// dropChance: percentual individual de drop quando a variante e elegivel
+//   (0 a 100, decimais permitidos). Default no banco e 5%.
+
+export const requiredStarsSchema = z
+  .number()
+  .int("requiredStars deve ser inteiro")
+  .min(1, "requiredStars minimo e 1")
+  .max(3, "requiredStars maximo e 3");
+
+export const dropChanceSchema = z
+  .number()
+  .min(0, "dropChance deve ser >= 0")
+  .max(100, "dropChance deve ser <= 100");
+
+// ---------------------------------------------------------------------------
+// Card create / update (admin)
+// ---------------------------------------------------------------------------
+
+const rarityEnum = z.enum(["COMUM", "INCOMUM", "RARO", "EPICO", "LENDARIO"]);
+
+export const cardCreateSchema = z.object({
+  mobId: z.string().min(1, "mobId obrigatorio"),
+  name: z.string().min(1).max(100),
+  flavorText: z.string().min(1).max(500),
+  rarity: rarityEnum,
+  effects: cardEffectsArraySchema,
+  requiredStars: requiredStarsSchema.optional().default(1),
+  dropChance: dropChanceSchema.optional().default(5),
+});
+
+export const cardUpdateSchema = z.object({
+  name: z.string().min(1).max(100),
+  flavorText: z.string().min(1).max(500),
+  rarity: rarityEnum,
+  effects: cardEffectsArraySchema,
+  requiredStars: requiredStarsSchema.optional(),
+  dropChance: dropChanceSchema.optional(),
+});
+
+export type CardCreateInput = z.infer<typeof cardCreateSchema>;
+export type CardUpdateInput = z.infer<typeof cardUpdateSchema>;
+
+// ---------------------------------------------------------------------------
 // Equip / Unequip
 // ---------------------------------------------------------------------------
 

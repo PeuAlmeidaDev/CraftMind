@@ -14,6 +14,8 @@ const mobUpdateSchema = z.object({
   magicDef: z.number().int().min(1).max(9999),
   hp: z.number().int().min(1).max(9999),
   speed: z.number().int().min(1).max(9999),
+  // Opcional no update: quando ausente o campo nao e tocado.
+  maxStars: z.number().int().min(1).max(3).optional(),
 });
 
 type RouteParams = { params: Promise<{ id: string }> };

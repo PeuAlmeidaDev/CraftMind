@@ -4,22 +4,24 @@
 // - Busca todos os mobs cadastrados (independente do usuario ter visto).
 // - Une com MobKillStat do usuario (left join via map em memoria — N pequeno, 12 mobs).
 // - Aplica gating de campos via buildBestiaryEntry conforme tier de unlock.
-// - Inclui info de cristal possuido (raridade) por mob.
+// - Retorna a galeria completa de variantes de cristal por mob (ordenadas por
+//   requiredStars asc), com `cardArtUrl` sempre exposto (mob ja foi visto) e
+//   `flavorText` apenas quando o usuario possui a variante (estilo Pokedex).
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { buildBestiaryEntry } from "@/lib/bestiary/progression";
-import type { BestiaryResponse, CardRarity } from "@/types/cards";
+import type { BestiaryResponse, BestiaryCardInfo, CardRarity } from "@/types/cards";
 import { BestiaryUnlockTier } from "@/types/cards";
 
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await verifySession(request);
 
-    // Busca em paralelo: todos os mobs (com skills + card), kill stats do user,
-    // e user cards do user (para saber quais cards ele tem).
+    // Busca em paralelo: todos os mobs (com skills + variantes de card), kill
+    // stats do user, e user cards do user (para saber quais variantes ele tem).
     const [mobs, killStats, userCards] = await Promise.all([
       prisma.mob.findMany({
         orderBy: [{ tier: "asc" }, { name: "asc" }],
@@ -36,7 +38,18 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          card: { select: { id: true, rarity: true, cardArtUrl: true } },
+          cards: {
+            orderBy: { requiredStars: "asc" },
+            select: {
+              id: true,
+              name: true,
+              rarity: true,
+              cardArtUrl: true,
+              requiredStars: true,
+              dropChance: true,
+              flavorText: true,
+            },
+          },
         },
       }),
       prisma.mobKillStat.findMany({ where: { userId } }),
@@ -46,17 +59,28 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const killStatByMobId = new Map(
-      killStats.map((k) => [k.mobId, k]),
-    );
+    const killStatByMobId = new Map(killStats.map((k) => [k.mobId, k]));
+    // Set para lookup O(1) de variantes possuidas (evita N+1 / N queries).
     const ownedCardIds = new Set(userCards.map((u) => u.cardId));
 
     const entries = mobs.map((mob) => {
       const ks = killStatByMobId.get(mob.id) ?? null;
-      const hasCard = mob.card ? ownedCardIds.has(mob.card.id) : false;
-      const cardRarity: CardRarity | null =
-        mob.card && hasCard ? (mob.card.rarity as CardRarity) : null;
-      const cardArtUrl: string | null = mob.card?.cardArtUrl ?? null;
+
+      // Decisao de UX: cardArtUrl e exposto desde SEEN (user ja viu o mob),
+      // flavorText so e revelado quando hasCard === true (Pokedex hiding).
+      const cards: BestiaryCardInfo[] = mob.cards.map((c) => {
+        const hasCard = ownedCardIds.has(c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          rarity: c.rarity as CardRarity,
+          requiredStars: c.requiredStars,
+          dropChance: c.dropChance,
+          hasCard,
+          cardArtUrl: c.cardArtUrl,
+          flavorText: hasCard ? c.flavorText : null,
+        };
+      });
 
       return buildBestiaryEntry({
         mob: {
@@ -89,9 +113,7 @@ export async function GET(request: NextRequest) {
               lastSeenAt: ks.lastSeenAt,
             }
           : null,
-        hasCard,
-        cardRarity,
-        cardArtUrl,
+        cards,
       });
     });
 

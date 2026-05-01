@@ -52,13 +52,13 @@ api/
     ├── route.ts          # POST iniciar batalha
     ├── active/route.ts   # GET (verificar se usuario tem batalha ativa em qualquer modo — protegida, consulta stores locais + Socket.io server)
     ├── pve/
-    │   ├── start/route.ts    # POST (iniciar batalha PvE 1v1 — protegida, matchmaking por tier, armazena estado em memoria)
-    │   ├── action/route.ts   # POST (enviar acao do turno 1v1 — protegida, resolve turno com IA, finaliza com EXP/level up)
+    │   ├── start/route.ts    # POST (iniciar batalha PvE 1v1 — protegida, matchmaking por tier, sorteia `encounterStars` (1/2/3) e aplica multiplicador nos stats do mob em memoria; resposta inclui `encounterStars: number`)
+    │   ├── action/route.ts   # POST (enviar acao do turno 1v1 — protegida, resolve turno com IA, finaliza com EXP/level up; passa `encounterStars` da sessao para o drop)
     │   ├── state/route.ts    # GET (consultar estado atual da batalha 1v1 — protegida, query param battleId)
     │   └── history/route.ts  # GET (historico paginado de batalhas PvE — protegida, 20 por pagina)
     ├── pve-multi/
-    │   ├── start/route.ts    # POST (iniciar batalha PvE 1v3 — protegida, seleciona 3 mobs por tier, store separado)
-    │   ├── action/route.ts   # POST (enviar acao do turno 1v3 — protegida, body: {battleId, skillId, targetIndex?}, rate limited, detecta timeout 1min)
+    │   ├── start/route.ts    # POST (iniciar batalha PvE 1v3 — protegida, seleciona 3 mobs por tier, sorteia `encounterStars` por mob e aplica multiplicador nos stats; resposta inclui `encounterStars: Record<mobId, number>`)
+    │   ├── action/route.ts   # POST (enviar acao do turno 1v3 — protegida, body: {battleId, skillId, targetIndex?}, rate limited, detecta timeout 1min; drop por mob morto usa `encounterStars[mobId]` da sessao com fallback 1)
     │   ├── state/route.ts    # GET (consultar estado sanitizado da batalha 1v3 — protegida, query param battleId, detecta timeout 1min)
     │   └── forfeit/route.ts  # POST (desistir da batalha PvE Multi — protegida, persiste DEFEAT no banco, remove da store)
     ├── coop/

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getUnlockTier, buildBestiaryEntry } from "../progression";
 import type { BestiaryMobInput, BestiaryKillStatInput } from "../progression";
+import type { BestiaryCardInfo } from "@/types/cards";
 import { CardRarityEnum, BestiaryUnlockTierEnum } from "@/types";
 
 const baseMob: BestiaryMobInput = {
@@ -59,14 +60,41 @@ describe("getUnlockTier", () => {
   });
 });
 
+// Helpers de variantes para os testes.
+function ownedCard(overrides: Partial<BestiaryCardInfo> = {}): BestiaryCardInfo {
+  return {
+    id: "card_slime_1",
+    name: "Cristal do Slime",
+    rarity: CardRarityEnum.COMUM,
+    requiredStars: 1,
+    dropChance: 5,
+    hasCard: true,
+    cardArtUrl: "https://example/card-slime.jpg",
+    flavorText: "Lore da carta.",
+    ...overrides,
+  };
+}
+
+function unownedCard(overrides: Partial<BestiaryCardInfo> = {}): BestiaryCardInfo {
+  return {
+    id: "card_slime_x",
+    name: "Cristal do Slime",
+    rarity: CardRarityEnum.COMUM,
+    requiredStars: 1,
+    dropChance: 5,
+    hasCard: false,
+    cardArtUrl: null,
+    flavorText: null,
+    ...overrides,
+  };
+}
+
 describe("buildBestiaryEntry", () => {
   it("UNDISCOVERED nao expoe nome, stats nem skills", () => {
     const entry = buildBestiaryEntry({
       mob: baseMob,
       killStat: null,
-      hasCard: false,
-      cardRarity: null,
-      cardArtUrl: null,
+      cards: [],
     });
     expect(entry.unlockTier).toBe(BestiaryUnlockTierEnum.UNDISCOVERED);
     expect(entry.name).toBeNull();
@@ -81,15 +109,15 @@ describe("buildBestiaryEntry", () => {
     expect(entry.curiosity).toBeNull();
     expect(entry.masteryBadge).toBe(false);
     expect(entry.victories).toBe(0);
+    expect(entry.cards).toEqual([]);
   });
 
   it("DISCOVERED expoe nome/imagem/personalStats mas nao stats nem skills", () => {
+    const variant = ownedCard();
     const entry = buildBestiaryEntry({
       mob: baseMob,
       killStat: killStat(1),
-      hasCard: true,
-      cardRarity: CardRarityEnum.COMUM,
-      cardArtUrl: "https://example/card-slime.jpg",
+      cards: [variant],
     });
     expect(entry.unlockTier).toBe(BestiaryUnlockTierEnum.DISCOVERED);
     expect(entry.name).toBe("Slime");
@@ -104,20 +132,14 @@ describe("buildBestiaryEntry", () => {
     expect(entry.loreExpanded).toBeNull();
     expect(entry.curiosity).toBeNull();
     expect(entry.masteryBadge).toBe(false);
-    expect(entry.card).toEqual({
-      hasCard: true,
-      rarity: CardRarityEnum.COMUM,
-      artUrl: "https://example/card-slime.jpg",
-    });
+    expect(entry.cards).toEqual([variant]);
   });
 
   it("STUDIED expoe stats/skills/aiProfile mas nao lore expandido", () => {
     const entry = buildBestiaryEntry({
       mob: baseMob,
       killStat: killStat(15),
-      hasCard: false,
-      cardRarity: null,
-      cardArtUrl: null,
+      cards: [unownedCard()],
     });
     expect(entry.unlockTier).toBe(BestiaryUnlockTierEnum.STUDIED);
     expect(entry.stats).toEqual({
@@ -142,9 +164,7 @@ describe("buildBestiaryEntry", () => {
     const entry = buildBestiaryEntry({
       mob: baseMob,
       killStat: killStat(50),
-      hasCard: true,
-      cardRarity: CardRarityEnum.LENDARIO,
-      cardArtUrl: null,
+      cards: [ownedCard({ rarity: CardRarityEnum.LENDARIO, cardArtUrl: null })],
     });
     expect(entry.unlockTier).toBe(BestiaryUnlockTierEnum.MASTERED);
     expect(entry.loreExpanded).toBe("Lore profunda do Slime.");

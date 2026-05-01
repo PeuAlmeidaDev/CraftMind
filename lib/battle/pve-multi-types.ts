@@ -2,6 +2,7 @@
 
 import type { PlayerState, TurnLogEntry } from "./types";
 import type { AiProfile } from "./ai-profiles";
+import type { EncounterStars } from "@/lib/mobs/encounter-stars";
 
 export type PveMultiMode = "1v3" | "1v5";
 
@@ -43,4 +44,6 @@ export type PveMultiBattleSession = {
   userId: string;
   lastActivityAt: number;
   mobsInfo: MobDisplayInfo[];
+  /** Mapa mobId -> estrela do encontro daquele mob nesta batalha. */
+  encounterStars: Record<string, EncounterStars>;
 };

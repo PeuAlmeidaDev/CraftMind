@@ -74,15 +74,6 @@ export const TIER_TO_RARITY: Record<number, CardRarity> = {
   5: CardRarity.LENDARIO,
 };
 
-/** Drop rate por tier (0-1). T1=10%, T2=5%, T3=3%, T4=1%, T5=0.5%. */
-export const TIER_DROP_RATE: Record<number, number> = {
-  1: 0.1,
-  2: 0.05,
-  3: 0.03,
-  4: 0.01,
-  5: 0.005,
-};
-
 // ---------------------------------------------------------------------------
 // Bestiario — niveis de unlock e thresholds
 // ---------------------------------------------------------------------------
@@ -132,12 +123,28 @@ export type BestiaryMobSkill = {
   damageType: DamageType;
 };
 
+/**
+ * Info de uma variante de cristal (1, 2 ou 3 estrelas) de um mob no bestiario.
+ *
+ * - `cardArtUrl` e exposto desde o SEEN (o user ja viu o mob — faz sentido
+ *   ver a arte da variante, mesmo sem ter coletado).
+ * - `flavorText` so e exposto quando `hasCard === true` (estilo Pokedex —
+ *   gera curiosidade e premia a coleta).
+ */
 export type BestiaryCardInfo = {
+  id: string;
+  name: string;
+  rarity: CardRarity;
+  /** Estrelas minimas de encontro para esta variante cair (1, 2 ou 3). */
+  requiredStars: number;
+  /** Percentual individual de drop quando a variante e elegivel (0-100). */
+  dropChance: number;
+  /** O usuario possui esta variante? */
   hasCard: boolean;
-  rarity: CardRarity | null;
-  /** URL Cloudinary da arte da carta. Null se o asset ainda nao foi gerado
-   * ou se o user ainda nao possui o cristal. */
-  artUrl: string | null;
+  /** URL Cloudinary da arte. Null se o asset ainda nao foi gerado. */
+  cardArtUrl: string | null;
+  /** Texto de lore da carta — null quando `hasCard === false`. */
+  flavorText: string | null;
 };
 
 export type BestiaryEntry = {
@@ -145,7 +152,10 @@ export type BestiaryEntry = {
   unlockTier: BestiaryUnlockTier;
   // sempre presentes
   victories: number;
-  card: BestiaryCardInfo;
+  /** Variantes de cristal cadastradas para este mob, ordenadas por
+   * `requiredStars` ascendente. Pode ser array vazio se nenhuma variante
+   * foi cadastrada. */
+  cards: BestiaryCardInfo[];
   // DISCOVERED+
   name: string | null;
   tier: number | null;

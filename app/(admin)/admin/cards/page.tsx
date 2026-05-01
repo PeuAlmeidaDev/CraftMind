@@ -12,6 +12,8 @@ type CardRow = {
   rarity: string;
   cardArtUrl: string | null;
   effects: unknown;
+  requiredStars: number;
+  dropChance: number;
   mob: {
     id: string;
     name: string;
@@ -19,6 +21,19 @@ type CardRow = {
     imageUrl: string | null;
   };
 };
+
+function formatDropChance(value: number): string {
+  // Mostra inteiro quando possivel (5%), 1 casa decimal caso contrario (7.5%)
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded)
+    ? `${rounded.toFixed(0)}%`
+    : `${rounded.toFixed(1)}%`;
+}
+
+function starsLabel(stars: number): string {
+  const safe = Math.max(1, Math.min(3, Math.round(stars)));
+  return "★".repeat(safe);
+}
 
 const TIER_COLORS: Record<number, string> = {
   1: "bg-gray-500/20 text-gray-400",
@@ -50,6 +65,7 @@ export default function AdminCardsPage() {
   const [loading, setLoading] = useState(true);
   const [filterRarity, setFilterRarity] = useState("");
   const [filterTier, setFilterTier] = useState("");
+  const [filterStars, setFilterStars] = useState("");
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,9 +82,10 @@ export default function AdminCardsPage() {
     return cards.filter((c) => {
       if (filterRarity && c.rarity !== filterRarity) return false;
       if (filterTier && c.mob.tier !== Number(filterTier)) return false;
+      if (filterStars && c.requiredStars !== Number(filterStars)) return false;
       return true;
     });
-  }, [cards, filterRarity, filterTier]);
+  }, [cards, filterRarity, filterTier, filterStars]);
 
   async function handleImageUpload(cardId: string, file: File) {
     setUploadingId(cardId);
@@ -140,7 +157,7 @@ export default function AdminCardsPage() {
         <div>
           <h2 className="text-xl font-bold text-white">Cristais</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {cards.length} cristais · 1 por mob (schema atual)
+            {cards.length} cristais · ate 3 variantes por mob (1★/2★/3★)
           </p>
         </div>
         <Link
@@ -175,6 +192,17 @@ export default function AdminCardsPage() {
           <option value="RARO">Raro</option>
           <option value="EPICO">Epico</option>
           <option value="LENDARIO">Lendario</option>
+        </select>
+        <select
+          value={filterStars}
+          onChange={(e) => setFilterStars(e.target.value)}
+          className={selectClass}
+          aria-label="Filtrar por estrela minima"
+        >
+          <option value="">Estrela: Todas</option>
+          <option value="1">1★</option>
+          <option value="2">2★</option>
+          <option value="3">3★</option>
         </select>
       </div>
 
@@ -224,6 +252,20 @@ export default function AdminCardsPage() {
                         className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 border ${RARITY_COLORS[card.rarity] ?? ""}`}
                       >
                         {RARITY_LABEL[card.rarity] ?? card.rarity}
+                      </span>
+                      <span
+                        className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-500/15 text-amber-300 tracking-wider"
+                        aria-label={`Estrela minima: ${card.requiredStars}`}
+                        title={`Estrela minima: ${card.requiredStars}`}
+                      >
+                        {starsLabel(card.requiredStars)}
+                      </span>
+                      <span
+                        className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-emerald-500/15 text-emerald-300"
+                        aria-label={`Chance de drop: ${formatDropChance(card.dropChance)}`}
+                        title={`Chance de drop: ${formatDropChance(card.dropChance)}`}
+                      >
+                        {formatDropChance(card.dropChance)}
                       </span>
                     </div>
                   </div>

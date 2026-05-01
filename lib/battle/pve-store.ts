@@ -2,6 +2,7 @@
 
 import type { BattleState } from "./types";
 import type { AiProfile } from "./ai-profiles";
+import type { EncounterStars } from "@/lib/mobs/encounter-stars";
 
 const PVE_BATTLE_TTL_MS = 30 * 60 * 1000; // 30 minutos
 export const INACTIVITY_TIMEOUT_MS = 60 * 1000; // 1 minuto
@@ -17,6 +18,8 @@ export type PveBattleSession = {
   mobTier: number;
   mobImageUrl: string | null;
   mobDescription: string;
+  // Estrela do encontro: define multiplicador de stats e cartas elegiveis ao drop
+  encounterStars: EncounterStars;
 };
 
 // Singleton via globalThis para sobreviver a hot-reload do Next.js em dev

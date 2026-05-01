@@ -12,6 +12,12 @@ import { initMultiPveBattle } from "@/lib/battle/pve-multi-turn";
 import { getPlayerTier, rollMobTier, selectRandomMob } from "@/lib/exp/matchmaking";
 import { createPlayerState } from "@/lib/battle/shared-helpers";
 import { loadEquippedCardsAndApply } from "@/lib/cards/load-equipped";
+import {
+  rollEncounterStars,
+  applyStarMultiplier,
+  type EncounterStars,
+  type StatBlock,
+} from "@/lib/mobs/encounter-stars";
 import type { EquippedSkill, BaseStats } from "@/lib/battle/types";
 import type { AiProfile } from "@/lib/battle/ai-profiles";
 import type { MobState, PveMultiMode } from "@/lib/battle/pve-multi-types";
@@ -212,7 +218,14 @@ export async function POST(request: NextRequest) {
       skills: playerSkills,
     });
 
-    // Montar MobStates
+    // Mapa mobId -> estrela do encontro daquele mob nesta batalha.
+    // Se o mesmo mob aparecer mais de uma vez, a chave colapsa para o ultimo
+    // roll — todas as instancias daquele mob compartilham a mesma estrela na
+    // hora do drop (a logica de drop opera por mobId, nao por instancia).
+    const encounterStarsMap: Record<string, EncounterStars> = {};
+
+    // Montar MobStates (cada mob recebe seu proprio sorteio de estrela e seus
+    // stats sao multiplicados antes de virar um MobState).
     const mobStates = selectedMobs.map((mob) => {
       const mobSkills: EquippedSkill[] = mob.skills.map((ms) => ({
         skillId: ms.skill.id,
@@ -233,13 +246,25 @@ export async function POST(request: NextRequest) {
         },
       }));
 
-      const mobStats: BaseStats = {
+      const stars = rollEncounterStars(mob.maxStars);
+      encounterStarsMap[mob.id] = stars;
+
+      const baseMobStats: StatBlock = {
         physicalAtk: mob.physicalAtk,
         physicalDef: mob.physicalDef,
         magicAtk: mob.magicAtk,
         magicDef: mob.magicDef,
         hp: mob.hp,
         speed: mob.speed,
+      };
+      const buffed = applyStarMultiplier(baseMobStats, stars);
+      const mobStats: BaseStats = {
+        physicalAtk: buffed.physicalAtk,
+        physicalDef: buffed.physicalDef,
+        magicAtk: buffed.magicAtk,
+        magicDef: buffed.magicDef,
+        hp: buffed.hp,
+        speed: buffed.speed,
       };
 
       // Cada mob instance recebe um playerId unico (mesmo que seja o mesmo mob repetido)
@@ -280,16 +305,18 @@ export async function POST(request: NextRequest) {
         tier: mob.tier,
         imageUrl: mob.imageUrl ?? null,
       })),
+      encounterStars: encounterStarsMap,
     });
 
     return apiSuccess(
       {
         battleId,
         mode,
+        encounterStars: encounterStarsMap,
         mobs: selectedMobs.map((mob, index) => ({
           name: mob.name,
           tier: mob.tier,
-          hp: mob.hp,
+          hp: mobStates[index].baseStats.hp,
           index,
           playerId: mobStates[index].playerId,
           imageUrl: mob.imageUrl ?? null,

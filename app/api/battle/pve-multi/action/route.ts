@@ -17,6 +17,7 @@ import { pveMultiActionSchema } from "@/lib/validations/pve-multi";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
 import { processLevelUp } from "@/lib/exp/level-up";
 import { applyCardDropAndStats } from "@/lib/cards/drop";
+import type { EncounterStars } from "@/lib/mobs/encounter-stars";
 import type { CardRarity } from "@/types/cards";
 
 const RARITY_RANK: Record<CardRarity, number> = {
@@ -66,18 +67,21 @@ async function applyDropsAndStatsForMobs(
   userId: string,
   mobs: ReadonlyArray<MobState>,
   log: ReadonlyArray<TurnLogEntry>,
+  encounterStarsByMobId: Record<string, EncounterStars>,
 ): Promise<DroppedCardPayload | null> {
   let best: DroppedCardPayload | null = null;
   let bestRank = 0;
   for (const mob of mobs) {
     const damageDealt = sumDamageDealtToTarget(log, userId, mob.playerId);
     const result = mob.defeated ? "VICTORY" : "DEFEAT";
+    const stars = encounterStarsByMobId[mob.mobId] ?? 1;
     try {
       const dropResult = await applyCardDropAndStats(tx, {
         userId,
         mobId: mob.mobId,
         result,
         damageDealt,
+        encounterStars: stars,
       });
       if (dropResult.cardDropped) {
         const rank = RARITY_RANK[dropResult.cardDropped.rarity as CardRarity] ?? 0;
@@ -149,7 +153,13 @@ export async function POST(request: NextRequest) {
             mobIds: state.mobs.map((m) => m.mobId),
           },
         });
-        return applyDropsAndStatsForMobs(tx, userId, state.mobs, state.turnLog);
+        return applyDropsAndStatsForMobs(
+          tx,
+          userId,
+          state.mobs,
+          state.turnLog,
+          session.encounterStars,
+        );
       });
 
       removeMultiPveBattle(battleId);
@@ -255,6 +265,7 @@ export async function POST(request: NextRequest) {
               userId,
               newState.mobs,
               newState.turnLog,
+              session.encounterStars,
             );
           });
 
@@ -293,6 +304,7 @@ export async function POST(request: NextRequest) {
             userId,
             newState.mobs,
             newState.turnLog,
+            session.encounterStars,
           );
         });
 
@@ -330,6 +342,7 @@ export async function POST(request: NextRequest) {
           userId,
           newState.mobs,
           newState.turnLog,
+          session.encounterStars,
         );
       });
 

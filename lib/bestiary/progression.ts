@@ -12,7 +12,7 @@ import type {
   BestiaryEntry,
   BestiaryUnlockTier,
   BestiaryMobSkill,
-  CardRarity,
+  BestiaryCardInfo,
 } from "@/types/cards";
 import {
   BestiaryUnlockTier as BestiaryUnlockTierEnum,
@@ -66,33 +66,28 @@ export type BestiaryKillStatInput = {
 export type BuildBestiaryEntryInput = {
   mob: BestiaryMobInput;
   killStat: BestiaryKillStatInput | null;
-  hasCard: boolean;
-  cardRarity: CardRarity | null;
-  /** URL da arte da carta. Sera enviada ao cliente apenas se hasCard=true. */
-  cardArtUrl: string | null;
+  /**
+   * Lista de variantes de cristal do mob, ordenada por `requiredStars`
+   * ascendente. Cada variante ja vem com `hasCard`, `cardArtUrl` e
+   * `flavorText` aplicados conforme posse do usuario.
+   */
+  cards: BestiaryCardInfo[];
 };
 
 export function buildBestiaryEntry({
   mob,
   killStat,
-  hasCard,
-  cardRarity,
-  cardArtUrl,
+  cards,
 }: BuildBestiaryEntryInput): BestiaryEntry {
   const victories = killStat?.victories ?? 0;
   const unlockTier = getUnlockTier(victories);
 
   // Base — sempre presente.
-  // artUrl so eh exposto se o usuario possui o cristal (espelha gating de hasCard).
   const entry: BestiaryEntry = {
     mobId: mob.id,
     unlockTier,
     victories,
-    card: {
-      hasCard,
-      rarity: cardRarity,
-      artUrl: hasCard ? cardArtUrl : null,
-    },
+    cards,
     name: null,
     tier: null,
     imageUrl: null,

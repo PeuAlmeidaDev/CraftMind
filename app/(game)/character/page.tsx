@@ -208,6 +208,18 @@ export default function CharacterPage() {
     }
   }, []);
 
+  const refetchCharacter = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    const res = await fetch("/api/character", authFetchOptions(token));
+    if (res.ok) {
+      const json = (await res.json()) as {
+        data: { character: Character; skills: CharacterSkillSlot[] };
+      };
+      setCharacter(json.data.character);
+    }
+  }, []);
+
   function handleCardSlotClick(slotIndex: number) {
     setSelectedCardSlot(slotIndex);
   }
@@ -228,7 +240,7 @@ export default function CharacterPage() {
         body: JSON.stringify({ userCardId, slotIndex }),
       });
       if (res.ok) {
-        await refetchCards();
+        await Promise.all([refetchCards(), refetchCharacter()]);
         setSelectedCardSlot(null);
       }
     } finally {
@@ -251,7 +263,7 @@ export default function CharacterPage() {
         credentials: "include",
         body: JSON.stringify({ slotIndex }),
       });
-      if (res.ok) await refetchCards();
+      if (res.ok) await Promise.all([refetchCards(), refetchCharacter()]);
     } finally {
       cardActionRef.current = false;
     }

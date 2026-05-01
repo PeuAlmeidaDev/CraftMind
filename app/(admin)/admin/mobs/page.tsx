@@ -12,6 +12,11 @@ type MobSkillEntry = {
   skill: { id: string; name: string; tier: number; damageType: string };
 };
 
+type MobCardLite = {
+  id: string;
+  requiredStars: number;
+};
+
 type MobRow = {
   id: string;
   name: string;
@@ -25,8 +30,36 @@ type MobRow = {
   magicDef: number;
   hp: number;
   speed: number;
+  maxStars: number;
   skills: MobSkillEntry[];
+  cards: MobCardLite[];
 };
+
+function getStarsInconsistency(
+  maxStars: number,
+  cards: MobCardLite[],
+): string | null {
+  const has2 = cards.some((c) => c.requiredStars === 2);
+  const has3 = cards.some((c) => c.requiredStars === 3);
+
+  if (maxStars === 3) {
+    if (!has2 && !has3) return "Faltam variantes para 2 e 3 estrelas";
+    if (has2 && !has3) return "Falta variante 3 estrelas";
+    if (!has2 && has3) return "Falta variante 2 estrelas";
+  }
+
+  if (maxStars === 2 && !has2) {
+    return "Falta variante 2 estrelas";
+  }
+
+  return null;
+}
+
+function maxStarsChipClass(maxStars: number): string {
+  if (maxStars === 3) return "bg-amber-700/30 text-amber-200";
+  if (maxStars === 2) return "bg-amber-500/20 text-amber-300";
+  return "bg-gray-500/20 text-gray-400";
+}
 
 const TIER_COLORS: Record<number, string> = {
   1: "bg-gray-500/20 text-gray-400",
@@ -204,11 +237,31 @@ export default function AdminMobsPage() {
                 )}
                 <div className="min-w-0">
                   <p className="text-white font-semibold truncate">{mob.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${TIER_COLORS[mob.tier] ?? TIER_COLORS[1]}`}>
                       T{mob.tier}
                     </span>
                     <span className="text-[10px] text-gray-500 uppercase">{mob.aiProfile}</span>
+                    <span
+                      className={`text-[10px] font-semibold rounded-full px-2 py-0.5 tracking-wider ${maxStarsChipClass(mob.maxStars)}`}
+                      title={`Estrelas maximas no encontro: ${mob.maxStars}`}
+                      aria-label={`Estrelas maximas: ${mob.maxStars}`}
+                    >
+                      {`★ ${mob.maxStars}`}
+                    </span>
+                    {(() => {
+                      const warning = getStarsInconsistency(mob.maxStars, mob.cards ?? []);
+                      if (!warning) return null;
+                      return (
+                        <span
+                          className="text-[11px] font-semibold rounded-full px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 cursor-help"
+                          title={warning}
+                          aria-label={warning}
+                        >
+                          {"⚠"}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

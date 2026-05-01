@@ -1,30 +1,26 @@
-// lib/cards/drop.ts — Logica de drop de cristais e atualizacao de MobKillStat
+// lib/cards/drop.ts — Logica de drop de cristais (variantes) e atualizacao de MobKillStat
 //
-// `rollCardDrop(tier)` decide se um cristal cai com base na tabela TIER_DROP_RATE.
 // `applyCardDropAndStats({...})` faz tudo em uma transacao Prisma:
 //   1. Upsert MobKillStat (incrementa victories/defeats/damage, atualiza lastSeenAt).
-//   2. Se result === "VICTORY" e o mob tem Card cadastrada e o roll deu drop,
-//      tenta criar UserCard (skipDuplicates pela unique [userId, cardId]).
+//   2. Se result === "VICTORY", busca o mob com TODAS as suas variantes de Card
+//      (uma por requiredStars) e tenta dropar UMA variante por turno seguindo
+//      a ordem decrescente de requiredStars (raras primeiro).
 //
-// A funcao retorna a Card dropada (caso tenha sido a primeira copia) ou null
-// (sem drop OU duplicata bloqueada pela politica "so primeira copia").
+// Cada variante de Card carrega seu proprio dropChance (0-100). A variante so e
+// elegivel se `requiredStars <= encounterStars` (estrela do encontro PvE).
+//
+// Justificativa da ordem decrescente: matando 3 estrelas, a chance esperada de
+// cair Lendaria (ex: 0.3%) deve ser exatamente seu dropChance. Se rolassemos a
+// Comum primeiro e ela passasse no roll, a Lendaria nunca seria avaliada.
+//
+// Politica "primeira copia por cardId": se o usuario ja possui aquele cardId,
+// a iteracao avanca para a proxima variante (em vez de retornar null), porque
+// pode haver outra variante ainda nao coletada nesta mesma rolagem.
+//
+// Se nenhuma variante elegivel passar no roll (ou todas as que passaram ja
+// estavam coletadas), retorna { cardDropped: null }.
 
 import type { Prisma, PrismaClient, Card } from "@prisma/client";
-import { TIER_DROP_RATE } from "@/types/cards";
-
-/**
- * Rola se o cristal cai para um determinado tier.
- *
- * @param tier 1-5
- * @param randomFn Opcional — para testes deterministicos.
- */
-export function rollCardDrop(tier: number, randomFn: () => number = Math.random): boolean {
-  const rate = TIER_DROP_RATE[tier];
-  if (rate === undefined) {
-    return false;
-  }
-  return randomFn() < rate;
-}
 
 export type BattleResult = "VICTORY" | "DEFEAT" | "DRAW";
 
@@ -34,9 +30,9 @@ export type ApplyCardDropAndStatsInput = {
   result: BattleResult;
   /** Dano total causado pelo player ao mob nesta batalha. */
   damageDealt: number;
-  /** Roll opcional ja calculado externamente (para testes). Se omitido, rola internamente. */
-  drop?: boolean;
-  /** Override do RNG quando `drop` nao e fornecido. */
+  /** Estrela do encontro (1, 2 ou 3). Default 1. Define quais variantes sao elegiveis. */
+  encounterStars?: number;
+  /** Override do RNG (para testes deterministicos). */
   randomFn?: () => number;
 };
 
@@ -52,8 +48,10 @@ export type ApplyCardDropAndStatsResult = {
  * - Sempre incrementa o lado correspondente do MobKillStat (victories ou defeats)
  *   e o damage acumulado.
  * - Drop so dispara em VICTORY.
- * - Se o mob nao tem Card cadastrado, retorna null mesmo com roll positivo.
- * - Se o user ja possui a card, retorna null (politica "so primeira copia").
+ * - Itera as variantes elegiveis (requiredStars <= encounterStars) em ordem
+ *   decrescente de requiredStars. Para na primeira variante que dropa e o
+ *   usuario ainda nao possui (politica "primeira copia").
+ * - Se o user ja possui a card que rolou positivo, continua para a proxima.
  *
  * Aceita um `PrismaClient` ou `TransactionClient` para permitir composicao
  * com outras transacoes externas.
@@ -67,7 +65,7 @@ export async function applyCardDropAndStats(
     mobId,
     result,
     damageDealt,
-    drop,
+    encounterStars = 1,
     randomFn,
   } = input;
 
@@ -100,44 +98,57 @@ export async function applyCardDropAndStats(
     return { cardDropped: null };
   }
 
-  // 3. Buscar mob (precisa do tier) + card vinculada
+  // 3. Buscar mob com todas as variantes de Card
   const mob = await client.mob.findUnique({
     where: { id: mobId },
-    select: {
-      tier: true,
-      card: true,
-    },
+    include: { cards: true },
   });
 
-  if (!mob || !mob.card) {
+  if (!mob || mob.cards.length === 0) {
     return { cardDropped: null };
   }
 
-  // 4. Roll
-  const shouldDrop =
-    drop !== undefined ? drop : rollCardDrop(mob.tier, randomFn);
-  if (!shouldDrop) {
+  // 4. Filtrar variantes elegiveis (requiredStars <= encounterStars)
+  //    e ordenar em ordem decrescente (raras primeiro).
+  const eligibleCards: Card[] = mob.cards
+    .filter((c) => c.requiredStars <= encounterStars)
+    .sort((a, b) => b.requiredStars - a.requiredStars);
+
+  if (eligibleCards.length === 0) {
     return { cardDropped: null };
   }
 
-  // 5. Tentar criar UserCard. Se ja existe (constraint unique), nao faz nada.
-  const existing = await client.userCard.findUnique({
-    where: { userId_cardId: { userId, cardId: mob.card.id } },
-    select: { id: true },
-  });
+  const rng = randomFn ?? Math.random;
 
-  if (existing) {
-    return { cardDropped: null };
+  // 5. Iterar variantes em ordem decrescente. Para no primeiro drop bem-sucedido
+  //    em que o user ainda nao possui a copia.
+  for (const card of eligibleCards) {
+    const passed = rng() * 100 < card.dropChance;
+    if (!passed) {
+      continue;
+    }
+
+    const existing = await client.userCard.findUnique({
+      where: { userId_cardId: { userId, cardId: card.id } },
+      select: { id: true },
+    });
+
+    if (existing) {
+      // Usuario ja possui esta variante — tenta a proxima.
+      continue;
+    }
+
+    await client.userCard.create({
+      data: {
+        userId,
+        cardId: card.id,
+        equipped: false,
+        slotIndex: null,
+      },
+    });
+
+    return { cardDropped: card };
   }
 
-  await client.userCard.create({
-    data: {
-      userId,
-      cardId: mob.card.id,
-      equipped: false,
-      slotIndex: null,
-    },
-  });
-
-  return { cardDropped: mob.card };
+  return { cardDropped: null };
 }

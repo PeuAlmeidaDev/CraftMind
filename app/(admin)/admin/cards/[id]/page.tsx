@@ -26,8 +26,16 @@ type CardData = {
   rarity: string;
   cardArtUrl: string | null;
   effects: Effect[];
+  requiredStars: number;
+  dropChance: number;
   mob: { id: string; name: string; tier: number; imageUrl: string | null };
 };
+
+const STARS_OPTIONS = [
+  { value: "1", label: "1★ (encontros 1+)" },
+  { value: "2", label: "2★ (encontros 2+)" },
+  { value: "3", label: "3★ (apenas 3★)" },
+];
 
 export default function EditCardPage() {
   const router = useRouter();
@@ -45,6 +53,8 @@ export default function EditCardPage() {
   const [flavorText, setFlavorText] = useState("");
   const [rarity, setRarity] = useState("COMUM");
   const [effects, setEffects] = useState<Effect[]>([]);
+  const [requiredStars, setRequiredStars] = useState<number>(1);
+  const [dropChance, setDropChance] = useState<number>(5);
 
   const [uploading, setUploading] = useState(false);
   const [deletingImage, setDeletingImage] = useState(false);
@@ -67,6 +77,8 @@ export default function EditCardPage() {
         setFlavorText(data.flavorText);
         setRarity(data.rarity);
         setEffects(Array.isArray(data.effects) ? data.effects : []);
+        setRequiredStars(data.requiredStars);
+        setDropChance(data.dropChance);
       })
       .catch(() => showToast("Erro ao carregar card", "error"))
       .finally(() => setLoading(false));
@@ -151,22 +163,40 @@ export default function EditCardPage() {
       setErrors({ flavorText: "Flavor text obrigatorio" });
       return;
     }
+    if (![1, 2, 3].includes(requiredStars)) {
+      setErrors({ requiredStars: "Estrela deve ser 1, 2 ou 3" });
+      return;
+    }
+    if (
+      Number.isNaN(dropChance) ||
+      dropChance < 0 ||
+      dropChance > 100
+    ) {
+      setErrors({ dropChance: "Chance de drop deve estar entre 0 e 100" });
+      return;
+    }
 
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/cards/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           flavorText: flavorText.trim(),
           rarity,
+          requiredStars,
+          dropChance,
           effects,
         }),
       });
       const json = await res.json();
       if (!res.ok) {
-        showToast(json.error ?? "Erro ao salvar", "error");
+        const msg = json.error ?? "Erro ao salvar";
+        if (res.status === 409) {
+          setErrors({ requiredStars: msg });
+        }
+        showToast(msg, "error");
         if (json.details) {
           console.error("Validation details:", json.details);
         }
@@ -324,6 +354,79 @@ export default function EditCardPage() {
               onChange={setRarity}
               options={RARITY_OPTIONS}
             />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="requiredStars"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Estrela minima do encontro
+                  <span className="text-red-400 ml-1">*</span>
+                </label>
+                <select
+                  id="requiredStars"
+                  name="requiredStars"
+                  value={String(requiredStars)}
+                  onChange={(e) => setRequiredStars(Number(e.target.value))}
+                  className={`w-full bg-[var(--bg-secondary)] border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer ${
+                    errors.requiredStars
+                      ? "border-red-500"
+                      : "border-[var(--border-subtle)]"
+                  }`}
+                >
+                  {STARS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.requiredStars && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {errors.requiredStars}
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Variante so dropa em encontros &gt;= {requiredStars}★.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="dropChance"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Chance de drop (0-100)
+                  <span className="text-red-400 ml-1">*</span>
+                </label>
+                <input
+                  id="dropChance"
+                  name="dropChance"
+                  type="number"
+                  step={0.1}
+                  min={0}
+                  max={100}
+                  value={Number.isFinite(dropChance) ? dropChance : 0}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDropChance(v === "" ? 0 : Number(v));
+                  }}
+                  className={`w-full bg-[var(--bg-secondary)] border rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[var(--accent-primary)] transition-colors ${
+                    errors.dropChance
+                      ? "border-red-500"
+                      : "border-[var(--border-subtle)]"
+                  }`}
+                />
+                {errors.dropChance && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {errors.dropChance}
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Percentual rolado quando a variante e elegivel.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Effects editor */}

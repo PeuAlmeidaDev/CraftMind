@@ -657,6 +657,7 @@ async function main(): Promise<void> {
     speed: number
     imageUrl: string
     skills: [string, string, string, string]
+    maxStars?: number
   }
 
   const mobs: MobData[] = [
@@ -669,6 +670,7 @@ async function main(): Promise<void> {
       physicalAtk: 10, physicalDef: 12, magicAtk: 10, magicDef: 10, hp: 120, speed: 10,
       imageUrl: 'https://res.cloudinary.com/dif33bta3/image/upload/v1776721358/craft-mind/monsters/slime.jpg',
       skills: ['Ataque Rapido', 'Fagulha Arcana', 'Cura Vital', 'Postura Defensiva'],
+      maxStars: 3,
     },
     {
       name: 'Rato de Esgoto', description: 'Roedor agressivo que ataca sem hesitar. Rapido e imprevisivel.',
@@ -779,6 +781,7 @@ async function main(): Promise<void> {
   for (const mobData of mobs) {
     const { skills: skillNames, ...mobFields } = mobData
 
+    const maxStars = mobFields.maxStars ?? 1
     const mob = await prisma.mob.upsert({
       where: { name: mobFields.name },
       update: {
@@ -794,8 +797,9 @@ async function main(): Promise<void> {
         hp: mobFields.hp,
         speed: mobFields.speed,
         imageUrl: mobFields.imageUrl,
+        maxStars,
       },
-      create: mobFields,
+      create: { ...mobFields, maxStars },
     })
 
     // Buscar skills pelo nome exato
@@ -973,6 +977,16 @@ async function main(): Promise<void> {
     },
   ]
 
+  // dropChance da variante 1 estrela por tier do mob.
+  // Tier 1 -> 8% / Tier 2 -> 5% / Tier 3 -> 3% / Tier 4 -> 1.5% / Tier 5 -> 0.5%.
+  const dropChanceByTier: Record<number, number> = {
+    1: 8,
+    2: 5,
+    3: 3,
+    4: 1.5,
+    5: 0.5,
+  }
+
   console.log('Seeding cards...')
   for (const cardData of cards) {
     const mob = await prisma.mob.findUnique({ where: { name: cardData.mobName } })
@@ -980,13 +994,16 @@ async function main(): Promise<void> {
       console.warn(`  Cristal ignorado — mob "${cardData.mobName}" nao encontrado.`)
       continue
     }
+    const dropChance = dropChanceByTier[mob.tier] ?? 5
     await prisma.card.upsert({
-      where: { mobId: mob.id },
+      where: { mobId_requiredStars: { mobId: mob.id, requiredStars: 1 } },
       update: {
         name: cardData.name,
         flavorText: cardData.flavorText,
         rarity: cardData.rarity,
         effects: cardData.effects as unknown as Prisma.InputJsonValue,
+        dropChance,
+        requiredStars: 1,
       },
       create: {
         mobId: mob.id,
@@ -994,10 +1011,71 @@ async function main(): Promise<void> {
         flavorText: cardData.flavorText,
         rarity: cardData.rarity,
         effects: cardData.effects as unknown as Prisma.InputJsonValue,
+        dropChance,
+        requiredStars: 1,
       },
     })
   }
   console.log(`  ${cards.length} cards upserted.`)
+
+  // ------------------------------------------------------------
+  // Variantes de exemplo — Slime Verdejante (2 estrelas e 3 estrelas)
+  // Validacao visual da feature de variantes. Variantes raras sao
+  // colecionaveis puros (effects: []), sem bonus de stats — apenas
+  // trofeu visual com flavor narrativo. A variante 1 estrela continua
+  // sendo a unica que concede stats.
+  // ------------------------------------------------------------
+
+  console.log('Seeding card variants (Slime Verdejante 2*/3*)...')
+  const variantHostMob = await prisma.mob.findUnique({ where: { name: 'Slime Verdejante' } })
+  if (!variantHostMob) {
+    console.warn('  Variantes ignoradas — mob "Slime Verdejante" nao encontrado.')
+  } else {
+    await prisma.card.upsert({
+      where: { mobId_requiredStars: { mobId: variantHostMob.id, requiredStars: 2 } },
+      create: {
+        mobId: variantHostMob.id,
+        name: 'Cristal Heroico do Goblin',
+        flavorText:
+          'Dizem os anciões que o primeiro goblin nasceu da risada de uma raposa que tropeçou numa pedra. Por isso eles riem quando caem — não por dor, mas em homenagem à mãe trapalhona da espécie.',
+        rarity: 'RARO',
+        requiredStars: 2,
+        dropChance: 1.5,
+        effects: [] as unknown as Prisma.InputJsonValue,
+      },
+      update: {
+        name: 'Cristal Heroico do Goblin',
+        flavorText:
+          'Dizem os anciões que o primeiro goblin nasceu da risada de uma raposa que tropeçou numa pedra. Por isso eles riem quando caem — não por dor, mas em homenagem à mãe trapalhona da espécie.',
+        rarity: 'RARO',
+        dropChance: 1.5,
+        effects: [] as unknown as Prisma.InputJsonValue,
+      },
+    })
+
+    await prisma.card.upsert({
+      where: { mobId_requiredStars: { mobId: variantHostMob.id, requiredStars: 3 } },
+      create: {
+        mobId: variantHostMob.id,
+        name: 'Cristal Ancestral do Goblin',
+        flavorText:
+          'Nas noites sem lua, os clãs goblin se reúnem para trocar pedrinhas brilhantes. Cada pedrinha é uma história — quem acumula mais histórias vira conselheiro. Eles não têm rei: têm o-que-mais-soube-ouvir.',
+        rarity: 'LENDARIO',
+        requiredStars: 3,
+        dropChance: 0.3,
+        effects: [] as unknown as Prisma.InputJsonValue,
+      },
+      update: {
+        name: 'Cristal Ancestral do Goblin',
+        flavorText:
+          'Nas noites sem lua, os clãs goblin se reúnem para trocar pedrinhas brilhantes. Cada pedrinha é uma história — quem acumula mais histórias vira conselheiro. Eles não têm rei: têm o-que-mais-soube-ouvir.',
+        rarity: 'LENDARIO',
+        dropChance: 0.3,
+        effects: [] as unknown as Prisma.InputJsonValue,
+      },
+    })
+    console.log('  2 card variants upserted (2* RARO, 3* LENDARIO).')
+  }
 
   console.log('Seeding bosses...')
   await seedBosses()

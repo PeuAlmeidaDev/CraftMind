@@ -346,6 +346,8 @@ model Mob {
   tier         Int
   aiProfile    String
   imageUrl     String?
+  // 1 = mob comum (nunca varia); 2 ou 3 = pode aparecer em versao Heroi/Lendaria com stats escalados
+  maxStars     Int     @default(1)
 
   physicalAtk Int
   physicalDef Int
@@ -356,7 +358,7 @@ model Mob {
 
   skills       MobSkill[]
   pveBattles   PveBattle[]
-  card         Card?
+  cards        Card[]
   mobKillStats MobKillStat[]
 
   createdAt DateTime @default(now())
@@ -574,23 +576,29 @@ model TeamBattleParticipant {
 // ============================================================
 
 model Card {
-  id         String     @id @default(cuid())
-  mobId      String     @unique
-  name       String     @unique
-  flavorText String
-  rarity     CardRarity
+  id            String     @id @default(cuid())
+  mobId         String
+  name          String     @unique
+  flavorText    String
+  rarity        CardRarity
   // URL Cloudinary da arte da carta (separada da imageUrl do mob).
   // Pode ser null enquanto o asset nao foi gerado/uploaded.
-  cardArtUrl String?
+  cardArtUrl    String?
   // Array tipado de CardEffect (validado em lib/validations/cards.ts).
   // Ver types/cards.ts para o discriminated union: STAT_FLAT | STAT_PERCENT | TRIGGER | STATUS_RESIST.
-  effects    Json       @default("[]")
+  effects       Json       @default("[]")
+  // 0-100, percentual individual de drop quando a variante e elegivel
+  dropChance    Float      @default(5)
+  // Estrela minima do encontro para esta variante cair (1, 2 ou 3)
+  requiredStars Int        @default(1)
 
   mob       Mob        @relation(fields: [mobId], references: [id], onDelete: Cascade)
   userCards UserCard[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([mobId, requiredStars])
 }
 
 // ============================================================
