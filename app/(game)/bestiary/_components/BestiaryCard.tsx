@@ -238,6 +238,7 @@ export default function BestiaryCard({ entry, onSelect }: Props) {
                   key={stars}
                   stars={stars}
                   variant={variant ?? null}
+                  mobImageUrl={entry.imageUrl}
                   onClick={(c) => onSelect(c)}
                 />
               );
@@ -256,10 +257,12 @@ export default function BestiaryCard({ entry, onSelect }: Props) {
 function VariantSlot({
   stars,
   variant,
+  mobImageUrl,
   onClick,
 }: {
   stars: number;
   variant: BestiaryCardInfo | null;
+  mobImageUrl: string | null;
   onClick: (variant: BestiaryCardInfo) => void;
 }) {
   const starsLabel = STAR_LABEL[stars] ?? "★";
@@ -302,6 +305,7 @@ function VariantSlot({
   const ariaLabel = isOwned
     ? `Variante ${starsLabel} ${RARITY_LABEL[variant.rarity]} coletada`
     : `Variante ${starsLabel} nao coletada — derrote a versao ${stars} estrelas para coletar`;
+  const slotArt = variant.cardArtUrl ?? mobImageUrl;
 
   return (
     <button
@@ -315,9 +319,9 @@ function VariantSlot({
       }}
     >
       {/* Arte da variante (se cadastrada) — silhueta cinza quando nao coletada. */}
-      {variant.cardArtUrl ? (
+      {slotArt ? (
         <Image
-          src={variant.cardArtUrl}
+          src={slotArt}
           alt=""
           fill
           sizes="(max-width: 640px) 16vw, 80px"
