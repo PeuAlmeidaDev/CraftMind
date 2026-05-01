@@ -6,6 +6,11 @@ import { hasActiveBattle, setPveBattle } from "@/lib/battle/pve-store";
 import { initBattle } from "@/lib/battle/init";
 import { loadEquippedCardsAndApply } from "@/lib/cards/load-equipped";
 import { getPlayerTier, rollMobTier, selectRandomMob } from "@/lib/exp/matchmaking";
+import {
+  rollEncounterStars,
+  applyStarMultiplier,
+  type StatBlock,
+} from "@/lib/mobs/encounter-stars";
 import type { EquippedSkill, BaseStats } from "@/lib/battle/types";
 import type { AiProfile } from "@/lib/battle/ai-profiles";
 import type {
@@ -163,13 +168,25 @@ export async function POST(request: NextRequest) {
       baseStats,
     );
 
-    const mobStats: BaseStats = {
+    // Sortear estrela do encontro e aplicar multiplicador nos stats do mob
+    // (alteracao apenas em memoria — nao persiste no banco).
+    const stars = rollEncounterStars(mob.maxStars);
+    const baseMobStats: StatBlock = {
       physicalAtk: mob.physicalAtk,
       physicalDef: mob.physicalDef,
       magicAtk: mob.magicAtk,
       magicDef: mob.magicDef,
       hp: mob.hp,
       speed: mob.speed,
+    };
+    const buffedMobStats = applyStarMultiplier(baseMobStats, stars);
+    const mobStats: BaseStats = {
+      physicalAtk: buffedMobStats.physicalAtk,
+      physicalDef: buffedMobStats.physicalDef,
+      magicAtk: buffedMobStats.magicAtk,
+      magicDef: buffedMobStats.magicDef,
+      hp: buffedMobStats.hp,
+      speed: buffedMobStats.speed,
     };
 
     const battleId = crypto.randomUUID();
@@ -200,17 +217,19 @@ export async function POST(request: NextRequest) {
       mobTier: mob.tier,
       mobImageUrl: mob.imageUrl ?? null,
       mobDescription: mob.description,
+      encounterStars: stars,
     });
 
     return apiSuccess({
       battleId,
       playerId: userId,
       mobId: mob.id,
+      encounterStars: stars,
       mob: {
         name: mob.name,
         description: mob.description,
         tier: mob.tier,
-        hp: mob.hp,
+        hp: mobStats.hp,
         aiProfile: mob.aiProfile,
         imageUrl: mob.imageUrl ?? null,
       },

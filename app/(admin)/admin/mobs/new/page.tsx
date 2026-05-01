@@ -23,6 +23,7 @@ const TIER_OPTIONS = [
 ];
 
 type SkillOption = { id: string; name: string; tier: number; damageType: string };
+type MaxStars = 1 | 2 | 3;
 
 export default function NewMobPage() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function NewMobPage() {
   const [magicDef, setMagicDef] = useState("50");
   const [hp, setHp] = useState("100");
   const [speed, setSpeed] = useState("50");
+  const [maxStars, setMaxStars] = useState<MaxStars>(1);
   const [slots, setSlots] = useState<(string | null)[]>([null, null, null, null]);
 
   useEffect(() => {
@@ -70,6 +72,10 @@ export default function NewMobPage() {
 
     if (!name.trim()) { setErrors({ name: "Nome obrigatorio" }); return; }
     if (!description.trim()) { setErrors({ description: "Descricao obrigatoria" }); return; }
+    if (![1, 2, 3].includes(maxStars)) {
+      setErrors({ maxStars: "Estrelas maximas deve ser 1, 2 ou 3" });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -88,6 +94,7 @@ export default function NewMobPage() {
           magicDef: Number(magicDef),
           hp: Number(hp),
           speed: Number(speed),
+          maxStars,
         }),
       });
 
@@ -153,6 +160,42 @@ export default function NewMobPage() {
             <FormField label="Descricao" name="description" type="textarea" value={description} onChange={setDescription} error={errors.description} required />
           </div>
           <FormField label="AI Profile" name="aiProfile" type="select" value={aiProfile} onChange={setAiProfile} options={AI_OPTIONS} required />
+
+          <div>
+            <label
+              htmlFor="maxStars"
+              className="block text-sm font-medium text-gray-300 mb-1"
+            >
+              Estrelas maximas no encontro
+              <span className="text-red-400 ml-1">*</span>
+            </label>
+            <select
+              id="maxStars"
+              name="maxStars"
+              value={String(maxStars)}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (n === 1 || n === 2 || n === 3) setMaxStars(n);
+              }}
+              className={`w-full bg-[var(--bg-secondary)] border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer ${
+                errors.maxStars
+                  ? "border-red-500"
+                  : "border-[var(--border-subtle)]"
+              }`}
+            >
+              <option value="1">1 estrela</option>
+              <option value="2">2 estrelas</option>
+              <option value="3">3 estrelas</option>
+            </select>
+            {errors.maxStars && (
+              <p className="text-red-400 text-xs mt-1">{errors.maxStars}</p>
+            )}
+            <p className="text-[10px] text-gray-500 mt-1">
+              Define se este mob pode aparecer em versoes mais fortes. 1 =
+              sempre fraco, 2 = pode ser Heroi (x1.5 stats), 3 = pode ser
+              Lendario (x2.5 stats).
+            </p>
+          </div>
         </div>
 
         {/* Stats */}

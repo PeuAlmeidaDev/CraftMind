@@ -36,7 +36,14 @@ type MobOption = {
 type CardListItem = {
   id: string;
   mobId: string;
+  requiredStars: number;
 };
+
+const STARS_OPTIONS = [
+  { value: "1", label: "1★ (encontros 1+)" },
+  { value: "2", label: "2★ (encontros 2+)" },
+  { value: "3", label: "3★ (apenas 3★)" },
+];
 
 export default function NewCardPage() {
   const router = useRouter();
@@ -47,12 +54,15 @@ export default function NewCardPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [mobs, setMobs] = useState<MobOption[]>([]);
-  const [usedMobIds, setUsedMobIds] = useState<Set<string>>(new Set());
+  // Conjunto de pares "mobId|requiredStars" ja existentes (para bloquear duplicidade no client).
+  const [usedVariants, setUsedVariants] = useState<Set<string>>(new Set());
 
   const [mobId, setMobId] = useState("");
   const [name, setName] = useState("");
   const [flavorText, setFlavorText] = useState("");
   const [rarity, setRarity] = useState("COMUM");
+  const [requiredStars, setRequiredStars] = useState<number>(1);
+  const [dropChance, setDropChance] = useState<number>(5);
   const [effects, setEffects] = useState<Effect[]>([
     { type: "STAT_FLAT", stat: "physicalAtk", value: 5 },
   ]);
@@ -73,18 +83,23 @@ export default function NewCardPage() {
         );
         setMobs(ms);
         const taken = new Set<string>(
-          (cardsRes.data ?? []).map((c: CardListItem) => c.mobId),
+          (cardsRes.data ?? []).map(
+            (c: CardListItem) => `${c.mobId}|${c.requiredStars}`,
+          ),
         );
-        setUsedMobIds(taken);
+        setUsedVariants(taken);
       })
       .catch(() => showToast("Erro ao carregar mobs", "error"))
       .finally(() => setLoading(false));
   }, [showToast]);
 
-  // Mobs disponiveis = sem cristal ainda. Auto-seleciona primeiro disponivel.
+  // Mobs com pelo menos uma variante disponivel (1, 2 ou 3 ainda livre).
   const availableMobs = useMemo(
-    () => mobs.filter((m) => !usedMobIds.has(m.id)),
-    [mobs, usedMobIds],
+    () =>
+      mobs.filter((m) =>
+        [1, 2, 3].some((s) => !usedVariants.has(`${m.id}|${s}`)),
+      ),
+    [mobs, usedVariants],
   );
 
   useEffect(() => {
@@ -101,6 +116,24 @@ export default function NewCardPage() {
     () => mobs.find((m) => m.id === mobId) ?? null,
     [mobs, mobId],
   );
+
+  // Estrelas ja ocupadas para o mob selecionado — bloqueadas no select.
+  const takenStarsForMob = useMemo(() => {
+    if (!mobId) return new Set<number>();
+    const taken = new Set<number>();
+    for (const s of [1, 2, 3]) {
+      if (usedVariants.has(`${mobId}|${s}`)) taken.add(s);
+    }
+    return taken;
+  }, [mobId, usedVariants]);
+
+  // Quando troca de mob ou as estrelas tomadas mudam, garantir uma estrela valida.
+  useEffect(() => {
+    if (takenStarsForMob.has(requiredStars)) {
+      const free = [1, 2, 3].find((s) => !takenStarsForMob.has(s));
+      if (free) setRequiredStars(free);
+    }
+  }, [takenStarsForMob, requiredStars]);
 
   function onMobChange(newId: string) {
     setMobId(newId);
@@ -151,6 +184,25 @@ export default function NewCardPage() {
       setErrors({ flavorText: "Flavor text obrigatorio" });
       return;
     }
+    if (![1, 2, 3].includes(requiredStars)) {
+      setErrors({ requiredStars: "Estrela deve ser 1, 2 ou 3" });
+      return;
+    }
+    if (
+      Number.isNaN(dropChance) ||
+      dropChance < 0 ||
+      dropChance > 100
+    ) {
+      setErrors({ dropChance: "Chance de drop deve estar entre 0 e 100" });
+      return;
+    }
+    if (takenStarsForMob.has(requiredStars)) {
+      setErrors({
+        requiredStars:
+          "Ja existe uma carta para este mob com essa estrela",
+      });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -162,12 +214,19 @@ export default function NewCardPage() {
           name: name.trim(),
           flavorText: flavorText.trim(),
           rarity,
+          requiredStars,
+          dropChance,
           effects,
         }),
       });
       const json = await res.json();
       if (!res.ok) {
-        showToast(json.error ?? "Erro ao criar", "error");
+        const msg = json.error ?? "Erro ao criar";
+        if (res.status === 409) {
+          // Mantem os dados do form e exibe inline + toast.
+          setErrors({ requiredStars: msg });
+        }
+        showToast(msg, "error");
         if (json.details) console.error("Validation details:", json.details);
         return;
       }
@@ -199,12 +258,11 @@ export default function NewCardPage() {
           <h2 className="text-xl font-bold text-white">Novo cristal</h2>
         </div>
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center">
-          <p className="text-gray-300 mb-2">Todos os mobs ja possuem cristal.</p>
+          <p className="text-gray-300 mb-2">
+            Todos os mobs ja possuem as 3 variantes (1★, 2★ e 3★).
+          </p>
           <p className="text-xs text-gray-500">
-            No schema atual cada mob suporta apenas 1 cristal. Para criar
-            variacoes (ex: cristal raro do mesmo mob com efeito extra) sera
-            necessario remover a constraint <code>mobId @unique</code> no
-            modelo <code>Card</code>.
+            Para alterar uma variante existente, edite-a em /admin/cards.
           </p>
         </div>
       </div>
@@ -270,9 +328,8 @@ export default function NewCardPage() {
                 <p className="text-red-400 text-xs mt-1">{errors.mobId}</p>
               )}
               <p className="text-[10px] text-gray-500 mt-1.5">
-                Mostrando apenas mobs sem cristal. {usedMobIds.size} ja com
-                cristal · {availableMobs.length} disponivel
-                {availableMobs.length === 1 ? "" : "s"}.
+                Mostrando mobs com pelo menos uma variante livre. Cada mob
+                pode ter ate 3 variantes (1★/2★/3★).
               </p>
             </div>
 
@@ -303,6 +360,87 @@ export default function NewCardPage() {
               onChange={setRarity}
               options={RARITY_OPTIONS}
             />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="requiredStars"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Estrela minima do encontro
+                  <span className="text-red-400 ml-1">*</span>
+                </label>
+                <select
+                  id="requiredStars"
+                  name="requiredStars"
+                  value={String(requiredStars)}
+                  onChange={(e) => setRequiredStars(Number(e.target.value))}
+                  className={`w-full bg-[var(--bg-secondary)] border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer ${
+                    errors.requiredStars
+                      ? "border-red-500"
+                      : "border-[var(--border-subtle)]"
+                  }`}
+                >
+                  {STARS_OPTIONS.map((opt) => {
+                    const taken = takenStarsForMob.has(Number(opt.value));
+                    return (
+                      <option
+                        key={opt.value}
+                        value={opt.value}
+                        disabled={taken}
+                      >
+                        {opt.label}
+                        {taken ? " — ja existe" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+                {errors.requiredStars && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {errors.requiredStars}
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Variante so dropa em encontros &gt;= {requiredStars}★.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="dropChance"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Chance de drop (0-100)
+                  <span className="text-red-400 ml-1">*</span>
+                </label>
+                <input
+                  id="dropChance"
+                  name="dropChance"
+                  type="number"
+                  step={0.1}
+                  min={0}
+                  max={100}
+                  value={Number.isFinite(dropChance) ? dropChance : 0}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDropChance(v === "" ? 0 : Number(v));
+                  }}
+                  className={`w-full bg-[var(--bg-secondary)] border rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[var(--accent-primary)] transition-colors ${
+                    errors.dropChance
+                      ? "border-red-500"
+                      : "border-[var(--border-subtle)]"
+                  }`}
+                />
+                {errors.dropChance && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {errors.dropChance}
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Percentual rolado quando a variante e elegivel.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Effects editor */}

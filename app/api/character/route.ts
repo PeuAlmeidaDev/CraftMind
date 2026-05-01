@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { loadEquippedCardsAndApply } from "@/lib/cards/load-equipped";
+import type { BaseStats } from "@/lib/battle/types";
+import type { BonusStats } from "@/types/character";
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,8 +56,28 @@ export async function GET(request: NextRequest) {
 
     const { characterSkills, ...characterAttributes } = character;
 
+    const baseStats: BaseStats = {
+      physicalAtk: characterAttributes.physicalAtk,
+      physicalDef: characterAttributes.physicalDef,
+      magicAtk: characterAttributes.magicAtk,
+      magicDef: characterAttributes.magicDef,
+      hp: characterAttributes.hp,
+      speed: characterAttributes.speed,
+    };
+
+    const effective = await loadEquippedCardsAndApply(prisma, userId, baseStats);
+
+    const bonusStats: BonusStats = {
+      physicalAtk: effective.physicalAtk - baseStats.physicalAtk,
+      physicalDef: effective.physicalDef - baseStats.physicalDef,
+      magicAtk: effective.magicAtk - baseStats.magicAtk,
+      magicDef: effective.magicDef - baseStats.magicDef,
+      hp: effective.hp - baseStats.hp,
+      speed: effective.speed - baseStats.speed,
+    };
+
     return apiSuccess({
-      character: characterAttributes,
+      character: { ...characterAttributes, bonusStats },
       skills: characterSkills,
     });
   } catch (error) {

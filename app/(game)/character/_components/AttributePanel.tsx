@@ -101,6 +101,8 @@ export default function AttributePanel({ character, onDistribute }: Props) {
 
   // Modo visualizacao
   if (!isDistributeMode) {
+    const CRYSTAL_WHITE = "#e3f4ff";
+
     return (
       <Panel title="Atributos" right="6 dominios">
         <AttributeRadar
@@ -108,22 +110,24 @@ export default function AttributePanel({ character, onDistribute }: Props) {
             key: s.key,
             abbr: s.abbr,
             icon: s.icon,
-            value: character[s.key],
+            value: character[s.key] + (character.bonusStats?.[s.key] ?? 0),
             max: s.key === "hp" ? 1000 : 100,
           }))}
         />
 
         <div className="mt-3 flex flex-col gap-1.5">
           {STATS.map((stat) => {
-            const value = character[stat.key];
+            const baseValue = character[stat.key];
+            const bonusValue = character.bonusStats?.[stat.key] ?? 0;
             const max = stat.key === "hp" ? 1000 : 100;
-            const pct = Math.min((value / max) * 100, 100);
+            const basePct = Math.min((baseValue / max) * 100, 100);
+            const bonusPct = Math.min((bonusValue / max) * 100, 100 - basePct);
 
             return (
               <div
                 key={stat.key}
                 className="grid items-center gap-2"
-                style={{ gridTemplateColumns: "20px 42px 1fr 32px" }}
+                style={{ gridTemplateColumns: "20px 42px 1fr 56px" }}
               >
                 {/* Icon */}
                 <span
@@ -147,28 +151,55 @@ export default function AttributePanel({ character, onDistribute }: Props) {
                   {stat.abbr}
                 </span>
 
-                {/* Bar */}
+                {/* Bar (base + crystal bonus stacked) */}
                 <div
-                  className="h-[3px] w-full overflow-hidden rounded-full"
+                  className="flex h-[3px] w-full overflow-hidden rounded-full"
                   style={{
                     background: "color-mix(in srgb, var(--gold) 8%, transparent)",
                   }}
                 >
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="h-full transition-all duration-500"
                     style={{
-                      width: `${pct}%`,
+                      width: `${basePct}%`,
                       background: "linear-gradient(90deg, var(--gold), var(--ember))",
+                      borderTopLeftRadius: 9999,
+                      borderBottomLeftRadius: 9999,
+                      borderTopRightRadius: bonusPct > 0 ? 0 : 9999,
+                      borderBottomRightRadius: bonusPct > 0 ? 0 : 9999,
                     }}
                   />
+                  {bonusPct > 0 && (
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${bonusPct}%`,
+                        background: `linear-gradient(90deg, ${CRYSTAL_WHITE}, #ffffff)`,
+                        boxShadow: `0 0 6px ${CRYSTAL_WHITE}, 0 0 2px #ffffff`,
+                        borderTopRightRadius: 9999,
+                        borderBottomRightRadius: 9999,
+                      }}
+                    />
+                  )}
                 </div>
 
-                {/* Value */}
+                {/* Value (base + crystal bonus) */}
                 <span
-                  className="text-right text-[12px] font-medium text-white"
+                  className="flex items-baseline justify-end gap-1 text-[12px] font-medium"
                   style={{ fontFamily: "var(--font-mono)" }}
                 >
-                  {value}
+                  <span className="text-white">{baseValue}</span>
+                  {bonusValue > 0 && (
+                    <span
+                      className="text-[10px]"
+                      style={{
+                        color: CRYSTAL_WHITE,
+                        textShadow: `0 0 4px ${CRYSTAL_WHITE}`,
+                      }}
+                    >
+                      +{bonusValue}
+                    </span>
+                  )}
                 </span>
               </div>
             );

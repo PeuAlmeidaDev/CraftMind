@@ -1,5 +1,6 @@
 // Testes de integracao para GET /api/bestiary.
-// Verifica gating de campos com 0/1/50 vitorias contra o mob.
+// Verifica gating de campos com 0/1/50 vitorias contra o mob e a galeria de
+// variantes (cards: BestiaryCardInfo[]) com hasCard / cardArtUrl / flavorText.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -33,6 +34,26 @@ function makeReq(): NextRequest {
   return new NextRequest("http://localhost:3000/api/bestiary", { method: "GET" });
 }
 
+const slimeCard1 = {
+  id: "card_slime_1",
+  name: "Cristal do Slime",
+  rarity: "COMUM",
+  cardArtUrl: "https://x/card-slime-1.jpg",
+  requiredStars: 1,
+  dropChance: 5,
+  flavorText: "Resquicio mole de uma alma errante.",
+};
+
+const slimeCard2 = {
+  id: "card_slime_2",
+  name: "Cristal do Slime Heroico",
+  rarity: "RARO",
+  cardArtUrl: "https://x/card-slime-2.jpg",
+  requiredStars: 2,
+  dropChance: 4,
+  flavorText: "Refletido na lua, brilha mais forte.",
+};
+
 const mob1 = {
   id: "mob_slime",
   name: "Slime",
@@ -51,7 +72,7 @@ const mob1 = {
   skills: [
     { skill: { name: "Ataque Rapido", tier: 1, damageType: "PHYSICAL" } },
   ],
-  card: { id: "card_slime", rarity: "COMUM" },
+  cards: [slimeCard1],
 };
 
 const mob2 = {
@@ -72,7 +93,40 @@ const mob2 = {
   skills: [
     { skill: { name: "Furia do Dragao", tier: 3, damageType: "PHYSICAL" } },
   ],
-  card: { id: "card_dragao", rarity: "EPICO" },
+  cards: [
+    {
+      id: "card_dragao",
+      name: "Cristal do Dragao",
+      rarity: "EPICO",
+      cardArtUrl: null,
+      requiredStars: 1,
+      dropChance: 1,
+      flavorText: "Coracao em chamas eternas.",
+    },
+  ],
+};
+
+type CardInResponse = {
+  id: string;
+  name: string;
+  rarity: string;
+  requiredStars: number;
+  dropChance: number;
+  hasCard: boolean;
+  cardArtUrl: string | null;
+  flavorText: string | null;
+};
+
+type EntryInResponse = {
+  mobId: string;
+  unlockTier: string;
+  name: string | null;
+  loreExpanded: string | null;
+  masteryBadge: boolean;
+  cards: CardInResponse[];
+  stats: unknown;
+  skills: unknown;
+  victories: number;
 };
 
 describe("GET /api/bestiary", () => {
@@ -88,7 +142,12 @@ describe("GET /api/bestiary", () => {
 
     const res = await GET(makeReq());
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { entries: Array<{ unlockTier: string; name: string | null; loreExpanded: string | null }>; totals: { discovered: number; studied: number; mastered: number; total: number } } };
+    const body = (await res.json()) as {
+      data: {
+        entries: EntryInResponse[];
+        totals: { discovered: number; studied: number; mastered: number; total: number };
+      };
+    };
     expect(body.data.entries).toHaveLength(2);
     for (const e of body.data.entries) {
       expect(e.unlockTier).toBe("UNDISCOVERED");
@@ -116,7 +175,7 @@ describe("GET /api/bestiary", () => {
     mockUserCardFindMany.mockResolvedValue([]);
 
     const res = await GET(makeReq());
-    const body = (await res.json()) as { data: { entries: Array<{ mobId: string; unlockTier: string; name: string | null; stats: unknown; loreExpanded: string | null }> } };
+    const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
     const slimeEntry = body.data.entries.find((e) => e.mobId === "mob_slime");
     expect(slimeEntry?.unlockTier).toBe("DISCOVERED");
     expect(slimeEntry?.name).toBe("Slime");
@@ -124,7 +183,7 @@ describe("GET /api/bestiary", () => {
     expect(slimeEntry?.loreExpanded).toBeNull();
   });
 
-  it("50 vitorias: MASTERED libera lore, masteryBadge, e card.hasCard refletindo posse", async () => {
+  it("50 vitorias e variante coletada: MASTERED libera lore + cards[0].hasCard=true com flavorText e cardArtUrl", async () => {
     mockMobFindMany.mockResolvedValue([mob1]);
     mockMobKillStatFindMany.mockResolvedValue([
       {
@@ -137,21 +196,33 @@ describe("GET /api/bestiary", () => {
         lastSeenAt: new Date("2026-01-30"),
       },
     ]);
-    mockUserCardFindMany.mockResolvedValue([{ cardId: "card_slime" }]);
+    mockUserCardFindMany.mockResolvedValue([{ cardId: "card_slime_1" }]);
 
     const res = await GET(makeReq());
-    const body = (await res.json()) as { data: { entries: Array<{ unlockTier: string; loreExpanded: string | null; masteryBadge: boolean; card: { hasCard: boolean; rarity: string | null }; stats: unknown; skills: unknown }>; totals: { mastered: number } } };
+    const body = (await res.json()) as {
+      data: { entries: EntryInResponse[]; totals: { mastered: number } };
+    };
     const e = body.data.entries[0];
     expect(e.unlockTier).toBe("MASTERED");
     expect(e.loreExpanded).toBe("Lore profunda do Slime.");
     expect(e.masteryBadge).toBe(true);
-    expect(e.card).toEqual({ hasCard: true, rarity: "COMUM" });
+    expect(e.cards).toHaveLength(1);
+    expect(e.cards[0]).toEqual({
+      id: "card_slime_1",
+      name: "Cristal do Slime",
+      rarity: "COMUM",
+      requiredStars: 1,
+      dropChance: 5,
+      hasCard: true,
+      cardArtUrl: "https://x/card-slime-1.jpg",
+      flavorText: "Resquicio mole de uma alma errante.",
+    });
     expect(e.stats).not.toBeNull();
     expect(e.skills).not.toBeNull();
     expect(body.data.totals.mastered).toBe(1);
   });
 
-  it("user nao possui o cristal: card.hasCard=false e rarity=null mesmo em MASTERED", async () => {
+  it("user nao possui o cristal: cards[0].hasCard=false, flavorText=null e cardArtUrl ainda visivel", async () => {
     mockMobFindMany.mockResolvedValue([mob1]);
     mockMobKillStatFindMany.mockResolvedValue([
       {
@@ -167,8 +238,18 @@ describe("GET /api/bestiary", () => {
     mockUserCardFindMany.mockResolvedValue([]); // sem cards
 
     const res = await GET(makeReq());
-    const body = (await res.json()) as { data: { entries: Array<{ card: { hasCard: boolean; rarity: string | null } }> } };
-    expect(body.data.entries[0].card).toEqual({ hasCard: false, rarity: null });
+    const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
+    expect(body.data.entries[0].cards).toHaveLength(1);
+    expect(body.data.entries[0].cards[0]).toEqual({
+      id: "card_slime_1",
+      name: "Cristal do Slime",
+      rarity: "COMUM",
+      requiredStars: 1,
+      dropChance: 5,
+      hasCard: false,
+      cardArtUrl: "https://x/card-slime-1.jpg",
+      flavorText: null,
+    });
   });
 
   it("totals contam corretamente em mistura DISCOVERED/STUDIED/MASTERED", async () => {
@@ -185,11 +266,67 @@ describe("GET /api/bestiary", () => {
     mockUserCardFindMany.mockResolvedValue([]);
 
     const res = await GET(makeReq());
-    const body = (await res.json()) as { data: { totals: { total: number; discovered: number; studied: number; mastered: number } } };
+    const body = (await res.json()) as {
+      data: { totals: { total: number; discovered: number; studied: number; mastered: number } };
+    };
     // discovered count = total de mobs com tier >= DISCOVERED
     expect(body.data.totals.total).toBe(3);
     expect(body.data.totals.discovered).toBe(3); // todos tem >=1
     expect(body.data.totals.studied).toBe(2); // mob1 (50) e mob2 (15)
     expect(body.data.totals.mastered).toBe(1); // so mob1
+  });
+
+  it("mob com 0 variantes coletadas: todas com hasCard=false, flavorText=null, cardArtUrl preservado", async () => {
+    const mobMultiVariant = { ...mob1, cards: [slimeCard1, slimeCard2] };
+    mockMobFindMany.mockResolvedValue([mobMultiVariant]);
+    mockMobKillStatFindMany.mockResolvedValue([
+      { userId: "user_a", mobId: "mob_slime", victories: 1, defeats: 0, damageDealt: 0, firstSeenAt: new Date(), lastSeenAt: new Date() },
+    ]);
+    mockUserCardFindMany.mockResolvedValue([]); // nenhuma variante coletada
+
+    const res = await GET(makeReq());
+    const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
+    const entry = body.data.entries[0];
+    expect(entry.cards).toHaveLength(2);
+    for (const c of entry.cards) {
+      expect(c.hasCard).toBe(false);
+      expect(c.flavorText).toBeNull();
+      // cardArtUrl preservado se cadastrado, null caso contrario.
+      expect(c.cardArtUrl).not.toBeUndefined();
+    }
+    expect(entry.cards[0].cardArtUrl).toBe("https://x/card-slime-1.jpg");
+    expect(entry.cards[1].cardArtUrl).toBe("https://x/card-slime-2.jpg");
+  });
+
+  it("variante 1 coletada e 2 nao coletada: array com hasCard mistos e ordenado por requiredStars asc", async () => {
+    // Mock retorna fora de ordem para confirmar que a ordenacao vem do orderBy do Prisma.
+    const mobMultiVariant = { ...mob1, cards: [slimeCard1, slimeCard2] };
+    mockMobFindMany.mockResolvedValue([mobMultiVariant]);
+    mockMobKillStatFindMany.mockResolvedValue([
+      { userId: "user_a", mobId: "mob_slime", victories: 5, defeats: 0, damageDealt: 0, firstSeenAt: new Date(), lastSeenAt: new Date() },
+    ]);
+    mockUserCardFindMany.mockResolvedValue([{ cardId: "card_slime_1" }]);
+
+    const res = await GET(makeReq());
+    const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
+    const entry = body.data.entries[0];
+    expect(entry.cards.map((c) => c.requiredStars)).toEqual([1, 2]);
+    expect(entry.cards[0].hasCard).toBe(true);
+    expect(entry.cards[0].flavorText).toBe("Resquicio mole de uma alma errante.");
+    expect(entry.cards[1].hasCard).toBe(false);
+    expect(entry.cards[1].flavorText).toBeNull();
+    // Arte continua visivel para nao coletada (mob ja foi visto).
+    expect(entry.cards[1].cardArtUrl).toBe("https://x/card-slime-2.jpg");
+  });
+
+  it("mob sem nenhuma variante cadastrada: cards: []", async () => {
+    const mobNoCards = { ...mob1, cards: [] };
+    mockMobFindMany.mockResolvedValue([mobNoCards]);
+    mockMobKillStatFindMany.mockResolvedValue([]);
+    mockUserCardFindMany.mockResolvedValue([]);
+
+    const res = await GET(makeReq());
+    const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
+    expect(body.data.entries[0].cards).toEqual([]);
   });
 });

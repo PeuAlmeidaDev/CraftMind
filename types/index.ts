@@ -65,6 +65,5 @@ export {
   CardRarity as CardRarityEnum,
   BestiaryUnlockTier as BestiaryUnlockTierEnum,
   TIER_TO_RARITY,
-  TIER_DROP_RATE,
   BESTIARY_THRESHOLDS,
 } from "./cards";

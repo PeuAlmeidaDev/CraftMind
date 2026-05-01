@@ -2,6 +2,16 @@
 
 import type { StatName } from "@/types/skill";
 
+/** Bonus por stat vindo dos cristais equipados (diff entre stats efetivos e base). */
+export type BonusStats = {
+  physicalAtk: number;
+  physicalDef: number;
+  magicAtk: number;
+  magicDef: number;
+  hp: number;
+  speed: number;
+};
+
 /** Atributos do personagem retornados pela API */
 export type Character = {
   id: string;
@@ -14,6 +24,8 @@ export type Character = {
   level: number;
   currentExp: number;
   freePoints: number;
+  /** Diff por stat vindo dos cristais equipados. Pode ser tudo zero. */
+  bonusStats: BonusStats;
 };
 
 /** Stats que podem receber pontos livres (exclui accuracy) */

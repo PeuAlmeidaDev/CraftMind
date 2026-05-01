@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
           mobId: session.mobId,
           result: "DEFEAT",
           damageDealt,
+          encounterStars: session.encounterStars,
         });
       });
 
@@ -214,6 +215,7 @@ export async function POST(request: NextRequest) {
               mobId: session.mobId,
               result,
               damageDealt,
+              encounterStars: session.encounterStars,
             });
           });
 
@@ -244,6 +246,7 @@ export async function POST(request: NextRequest) {
               mobId: session.mobId,
               result,
               damageDealt,
+              encounterStars: session.encounterStars,
             });
           });
         }
@@ -265,6 +268,7 @@ export async function POST(request: NextRequest) {
             mobId: session.mobId,
             result,
             damageDealt,
+            encounterStars: session.encounterStars,
           });
         });
       }

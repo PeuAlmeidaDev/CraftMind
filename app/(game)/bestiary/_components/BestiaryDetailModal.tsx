@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
-import type { BestiaryEntry, CardRarity } from "@/types/cards";
+import type { BestiaryEntry, BestiaryCardInfo, CardRarity } from "@/types/cards";
 import {
   BestiaryUnlockTier,
   BESTIARY_THRESHOLDS,
@@ -10,6 +10,9 @@ import {
 
 type Props = {
   entry: BestiaryEntry | null;
+  /** Variante de cristal focada. Null quando o usuario abre o modal pela
+   * imagem do mob (sem clicar em um slot especifico). */
+  selectedCard: BestiaryCardInfo | null;
   open: boolean;
   onClose: () => void;
 };
@@ -128,7 +131,12 @@ function LockedSection({
 // BestiaryDetailModal
 // ---------------------------------------------------------------------------
 
-export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
+export default function BestiaryDetailModal({
+  entry,
+  selectedCard,
+  open,
+  onClose,
+}: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const handleKeyDown = useCallback(
@@ -186,11 +194,28 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
     entry.unlockTier === BestiaryUnlockTier.MASTERED;
   const isMastered = entry.unlockTier === BestiaryUnlockTier.MASTERED;
 
-  const cardRarity = entry.card.hasCard ? entry.card.rarity : null;
+  // Se uma variante foi clicada, usamos a raridade dela. Caso contrario,
+  // pega a maior raridade entre as variantes coletadas (highlight do mob).
+  const ownedCards = entry.cards.filter((c) => c.hasCard);
+  const focusedRarity: CardRarity | null = selectedCard
+    ? selectedCard.rarity
+    : ownedCards.length > 0
+      ? ownedCards[ownedCards.length - 1].rarity
+      : null;
+  const cardRarity = focusedRarity;
   const rarityClass = cardRarity ? RARITY_CLASS[cardRarity] : "";
   const tierColor =
     entry.tier !== null ? TIER_COLORS[entry.tier] ?? TIER_COLORS[1] : "#3a3a4a";
   const accentColor = cardRarity ? "var(--rarity-color)" : tierColor;
+
+  // Foto exibida na coluna esquerda do modal:
+  // - se o user clicou em uma variante (selectedCard !== null), usa a arte dela
+  //   (em silhueta+grayscale quando nao coletada).
+  // - senao, usa a arte da melhor variante coletada ou a imageUrl do mob.
+  const focusedArt = selectedCard
+    ? selectedCard.cardArtUrl ?? entry.imageUrl
+    : ownedCards[ownedCards.length - 1]?.cardArtUrl ?? entry.imageUrl;
+  const focusedOwned = selectedCard ? selectedCard.hasCard : true;
 
   const next = nextThreshold(entry.victories);
 
@@ -255,7 +280,7 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
                 Mestre
               </span>
             )}
-            {entry.card.hasCard && entry.card.rarity && (
+            {selectedCard && (
               <span
                 className="px-2 py-1 text-[9px] uppercase tracking-[0.3em]"
                 style={{
@@ -264,7 +289,9 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
                   border: "1px solid var(--rarity-color)",
                 }}
               >
-                Cristal {RARITY_LABEL[entry.card.rarity]}
+                Cristal {RARITY_LABEL[selectedCard.rarity]}
+                {" · "}
+                {"★".repeat(selectedCard.requiredStars)}
               </span>
             )}
           </div>
@@ -325,13 +352,16 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
                     ?
                   </span>
                 </div>
-              ) : entry.card.artUrl || entry.imageUrl ? (
+              ) : focusedArt ? (
                 <Image
-                  src={(entry.card.artUrl ?? entry.imageUrl) as string}
+                  src={focusedArt}
                   alt={entry.name ?? "Criatura"}
                   fill
                   sizes="(max-width: 768px) 70vw, 280px"
                   className="object-cover"
+                  style={{
+                    filter: focusedOwned ? undefined : "grayscale(1) brightness(0.55)",
+                  }}
                 />
               ) : (
                 <div
@@ -383,6 +413,55 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
 
           {/* COLUNA DIREITA — Secoes em scroll */}
           <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+          {/* Variante focada — exibida quando o user clicou em um slot */}
+          {selectedCard && (
+            <SectionPanel
+              title={`Cristal ${"★".repeat(selectedCard.requiredStars)} — ${RARITY_LABEL[selectedCard.rarity]}`}
+            >
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+                <StatRow
+                  label="Estrelas"
+                  value={"★".repeat(selectedCard.requiredStars)}
+                />
+                <StatRow
+                  label="Raridade"
+                  value={RARITY_LABEL[selectedCard.rarity]}
+                />
+                <StatRow
+                  label="Chance de drop"
+                  value={`${selectedCard.dropChance}%`}
+                />
+              </div>
+              {selectedCard.hasCard && selectedCard.flavorText ? (
+                <p
+                  className="mt-3 border-t pt-3 text-[13px] italic leading-relaxed"
+                  style={{
+                    borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)",
+                    fontFamily: "var(--font-garamond)",
+                    color: "color-mix(in srgb, var(--ink) 85%, transparent)",
+                    textWrap: "pretty",
+                  }}
+                >
+                  &laquo; {selectedCard.flavorText} &raquo;
+                </p>
+              ) : (
+                <p
+                  className="mt-3 border-t pt-3 text-[12px] italic leading-relaxed"
+                  style={{
+                    borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)",
+                    fontFamily: "var(--font-garamond)",
+                    color: "color-mix(in srgb, var(--gold) 65%, transparent)",
+                  }}
+                >
+                  Lore desconhecido — derrote a versao{" "}
+                  {selectedCard.requiredStars}
+                  {selectedCard.requiredStars === 1 ? "⭐" : selectedCard.requiredStars === 2 ? "⭐⭐" : "⭐⭐⭐"}
+                  {" "}deste mob para descobrir.
+                </p>
+              )}
+            </SectionPanel>
+          )}
+
           {/* Cacada — sempre que descoberto */}
           {isDiscovered && entry.personalStats && (
             <SectionPanel title="Caçada">
@@ -426,7 +505,7 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
                   stacked
                 />
               </div>
-              {entry.card.hasCard && entry.card.rarity && (
+              {entry.cards.length > 0 && (
                 <div
                   className="mt-3 flex items-center justify-between border-t pt-2.5"
                   style={{
@@ -440,16 +519,17 @@ export default function BestiaryDetailModal({ entry, open, onClose }: Props) {
                       color: "color-mix(in srgb, var(--gold) 70%, transparent)",
                     }}
                   >
-                    Cristal coletado
+                    Cristais coletados
                   </span>
                   <span
                     className="text-[12px] font-medium uppercase tracking-[0.25em]"
                     style={{
                       fontFamily: "var(--font-cinzel)",
-                      color: "var(--rarity-color)",
+                      color:
+                        ownedCards.length > 0 ? "var(--rarity-color)" : "color-mix(in srgb, var(--gold) 60%, transparent)",
                     }}
                   >
-                    {RARITY_LABEL[entry.card.rarity]}
+                    {ownedCards.length}/{entry.cards.length}
                   </span>
                 </div>
               )}

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { BestiaryEntry, BestiaryTotals } from "@/types/cards";
+import type {
+  BestiaryEntry,
+  BestiaryCardInfo,
+  BestiaryTotals,
+} from "@/types/cards";
 import BestiaryCard from "./BestiaryCard";
 import BestiaryDetailModal from "./BestiaryDetailModal";
 
@@ -10,12 +14,22 @@ type Props = {
   totals: BestiaryTotals;
 };
 
-export default function BestiaryGrid({ entries, totals }: Props) {
-  const [selectedMobId, setSelectedMobId] = useState<string | null>(null);
+type Selection = {
+  mobId: string;
+  /** Se null, modal abre sem variante focada (mostra info geral do mob). */
+  cardId: string | null;
+};
 
-  const selected = selectedMobId
-    ? entries.find((e) => e.mobId === selectedMobId) ?? null
+export default function BestiaryGrid({ entries, totals }: Props) {
+  const [selection, setSelection] = useState<Selection | null>(null);
+
+  const selectedEntry: BestiaryEntry | null = selection
+    ? entries.find((e) => e.mobId === selection.mobId) ?? null
     : null;
+  const selectedCard: BestiaryCardInfo | null =
+    selectedEntry && selection?.cardId
+      ? selectedEntry.cards.find((c) => c.id === selection.cardId) ?? null
+      : null;
 
   return (
     <section className="flex flex-col gap-5">
@@ -127,16 +141,22 @@ export default function BestiaryGrid({ entries, totals }: Props) {
           <BestiaryCard
             key={entry.mobId}
             entry={entry}
-            onClick={() => setSelectedMobId(entry.mobId)}
+            onSelect={(card) =>
+              setSelection({
+                mobId: entry.mobId,
+                cardId: card?.id ?? null,
+              })
+            }
           />
         ))}
       </div>
 
       {/* Modal de detalhe */}
       <BestiaryDetailModal
-        entry={selected}
-        open={selected !== null}
-        onClose={() => setSelectedMobId(null)}
+        entry={selectedEntry}
+        selectedCard={selectedCard}
+        open={selectedEntry !== null}
+        onClose={() => setSelection(null)}
       />
     </section>
   );

@@ -14,6 +14,9 @@ const mobSchema = z.object({
   magicDef: z.number().int().min(1).max(9999),
   hp: z.number().int().min(1).max(9999),
   speed: z.number().int().min(1).max(9999),
+  // maxStars: estrelas maximas que este mob pode rolar em encontros PvE (1, 2 ou 3).
+  // 1 = sempre fraco; 2 = pode aparecer como Heroi; 3 = pode aparecer como Lendario.
+  maxStars: z.number().int().min(1).max(3).optional().default(1),
 });
 
 export async function GET() {
@@ -24,6 +27,12 @@ export async function GET() {
         skills: {
           include: { skill: true },
           orderBy: { slotIndex: "asc" },
+        },
+        // Inclui as variantes de carta (apenas id + requiredStars) para que a
+        // listagem do admin detecte inconsistencia entre maxStars e variantes
+        // cadastradas (ex: maxStars=3 sem variante 3 estrelas).
+        cards: {
+          select: { id: true, requiredStars: true },
         },
       },
     });
@@ -55,6 +64,8 @@ export async function POST(request: NextRequest) {
         magicDef: d.magicDef,
         hp: d.hp,
         speed: d.speed,
+        // Sempre persistido explicitamente (default Zod = 1 quando ausente).
+        maxStars: d.maxStars,
       },
     });
     return apiSuccess(mob, 201);
