@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { cloudinary } from "@/lib/cloudinary";
 
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -22,11 +22,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return apiError("Tipo invalido. Aceitos: JPEG, PNG, WebP", "INVALID_MIME_TYPE", 422);
+      return apiError(
+        "Tipo invalido. Aceitos: JPEG, PNG, WebP, GIF (so lendarias)",
+        "INVALID_MIME_TYPE",
+        422,
+      );
+    }
+
+    if (file.type === "image/gif" && card.rarity !== "LENDARIO") {
+      return apiError(
+        "GIF animado e exclusivo de cartas lendarias",
+        "RARITY_LOCKED",
+        422,
+      );
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return apiError("Arquivo excede 5MB", "FILE_TOO_LARGE", 422);
+      return apiError("Arquivo excede 10MB", "FILE_TOO_LARGE", 422);
     }
 
     const arrayBuffer = await file.arrayBuffer();
