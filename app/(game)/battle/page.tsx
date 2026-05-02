@@ -57,6 +57,27 @@ export type ActiveStatusEffect = {
   turnsElapsed: number;
 };
 
+/** Buff/Debuff/PriorityShift ativo, sanitizado (sem id/onExpire). */
+export type ActiveBuffSummary = {
+  source: "BUFF" | "DEBUFF" | "PRIORITY_SHIFT";
+  stat: string;
+  value: number;
+  remainingTurns: number;
+};
+
+/** Vulnerabilidade ativa, sanitizada (sem id). */
+export type ActiveVulnerabilitySummary = {
+  damageType: "PHYSICAL" | "MAGICAL" | "NONE";
+  percent: number;
+  remainingTurns: number;
+};
+
+/** Counter ativo, sanitizado (sem id/onTrigger). */
+export type ActiveCounterSummary = {
+  powerMultiplier: number;
+  remainingTurns: number;
+};
+
 export type MobInfo = {
   name: string;
   description: string;
@@ -98,11 +119,17 @@ type PveStateData = {
     maxHp: number;
     availableSkills: AvailableSkill[];
     statusEffects: ActiveStatusEffect[];
+    buffs: ActiveBuffSummary[];
+    vulnerabilities: ActiveVulnerabilitySummary[];
+    counters: ActiveCounterSummary[];
   };
   mob: {
     currentHp: number;
     maxHp: number;
     statusEffects: ActiveStatusEffect[];
+    buffs: ActiveBuffSummary[];
+    vulnerabilities: ActiveVulnerabilitySummary[];
+    counters: ActiveCounterSummary[];
     name: string;
     description: string;
     tier: number;
@@ -129,6 +156,12 @@ export default function BattlePage() {
   const [availableSkills, setAvailableSkills] = useState<AvailableSkill[]>([]);
   const [playerStatusEffects, setPlayerStatusEffects] = useState<ActiveStatusEffect[]>([]);
   const [mobStatusEffects, setMobStatusEffects] = useState<ActiveStatusEffect[]>([]);
+  const [playerBuffs, setPlayerBuffs] = useState<ActiveBuffSummary[]>([]);
+  const [mobBuffs, setMobBuffs] = useState<ActiveBuffSummary[]>([]);
+  const [playerVulnerabilities, setPlayerVulnerabilities] = useState<ActiveVulnerabilitySummary[]>([]);
+  const [mobVulnerabilities, setMobVulnerabilities] = useState<ActiveVulnerabilitySummary[]>([]);
+  const [playerCounters, setPlayerCounters] = useState<ActiveCounterSummary[]>([]);
+  const [mobCounters, setMobCounters] = useState<ActiveCounterSummary[]>([]);
   const [acting, setActing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
@@ -295,6 +328,12 @@ export default function BattlePage() {
             setAvailableSkills(s.player.availableSkills);
             setPlayerStatusEffects(s.player.statusEffects);
             setMobStatusEffects(s.mob.statusEffects);
+            setPlayerBuffs(s.player.buffs);
+            setMobBuffs(s.mob.buffs);
+            setPlayerVulnerabilities(s.player.vulnerabilities);
+            setMobVulnerabilities(s.mob.vulnerabilities);
+            setPlayerCounters(s.player.counters);
+            setMobCounters(s.mob.counters);
             setEvents([]);
             setBattleResult(null);
             setPhase("BATTLE");
@@ -418,9 +457,15 @@ export default function BattlePage() {
             player: {
               availableSkills: AvailableSkill[];
               statusEffects: ActiveStatusEffect[];
+              buffs: ActiveBuffSummary[];
+              vulnerabilities: ActiveVulnerabilitySummary[];
+              counters: ActiveCounterSummary[];
             };
             mob: {
               statusEffects: ActiveStatusEffect[];
+              buffs: ActiveBuffSummary[];
+              vulnerabilities: ActiveVulnerabilitySummary[];
+              counters: ActiveCounterSummary[];
             };
           };
         };
@@ -428,6 +473,12 @@ export default function BattlePage() {
         setAvailableSkills(stateJson.data.player.availableSkills);
         setPlayerStatusEffects(stateJson.data.player.statusEffects);
         setMobStatusEffects(stateJson.data.mob.statusEffects);
+        setPlayerBuffs(stateJson.data.player.buffs);
+        setMobBuffs(stateJson.data.mob.buffs);
+        setPlayerVulnerabilities(stateJson.data.player.vulnerabilities);
+        setMobVulnerabilities(stateJson.data.mob.vulnerabilities);
+        setPlayerCounters(stateJson.data.player.counters);
+        setMobCounters(stateJson.data.mob.counters);
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -549,9 +600,15 @@ export default function BattlePage() {
               player: {
                 availableSkills: AvailableSkill[];
                 statusEffects: ActiveStatusEffect[];
+                buffs: ActiveBuffSummary[];
+                vulnerabilities: ActiveVulnerabilitySummary[];
+                counters: ActiveCounterSummary[];
               };
               mob: {
                 statusEffects: ActiveStatusEffect[];
+                buffs: ActiveBuffSummary[];
+                vulnerabilities: ActiveVulnerabilitySummary[];
+                counters: ActiveCounterSummary[];
               };
             };
           };
@@ -559,6 +616,12 @@ export default function BattlePage() {
           setAvailableSkills(stateJson.data.player.availableSkills);
           setPlayerStatusEffects(stateJson.data.player.statusEffects);
           setMobStatusEffects(stateJson.data.mob.statusEffects);
+          setPlayerBuffs(stateJson.data.player.buffs);
+          setMobBuffs(stateJson.data.mob.buffs);
+          setPlayerVulnerabilities(stateJson.data.player.vulnerabilities);
+          setMobVulnerabilities(stateJson.data.mob.vulnerabilities);
+          setPlayerCounters(stateJson.data.player.counters);
+          setMobCounters(stateJson.data.mob.counters);
         }
 
         if (data.battleOver) {
@@ -706,6 +769,12 @@ export default function BattlePage() {
     setAvailableSkills([]);
     setPlayerStatusEffects([]);
     setMobStatusEffects([]);
+    setPlayerBuffs([]);
+    setMobBuffs([]);
+    setPlayerVulnerabilities([]);
+    setMobVulnerabilities([]);
+    setPlayerCounters([]);
+    setMobCounters([]);
     setActing(false);
     setCardDropped(null);
     setShowCardReveal(false);
@@ -769,6 +838,12 @@ export default function BattlePage() {
         mobMaxHp={mobMaxHp}
         playerStatusEffects={playerStatusEffects}
         mobStatusEffects={mobStatusEffects}
+        playerBuffs={playerBuffs}
+        mobBuffs={mobBuffs}
+        playerVulnerabilities={playerVulnerabilities}
+        mobVulnerabilities={mobVulnerabilities}
+        playerCounters={playerCounters}
+        mobCounters={mobCounters}
         events={events}
         availableSkills={availableSkills}
         onSkillUse={handleSkillUse}

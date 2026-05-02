@@ -65,7 +65,7 @@ api/
     ├── pve/
     │   ├── start/route.ts    # POST (iniciar batalha PvE 1v1 — protegida, matchmaking por tier, sorteia `encounterStars` (1/2/3) e aplica multiplicador nos stats do mob em memoria; resposta inclui `encounterStars: number`)
     │   ├── action/route.ts   # POST (enviar acao do turno 1v1 — protegida, resolve turno com IA, finaliza com EXP/level up; passa `encounterStars` da sessao para o drop)
-    │   ├── state/route.ts    # GET (consultar estado atual da batalha 1v1 — protegida, query param battleId)
+    │   ├── state/route.ts    # GET (consultar estado atual da batalha 1v1 — protegida, query param battleId; retorna `buffs`, `vulnerabilities` e `counters` sanitizados (sem `id`/`onExpire`/`onTrigger`) para player e mob, alem dos `statusEffects`)
     │   └── history/route.ts  # GET (historico paginado de batalhas PvE — protegida, 20 por pagina)
     ├── pve-multi/
     │   ├── start/route.ts    # POST (iniciar batalha PvE 1v3 — protegida, seleciona 3 mobs por tier, sorteia `encounterStars` por mob e aplica multiplicador nos stats; resposta inclui `encounterStars: Record<mobId, number>`)
