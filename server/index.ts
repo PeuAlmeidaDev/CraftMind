@@ -6,16 +6,16 @@ config({ path: path.resolve(__dirname, "..", ".env") });
 import http from "node:http";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
-import { registerMatchmakingHandlers } from "./handlers/matchmaking";
-import { registerBattleHandlers, handleReconnection } from "./handlers/battle";
-import { registerBossMatchmakingHandlers } from "./handlers/boss-matchmaking";
-import { registerBossBattleHandlers, handleBossReconnection } from "./handlers/boss-battle";
-import { registerCoopPveMatchmakingHandlers } from "./handlers/coop-pve-matchmaking";
-import { registerCoopPveBattleHandlers, handleCoopPveReconnection } from "./handlers/coop-pve-battle";
-import { registerCoopPveInviteHandlers } from "./handlers/coop-pve-invite";
-import { registerPvpTeamMatchmakingHandlers } from "./handlers/pvp-team-matchmaking";
-import { registerPvpTeamBattleHandlers, handlePvpTeamReconnection } from "./handlers/pvp-team-battle";
-import { registerPvpTeamInviteHandlers } from "./handlers/pvp-team-invite";
+import { registerMatchmakingHandlers, handleMatchmakingDisconnect } from "./handlers/matchmaking";
+import { registerBattleHandlers, handleReconnection, handleBattleDisconnect } from "./handlers/battle";
+import { registerBossMatchmakingHandlers, handleBossMatchmakingDisconnect } from "./handlers/boss-matchmaking";
+import { registerBossBattleHandlers, handleBossReconnection, handleBossBattleDisconnect } from "./handlers/boss-battle";
+import { registerCoopPveMatchmakingHandlers, handleCoopPveMatchmakingDisconnect } from "./handlers/coop-pve-matchmaking";
+import { registerCoopPveBattleHandlers, handleCoopPveReconnection, handleCoopPveBattleDisconnect } from "./handlers/coop-pve-battle";
+import { registerCoopPveInviteHandlers, handleCoopPveInviteDisconnect } from "./handlers/coop-pve-invite";
+import { registerPvpTeamMatchmakingHandlers, handlePvpTeamMatchmakingDisconnect } from "./handlers/pvp-team-matchmaking";
+import { registerPvpTeamBattleHandlers, handlePvpTeamReconnection, handlePvpTeamBattleDisconnect } from "./handlers/pvp-team-battle";
+import { registerPvpTeamInviteHandlers, handlePvpTeamInviteDisconnect } from "./handlers/pvp-team-invite";
 import { registerSocket, unregisterSocket, getSocketIds, isOnline } from "./stores/user-store";
 import { getPlayerBattle } from "./stores/pvp-store";
 import { getPlayerBossBattle } from "./stores/boss-battle-store";
@@ -334,6 +334,27 @@ io.on("connection", (socket) => {
   registerPvpTeamInviteHandlers(io, socket);
 
   socket.on("disconnect", (reason) => {
+    const cleanups: Array<[string, () => void]> = [
+      ["matchmaking", () => handleMatchmakingDisconnect(io, socket, userId)],
+      ["battle", () => handleBattleDisconnect(io, socket, userId)],
+      ["boss-matchmaking", () => handleBossMatchmakingDisconnect(io, socket, userId)],
+      ["boss-battle", () => handleBossBattleDisconnect(io, socket, userId)],
+      ["coop-pve-invite", () => handleCoopPveInviteDisconnect(io, socket, userId)],
+      ["coop-pve-matchmaking", () => handleCoopPveMatchmakingDisconnect(io, socket, userId)],
+      ["coop-pve-battle", () => handleCoopPveBattleDisconnect(io, socket, userId)],
+      ["pvp-team-invite", () => handlePvpTeamInviteDisconnect(io, socket, userId)],
+      ["pvp-team-matchmaking", () => handlePvpTeamMatchmakingDisconnect(io, socket, userId)],
+      ["pvp-team-battle", () => handlePvpTeamBattleDisconnect(io, socket, userId)],
+    ];
+
+    for (const [name, fn] of cleanups) {
+      try {
+        fn();
+      } catch (err) {
+        console.error(`[Socket.io] disconnect cleanup '${name}' falhou:`, err);
+      }
+    }
+
     unregisterSocket(userId, socket.id);
     console.log(
       `[Socket.io] Desconectado: ${userId} (${reason})`

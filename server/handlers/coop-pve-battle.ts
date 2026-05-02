@@ -564,100 +564,87 @@ export function registerCoopPveBattleHandlers(io: Server, socket: Socket): void 
     }
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handleCoopPveBattleDisconnect
+}
 
-  socket.on("disconnect", () => {
-    const result = getPlayerCoopPveBattle(userId);
-    if (!result) return;
+// ---------------------------------------------------------------------------
+// disconnect
+// ---------------------------------------------------------------------------
 
-    const { battleId, session } = result;
+export function handleCoopPveBattleDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  const result = getPlayerCoopPveBattle(userId);
+  if (!result) return;
 
-    // Ignorar se match ainda pendente (tratado pelo coop-pve-matchmaking handler)
-    if (session.matchTimer) return;
+  const { battleId, session } = result;
 
-    // Ignorar se batalha ja terminou
-    if (session.state.status !== "IN_PROGRESS") return;
+  // Ignorar se match ainda pendente (tratado pelo coop-pve-matchmaking handler)
+  if (session.matchTimer) return;
 
-    const roomName = `coop-pve-battle:${battleId}`;
+  // Ignorar se batalha ja terminou
+  if (session.state.status !== "IN_PROGRESS") return;
 
-    // Iniciar grace period
-    const disconnectTimer = setTimeout(() => {
-      const currentSession = getCoopPveBattle(battleId);
-      if (!currentSession) return;
+  const roomName = `coop-pve-battle:${battleId}`;
 
-      // Se o player reconectou durante o grace, o timer foi limpo
-      if (!currentSession.disconnectedPlayers.has(userId)) return;
+  // Iniciar grace period
+  const disconnectTimer = setTimeout(() => {
+    const currentSession = getCoopPveBattle(battleId);
+    if (!currentSession) return;
 
-      currentSession.disconnectedPlayers.delete(userId);
+    // Se o player reconectou durante o grace, o timer foi limpo
+    if (!currentSession.disconnectedPlayers.has(userId)) return;
 
-      // Marcar player como morto (desconexao permanente = eliminado)
-      const disconnectedPlayer = currentSession.state.team.find(
-        (p) => p.playerId === userId,
-      );
-      if (disconnectedPlayer) {
-        disconnectedPlayer.currentHp = 0;
-      }
+    currentSession.disconnectedPlayers.delete(userId);
 
-      // Verificar se ainda restam players vivos e conectados
-      const aliveAndConnected = currentSession.state.team.filter(
-        (p) =>
-          p.currentHp > 0 &&
-          !currentSession.disconnectedPlayers.has(p.playerId),
-      );
+    // Marcar player desconectado como morto (HP = 0)
+    const disconnectedPlayer = currentSession.state.team.find(
+      (p) => p.playerId === userId,
+    );
+    if (disconnectedPlayer) {
+      disconnectedPlayer.currentHp = 0;
+    }
 
-      if (aliveAndConnected.length === 0) {
-        // Todos mortos ou desconectados — encerrar como derrota
-        currentSession.state.status = "FINISHED";
-        currentSession.state.result = "DEFEAT";
+    // Em coop-pve, desconexao permanente encerra a batalha como DEFEAT
+    currentSession.state.status = "FINISHED";
+    currentSession.state.result = "DEFEAT";
 
-        if (currentSession.turnTimer) {
-          clearTimeout(currentSession.turnTimer);
-          currentSession.turnTimer = null;
-        }
+    if (currentSession.turnTimer) {
+      clearTimeout(currentSession.turnTimer);
+      currentSession.turnTimer = null;
+    }
 
-        io.to(roomName).emit("coop-pve:battle:end", {
-          result: "DEFEAT",
-          message: "Todos os aliados desconectaram. Batalha encerrada.",
-        });
-
-        persistCoopPveResult(currentSession).catch((err) => {
-          console.log(
-            `[Socket.io] Erro ao persistir coop PvE ${battleId} (desconexao permanente de ${userId}): ${String(err)}`
-          );
-        });
-
-        readyPlayers.delete(battleId);
-        removeCoopPveBattle(battleId);
-        console.log(
-          `[Socket.io] Coop PvE ${battleId} encerrada: todos desconectaram permanentemente`
-        );
-      } else {
-        // Ainda ha players vivos — notificar e continuar
-        io.to(roomName).emit("coop-pve:battle:player-eliminated", {
-          playerId: userId,
-          message: "Aliado desconectou permanentemente e foi eliminado.",
-        });
-
-        console.log(
-          `[Socket.io] ${userId} eliminado da coop PvE ${battleId} por desconexao permanente. ${aliveAndConnected.length} player(s) restante(s).`
-        );
-      }
-    }, RECONNECT_GRACE_MS);
-
-    session.disconnectedPlayers.set(userId, { disconnectTimer });
-    session.lastActivityAt = Date.now();
-
-    io.to(roomName).emit("coop-pve:battle:player-disconnected", {
-      playerId: userId,
-      gracePeriodMs: RECONNECT_GRACE_MS,
+    io.to(roomName).emit("coop-pve:battle:end", {
+      result: "DEFEAT",
+      message: "Aliado desconectou permanentemente. Batalha encerrada.",
     });
 
+    persistCoopPveResult(currentSession).catch((err) => {
+      console.log(
+        `[Socket.io] Erro ao persistir coop PvE ${battleId} (desconexao permanente de ${userId}): ${String(err)}`
+      );
+    });
+
+    readyPlayers.delete(battleId);
+    removeCoopPveBattle(battleId);
     console.log(
-      `[Socket.io] ${userId} desconectou da coop PvE ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+      `[Socket.io] Coop PvE ${battleId} encerrada: ${userId} desconectou permanentemente`
     );
+  }, RECONNECT_GRACE_MS);
+
+  session.disconnectedPlayers.set(userId, { disconnectTimer });
+  session.lastActivityAt = Date.now();
+
+  io.to(roomName).emit("coop-pve:battle:player-disconnected", {
+    playerId: userId,
+    gracePeriodMs: RECONNECT_GRACE_MS,
   });
+
+  console.log(
+    `[Socket.io] ${userId} desconectou da coop PvE ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+  );
 }
 
 // ---------------------------------------------------------------------------

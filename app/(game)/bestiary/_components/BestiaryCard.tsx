@@ -63,7 +63,7 @@ export default function BestiaryCard({ entry, onSelect }: Props) {
   const accentColor = highlightRarity ? "var(--rarity-color)" : tierColor;
 
   // Capa do card do mob: a primeira variante coletada (ou a primeira cadastrada).
-  const coverCard = ownedCards[0] ?? entry.cards[0] ?? null;
+  const coverCard = ownedCards[0] ?? null;
   const coverArt = coverCard?.cardArtUrl ?? entry.imageUrl;
 
   return (
@@ -319,16 +319,14 @@ function VariantSlot({
       }}
     >
       {/* Arte da variante (se cadastrada) — silhueta cinza quando nao coletada. */}
-      {slotArt ? (
+      {isOwned && slotArt ? (
         <Image
           src={slotArt}
           alt=""
           fill
           sizes="(max-width: 640px) 16vw, 80px"
           className="object-cover"
-          style={{
-            filter: isOwned ? "brightness(0.92)" : "grayscale(1) brightness(0.5)",
-          }}
+          style={{ filter: "brightness(0.92)" }}
         />
       ) : (
         <div
@@ -338,8 +336,8 @@ function VariantSlot({
               "radial-gradient(ellipse at center, color-mix(in srgb, var(--bg-secondary) 70%, transparent) 0%, var(--bg-primary) 90%)",
             fontFamily: "var(--font-cormorant)",
             fontSize: 28,
-            color: isOwned ? "var(--rarity-color)" : "color-mix(in srgb, var(--gold) 35%, transparent)",
-            filter: isOwned ? undefined : "grayscale(1)",
+            color: "color-mix(in srgb, var(--gold) 35%, transparent)",
+            filter: "grayscale(1)",
           }}
         >
           ?

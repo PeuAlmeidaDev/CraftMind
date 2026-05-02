@@ -16,7 +16,6 @@ export const STAT_OPTIONS = [
   { value: "magicDef", label: "DEF Magica" },
   { value: "hp", label: "HP" },
   { value: "speed", label: "Velocidade" },
-  { value: "accuracy", label: "Precisao" },
 ];
 
 export const STATUS_OPTIONS = [

@@ -37,6 +37,9 @@ const QUEUE_TIMEOUT_MS = 5 * 60_000;
 
 const VALID_MODES: CoopPveMode[] = ["2v3", "2v5", "3v5"];
 
+// Timers de queue timeout por userId (compartilhado entre handlers e disconnect)
+const queueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 // ---------------------------------------------------------------------------
 // Type guards
 // ---------------------------------------------------------------------------
@@ -63,7 +66,6 @@ function isValidBattleIdPayload(payload: unknown): payload is { battleId: string
 
 export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): void {
   const userId = socket.data.userId;
-  const queueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   // -------------------------------------------------------------------------
   // coop-pve:queue:join
@@ -604,59 +606,65 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
     );
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handleCoopPveMatchmakingDisconnect
+}
 
-  socket.on("disconnect", () => {
-    // Se na fila: remover + limpar timeout
-    const timer = queueTimeouts.get(userId);
-    if (timer) {
-      clearTimeout(timer);
-      queueTimeouts.delete(userId);
+// ---------------------------------------------------------------------------
+// disconnect
+// ---------------------------------------------------------------------------
+
+export function handleCoopPveMatchmakingDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  // Se na fila: remover + limpar timeout
+  const timer = queueTimeouts.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    queueTimeouts.delete(userId);
+  }
+  removeFromCoopPveQueue(userId);
+
+  // Se em match pendente: tratar como decline
+  const result = getPlayerCoopPveBattle(userId);
+  if (result && result.session.matchTimer) {
+    const { battleId, session } = result;
+
+    if (session.matchTimer) {
+      clearTimeout(session.matchTimer);
+      session.matchTimer = null;
     }
-    removeFromCoopPveQueue(userId);
 
-    // Se em match pendente: tratar como decline
-    const result = getPlayerCoopPveBattle(userId);
-    if (result && result.session.matchTimer) {
-      const { battleId, session } = result;
+    for (const [pUserId, pSocketId] of session.playerSockets) {
+      if (pUserId === userId) continue;
+      const pSocket = io.sockets.sockets.get(pSocketId);
+      pSocket?.emit("coop-pve:match:cancelled", {
+        message: "Um jogador desconectou durante a selecao.",
+      });
 
-      if (session.matchTimer) {
-        clearTimeout(session.matchTimer);
-        session.matchTimer = null;
-      }
-
-      for (const [pUserId, pSocketId] of session.playerSockets) {
-        if (pUserId === userId) continue;
-        const pSocket = io.sockets.sockets.get(pSocketId);
-        pSocket?.emit("coop-pve:match:cancelled", {
-          message: "Um jogador desconectou durante a selecao.",
-        });
-
-        if (session.matchAccepted.has(pUserId)) {
-          const playerState = session.state.team.find(
-            (p) => p.playerId === pUserId
-          );
-          if (playerState) {
-            addToCoopPveQueue({
-              userId: pUserId,
-              socketId: pSocketId,
-              characterId: playerState.characterId,
-              stats: playerState.baseStats,
-              skills: playerState.equippedSkills,
-              mode: session.state.mode,
-              joinedAt: Date.now(),
-            });
-          }
+      if (session.matchAccepted.has(pUserId)) {
+        const playerState = session.state.team.find(
+          (p) => p.playerId === pUserId
+        );
+        if (playerState) {
+          addToCoopPveQueue({
+            userId: pUserId,
+            socketId: pSocketId,
+            characterId: playerState.characterId,
+            stats: playerState.baseStats,
+            skills: playerState.equippedSkills,
+            mode: session.state.mode,
+            joinedAt: Date.now(),
+          });
         }
       }
-
-      removeCoopPveBattle(battleId);
-      console.log(
-        `[Socket.io] Coop PvE match ${battleId} cancelado: ${userId} desconectou durante aceite`
-      );
     }
-    // Batalha ativa: delegado para coop-pve-battle handler via disconnect
-  });
+
+    removeCoopPveBattle(battleId);
+    console.log(
+      `[Socket.io] Coop PvE match ${battleId} cancelado: ${userId} desconectou durante aceite`
+    );
+  }
+  // Batalha ativa: delegado para coop-pve-battle handler via disconnect
 }

@@ -498,113 +498,119 @@ export function registerPvpTeamBattleHandlers(io: Server, socket: Socket): void 
     }
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handlePvpTeamBattleDisconnect
+}
 
-  socket.on("disconnect", () => {
-    const result = getPlayerPvpTeamBattle(userId);
-    if (!result) return;
+// ---------------------------------------------------------------------------
+// disconnect
+// ---------------------------------------------------------------------------
 
-    const { battleId, session } = result;
+export function handlePvpTeamBattleDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  const result = getPlayerPvpTeamBattle(userId);
+  if (!result) return;
 
-    // Ignorar se match ainda pendente (tratado pelo matchmaking handler)
-    if (session.matchTimer) return;
+  const { battleId, session } = result;
 
-    // Ignorar se batalha ja terminou
-    if (session.state.status !== "IN_PROGRESS") return;
+  // Ignorar se match ainda pendente (tratado pelo matchmaking handler)
+  if (session.matchTimer) return;
 
-    const roomName = `pvp-team-battle:${battleId}`;
+  // Ignorar se batalha ja terminou
+  if (session.state.status !== "IN_PROGRESS") return;
 
-    // Iniciar grace period
-    const disconnectTimer = setTimeout(() => {
-      const currentSession = getPvpTeamBattle(battleId);
-      if (!currentSession) return;
+  const roomName = `pvp-team-battle:${battleId}`;
 
-      // Se o player reconectou durante o grace, o timer foi limpo
-      if (!currentSession.disconnectedPlayers.has(userId)) return;
+  // Iniciar grace period
+  const disconnectTimer = setTimeout(() => {
+    const currentSession = getPvpTeamBattle(battleId);
+    if (!currentSession) return;
 
-      currentSession.disconnectedPlayers.delete(userId);
+    // Se o player reconectou durante o grace, o timer foi limpo
+    if (!currentSession.disconnectedPlayers.has(userId)) return;
 
-      // Adicionar a autoSkipPlayers (skip permanente, time continua 1v2)
-      currentSession.autoSkipPlayers.add(userId);
+    currentSession.disconnectedPlayers.delete(userId);
 
-      // Checar se ambos do mesmo time desconectaram permanentemente
-      const myTeamNum = currentSession.playerTeams.get(userId);
-      if (myTeamNum) {
-        const myTeamPlayers = myTeamNum === 1
-          ? currentSession.state.team1
-          : currentSession.state.team2;
+    // Adicionar a autoSkipPlayers (skip permanente, time continua 1v2)
+    currentSession.autoSkipPlayers.add(userId);
 
-        const bothDisconnected = myTeamPlayers.every(
-          (p) => currentSession.autoSkipPlayers.has(p.playerId)
-        );
+    // Checar se ambos do mesmo time desconectaram permanentemente
+    const myTeamNum = currentSession.playerTeams.get(userId);
+    if (myTeamNum) {
+      const myTeamPlayers = myTeamNum === 1
+        ? currentSession.state.team1
+        : currentSession.state.team2;
 
-        if (bothDisconnected) {
-          // Ambos do time desconectaram — derrota do time
-          currentSession.state.status = "FINISHED";
-          currentSession.state.winnerTeam = myTeamNum === 1 ? 2 : 1;
-
-          if (currentSession.turnTimer) {
-            clearTimeout(currentSession.turnTimer);
-            currentSession.turnTimer = null;
-          }
-
-          // Emitir estado final
-          for (const [pUserId, pSocketId] of currentSession.playerSockets) {
-            const pSocket = io.sockets.sockets.get(pSocketId);
-            if (pSocket) {
-              const sanitized = sanitizeStateForPlayer(currentSession.state, pUserId, currentSession);
-              pSocket.emit("pvp-team:battle:state", {
-                state: sanitized,
-                events: [],
-              });
-            }
-          }
-
-          io.to(roomName).emit("pvp-team:battle:end", {
-            winnerTeam: currentSession.state.winnerTeam,
-            message: "Time adversario desconectou. Voce venceu!",
-          });
-
-          persistPvpTeamResult(currentSession).catch((err: unknown) => {
-            console.log(
-              `[Socket.io] Erro ao persistir PvP Team ${battleId} (desconexao): ${String(err)}`
-            );
-          });
-
-          readyPlayers.delete(battleId);
-          removePvpTeamBattle(battleId);
-          console.log(
-            `[Socket.io] PvP Team ${battleId} encerrada: ambos do time ${myTeamNum} desconectaram`
-          );
-          return;
-        }
-      }
-
-      // Time continua 1v2
-      io.to(roomName).emit("pvp-team:battle:player-auto-skip", {
-        playerId: userId,
-        message: "Jogador desconectou permanentemente e tera skip automatico.",
-      });
-
-      console.log(
-        `[Socket.io] ${userId} adicionado a autoSkipPlayers na PvP Team ${battleId}`
+      const bothDisconnected = myTeamPlayers.every(
+        (p) => currentSession.autoSkipPlayers.has(p.playerId)
       );
-    }, RECONNECT_GRACE_MS);
 
-    session.disconnectedPlayers.set(userId, { disconnectTimer });
-    session.lastActivityAt = Date.now();
+      if (bothDisconnected) {
+        // Ambos do time desconectaram — derrota do time
+        currentSession.state.status = "FINISHED";
+        currentSession.state.winnerTeam = myTeamNum === 1 ? 2 : 1;
 
-    io.to(roomName).emit("pvp-team:battle:player-disconnected", {
+        if (currentSession.turnTimer) {
+          clearTimeout(currentSession.turnTimer);
+          currentSession.turnTimer = null;
+        }
+
+        // Emitir estado final
+        for (const [pUserId, pSocketId] of currentSession.playerSockets) {
+          const pSocket = io.sockets.sockets.get(pSocketId);
+          if (pSocket) {
+            const sanitized = sanitizeStateForPlayer(currentSession.state, pUserId, currentSession);
+            pSocket.emit("pvp-team:battle:state", {
+              state: sanitized,
+              events: [],
+            });
+          }
+        }
+
+        io.to(roomName).emit("pvp-team:battle:end", {
+          winnerTeam: currentSession.state.winnerTeam,
+          message: "Time adversario desconectou. Voce venceu!",
+        });
+
+        persistPvpTeamResult(currentSession).catch((err: unknown) => {
+          console.log(
+            `[Socket.io] Erro ao persistir PvP Team ${battleId} (desconexao): ${String(err)}`
+          );
+        });
+
+        readyPlayers.delete(battleId);
+        removePvpTeamBattle(battleId);
+        console.log(
+          `[Socket.io] PvP Team ${battleId} encerrada: ambos do time ${myTeamNum} desconectaram`
+        );
+        return;
+      }
+    }
+
+    // Time continua 1v2
+    io.to(roomName).emit("pvp-team:battle:player-auto-skip", {
       playerId: userId,
-      gracePeriodMs: RECONNECT_GRACE_MS,
+      message: "Jogador desconectou permanentemente e tera skip automatico.",
     });
 
     console.log(
-      `[Socket.io] ${userId} desconectou da PvP Team ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+      `[Socket.io] ${userId} adicionado a autoSkipPlayers na PvP Team ${battleId}`
     );
+  }, RECONNECT_GRACE_MS);
+
+  session.disconnectedPlayers.set(userId, { disconnectTimer });
+  session.lastActivityAt = Date.now();
+
+  io.to(roomName).emit("pvp-team:battle:player-disconnected", {
+    playerId: userId,
+    gracePeriodMs: RECONNECT_GRACE_MS,
   });
+
+  console.log(
+    `[Socket.io] ${userId} desconectou da PvP Team ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+  );
 }
 
 // ---------------------------------------------------------------------------

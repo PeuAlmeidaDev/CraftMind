@@ -49,6 +49,9 @@ const VALID_CATEGORIES: HabitCategory[] = [
   "SPIRITUAL",
 ];
 
+// Timers de queue timeout por userId (compartilhado entre handlers e disconnect)
+const queueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 // ---------------------------------------------------------------------------
 // Type guards
 // ---------------------------------------------------------------------------
@@ -75,7 +78,6 @@ function isValidBattleIdPayload(payload: unknown): payload is { battleId: string
 
 export function registerBossMatchmakingHandlers(io: Server, socket: Socket): void {
   const userId = socket.data.userId;
-  const queueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   // -------------------------------------------------------------------------
   // boss:queue:join
@@ -650,61 +652,67 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
     );
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handleBossMatchmakingDisconnect
+}
 
-  socket.on("disconnect", () => {
-    // Se na fila: remover + limpar timeout
-    const timer = queueTimeouts.get(userId);
-    if (timer) {
-      clearTimeout(timer);
-      queueTimeouts.delete(userId);
+// ---------------------------------------------------------------------------
+// disconnect
+// ---------------------------------------------------------------------------
+
+export function handleBossMatchmakingDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  // Se na fila: remover + limpar timeout
+  const timer = queueTimeouts.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    queueTimeouts.delete(userId);
+  }
+  removeFromBossQueue(userId);
+
+  // Se em match pendente: tratar como decline
+  const result = getPlayerBossBattle(userId);
+  if (result && result.session.matchTimer) {
+    // Match ainda pendente — tratar como decline
+    const { battleId, session } = result;
+
+    if (session.matchTimer) {
+      clearTimeout(session.matchTimer);
+      session.matchTimer = null;
     }
-    removeFromBossQueue(userId);
 
-    // Se em match pendente: tratar como decline
-    const result = getPlayerBossBattle(userId);
-    if (result && result.session.matchTimer) {
-      // Match ainda pendente — tratar como decline
-      const { battleId, session } = result;
+    for (const [pUserId, pSocketId] of session.playerSockets) {
+      if (pUserId === userId) continue;
+      const pSocket = io.sockets.sockets.get(pSocketId);
+      pSocket?.emit("boss:match:cancelled", {
+        message: "Um jogador desconectou durante a selecao.",
+      });
 
-      if (session.matchTimer) {
-        clearTimeout(session.matchTimer);
-        session.matchTimer = null;
-      }
-
-      for (const [pUserId, pSocketId] of session.playerSockets) {
-        if (pUserId === userId) continue;
-        const pSocket = io.sockets.sockets.get(pSocketId);
-        pSocket?.emit("boss:match:cancelled", {
-          message: "Um jogador desconectou durante a selecao.",
-        });
-
-        if (session.matchAccepted.has(pUserId)) {
-          const playerState = session.state.team.find(
-            (p) => p.playerId === pUserId
-          );
-          const playerCategory = session.playerCategories.get(pUserId);
-          if (playerState && playerCategory) {
-            addToBossQueue({
-              userId: pUserId,
-              socketId: pSocketId,
-              characterId: playerState.characterId,
-              stats: playerState.baseStats,
-              skills: playerState.equippedSkills,
-              dominantCategory: playerCategory,
-              joinedAt: Date.now(),
-            });
-          }
+      if (session.matchAccepted.has(pUserId)) {
+        const playerState = session.state.team.find(
+          (p) => p.playerId === pUserId
+        );
+        const playerCategory = session.playerCategories.get(pUserId);
+        if (playerState && playerCategory) {
+          addToBossQueue({
+            userId: pUserId,
+            socketId: pSocketId,
+            characterId: playerState.characterId,
+            stats: playerState.baseStats,
+            skills: playerState.equippedSkills,
+            dominantCategory: playerCategory,
+            joinedAt: Date.now(),
+          });
         }
       }
-
-      removeBossBattle(battleId);
-      console.log(
-        `[Socket.io] Boss match ${battleId} cancelado: ${userId} desconectou durante aceite`
-      );
     }
-    // Batalha ativa: delegado para boss-battle handler via disconnect
-  });
+
+    removeBossBattle(battleId);
+    console.log(
+      `[Socket.io] Boss match ${battleId} cancelado: ${userId} desconectou durante aceite`
+    );
+  }
+  // Batalha ativa: delegado para boss-battle handler via disconnect
 }

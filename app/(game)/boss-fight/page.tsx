@@ -574,6 +574,7 @@ function BossFightContent() {
           bossPlayerId={boss.playerId}
           bossName={bossName}
           playerName={playerName}
+          playerNames={playerNames}
           bossIsHit={bossIsHit}
           skills={availableSkills}
           teammates={teammates}

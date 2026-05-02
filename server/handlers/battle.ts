@@ -421,82 +421,87 @@ export function registerBattleHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  socket.on("disconnect", () => {
-    const result = getPlayerBattle(userId);
-    if (!result) return;
+}
 
-    const { battleId, session } = result;
+export function handleBattleDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  const result = getPlayerBattle(userId);
+  if (!result) return;
 
-    // Se ja tem outro jogador desconectado, ambos sairam — empate por abandono
-    if (session.disconnectedPlayer) {
-      clearTimeout(session.disconnectedPlayer.disconnectTimer);
-      session.state.status = "FINISHED";
-      session.state.winnerId = null;
+  const { battleId, session } = result;
 
-      io.to(battleId).emit("battle:end", { winnerId: null });
+  // Se ja tem outro jogador desconectado, ambos sairam — empate por abandono
+  if (session.disconnectedPlayer) {
+    clearTimeout(session.disconnectedPlayer.disconnectTimer);
+    session.state.status = "FINISHED";
+    session.state.winnerId = null;
 
-      persistBattleResult(battleId, session.state).catch((err) => {
-        console.log(
-          `[Socket.io] Erro ao persistir batalha ${battleId} (ambos desconectaram): ${String(err)}`
-        );
-      });
+    io.to(battleId).emit("battle:end", { winnerId: null });
 
-      if (session.turnTimer) {
-        clearTimeout(session.turnTimer);
-        session.turnTimer = null;
-      }
-
-      removePvpBattle(battleId);
-
+    persistBattleResult(battleId, session.state).catch((err) => {
       console.log(
-        `[Socket.io] Ambos jogadores desconectaram da batalha ${battleId}. Empate por abandono.`
+        `[Socket.io] Erro ao persistir batalha ${battleId} (ambos desconectaram): ${String(err)}`
       );
-      return;
-    }
+    });
 
-    // Pausar timer de turno enquanto jogador esta offline
     if (session.turnTimer) {
       clearTimeout(session.turnTimer);
       session.turnTimer = null;
     }
 
-    const opponentId =
-      session.state.players[0].playerId === userId
-        ? session.state.players[1].playerId
-        : session.state.players[0].playerId;
-
-    // Iniciar grace period de reconexao
-    const disconnectTimer = setTimeout(() => {
-      session.state.status = "FINISHED";
-      session.state.winnerId = opponentId;
-      session.disconnectedPlayer = null;
-
-      io.to(battleId).emit("battle:end", { winnerId: opponentId });
-
-      persistBattleResult(battleId, session.state).catch((err) => {
-        console.log(
-          `[Socket.io] Erro ao persistir batalha ${battleId} (grace period expirou): ${String(err)}`
-        );
-      });
-
-      removePvpBattle(battleId);
-
-      console.log(
-        `[Socket.io] Grace period expirou para ${userId} na batalha ${battleId}. Vencedor: ${opponentId}`
-      );
-    }, RECONNECT_GRACE_MS);
-
-    session.disconnectedPlayer = { playerId: userId, disconnectTimer };
-
-    io.to(battleId).emit("battle:player-disconnected", {
-      playerId: userId,
-      gracePeriodMs: RECONNECT_GRACE_MS,
-    });
+    removePvpBattle(battleId);
 
     console.log(
-      `[Socket.io] ${userId} desconectou da batalha ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+      `[Socket.io] Ambos jogadores desconectaram da batalha ${battleId}. Empate por abandono.`
     );
+    return;
+  }
+
+  // Pausar timer de turno enquanto jogador esta offline
+  if (session.turnTimer) {
+    clearTimeout(session.turnTimer);
+    session.turnTimer = null;
+  }
+
+  const opponentId =
+    session.state.players[0].playerId === userId
+      ? session.state.players[1].playerId
+      : session.state.players[0].playerId;
+
+  // Iniciar grace period de reconexao
+  const disconnectTimer = setTimeout(() => {
+    session.state.status = "FINISHED";
+    session.state.winnerId = opponentId;
+    session.disconnectedPlayer = null;
+
+    io.to(battleId).emit("battle:end", { winnerId: opponentId });
+
+    persistBattleResult(battleId, session.state).catch((err) => {
+      console.log(
+        `[Socket.io] Erro ao persistir batalha ${battleId} (grace period expirou): ${String(err)}`
+      );
+    });
+
+    removePvpBattle(battleId);
+
+    console.log(
+      `[Socket.io] Grace period expirou para ${userId} na batalha ${battleId}. Vencedor: ${opponentId}`
+    );
+  }, RECONNECT_GRACE_MS);
+
+  session.disconnectedPlayer = { playerId: userId, disconnectTimer };
+
+  io.to(battleId).emit("battle:player-disconnected", {
+    playerId: userId,
+    gracePeriodMs: RECONNECT_GRACE_MS,
   });
+
+  console.log(
+    `[Socket.io] ${userId} desconectou da batalha ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+  );
 }
 
 // ---------------------------------------------------------------------------
