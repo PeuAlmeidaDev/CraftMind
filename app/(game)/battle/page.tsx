@@ -9,6 +9,8 @@ import BattleIdle from "./_components/BattleIdle";
 import BattleArena from "./_components/BattleArena";
 import CardDropReveal from "./_components/CardDropReveal";
 import type { DroppedCard } from "./_components/CardDropReveal";
+import CardXpReveal from "./_components/CardXpReveal";
+import type { CardXpGainedInfo } from "./_components/CardXpReveal";
 
 // ---------------------------------------------------------------------------
 // Types (exported for child components)
@@ -128,6 +130,8 @@ export default function BattlePage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [cardDropped, setCardDropped] = useState<DroppedCard | null>(null);
   const [showCardReveal, setShowCardReveal] = useState(false);
+  const [cardXpGained, setCardXpGained] = useState<CardXpGainedInfo | null>(null);
+  const [showCardXpReveal, setShowCardXpReveal] = useState(false);
 
   // -----------------------------------------------------------------------
   // Abort in-flight fetches on unmount
@@ -460,6 +464,14 @@ export default function BattlePage() {
               mobId: string;
               flavorText?: string;
             } | null;
+            cardXpGained?: {
+              cardId: string;
+              cardName: string;
+              rarity: string;
+              xp: number;
+              newLevel: number;
+              leveledUp: boolean;
+            } | null;
           };
         };
 
@@ -538,6 +550,26 @@ export default function BattlePage() {
               };
               setCardDropped(hydrated);
               setShowCardReveal(true);
+            }
+          }
+          if (data.cardXpGained && mob) {
+            const xp = data.cardXpGained;
+            const validRarity = ["COMUM", "INCOMUM", "RARO", "EPICO", "LENDARIO"].includes(xp.rarity);
+            if (validRarity) {
+              const hydrated: CardXpGainedInfo = {
+                cardId: xp.cardId,
+                cardName: xp.cardName,
+                rarity: xp.rarity as CardXpGainedInfo["rarity"],
+                xp: xp.xp,
+                newLevel: xp.newLevel,
+                leveledUp: xp.leveledUp,
+                mob: {
+                  name: mob.name,
+                  imageUrl: mob.imageUrl,
+                },
+              };
+              setCardXpGained(hydrated);
+              setShowCardXpReveal(true);
             }
           }
           setBattleResult(r);
@@ -911,6 +943,16 @@ export default function BattlePage() {
         <CardDropReveal
           card={cardDropped}
           onContinue={() => setShowCardReveal(false)}
+        />
+      )}
+
+      {showCardXpReveal && cardXpGained && (
+        <CardXpReveal
+          info={cardXpGained}
+          onContinue={() => {
+            setShowCardXpReveal(false);
+            setCardXpGained(null);
+          }}
         />
       )}
     </div>

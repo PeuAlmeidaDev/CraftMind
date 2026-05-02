@@ -611,6 +611,8 @@ model UserCard {
   cardId    String
   equipped  Boolean @default(false)
   slotIndex Int? // 0, 1 ou 2 quando equipped = true; null caso contrario
+  xp        Int     @default(0) // XP acumulado por duplicatas (50/100/200/400/800 por raridade)
+  level     Int     @default(1) // 1-5; afeta multiplicador de effects (1.0/1.2/1.4/1.6/1.8)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
@@ -618,7 +620,7 @@ model UserCard {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Politica de duplicata: so a primeira copia do cristal e guardada.
+  // Politica de duplicata: primeira copia cria UserCard; duplicatas viram xp/level.
   @@unique([userId, cardId])
   // Dois cristais nao podem ocupar o mesmo slot do mesmo usuario.
   @@unique([userId, slotIndex])

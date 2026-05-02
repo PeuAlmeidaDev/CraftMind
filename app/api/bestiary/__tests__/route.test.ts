@@ -115,6 +115,8 @@ type CardInResponse = {
   hasCard: boolean;
   cardArtUrl: string | null;
   flavorText: string | null;
+  userCardXp: number | null;
+  userCardLevel: number | null;
 };
 
 type EntryInResponse = {
@@ -196,7 +198,9 @@ describe("GET /api/bestiary", () => {
         lastSeenAt: new Date("2026-01-30"),
       },
     ]);
-    mockUserCardFindMany.mockResolvedValue([{ cardId: "card_slime_1" }]);
+    mockUserCardFindMany.mockResolvedValue([
+      { cardId: "card_slime_1", xp: 0, level: 1 },
+    ]);
 
     const res = await GET(makeReq());
     const body = (await res.json()) as {
@@ -216,6 +220,8 @@ describe("GET /api/bestiary", () => {
       hasCard: true,
       cardArtUrl: "https://x/card-slime-1.jpg",
       flavorText: "Resquicio mole de uma alma errante.",
+      userCardXp: 0,
+      userCardLevel: 1,
     });
     expect(e.stats).not.toBeNull();
     expect(e.skills).not.toBeNull();
@@ -249,6 +255,8 @@ describe("GET /api/bestiary", () => {
       hasCard: false,
       cardArtUrl: "https://x/card-slime-1.jpg",
       flavorText: null,
+      userCardXp: null,
+      userCardLevel: null,
     });
   });
 
@@ -305,7 +313,9 @@ describe("GET /api/bestiary", () => {
     mockMobKillStatFindMany.mockResolvedValue([
       { userId: "user_a", mobId: "mob_slime", victories: 5, defeats: 0, damageDealt: 0, firstSeenAt: new Date(), lastSeenAt: new Date() },
     ]);
-    mockUserCardFindMany.mockResolvedValue([{ cardId: "card_slime_1" }]);
+    mockUserCardFindMany.mockResolvedValue([
+      { cardId: "card_slime_1", xp: 0, level: 1 },
+    ]);
 
     const res = await GET(makeReq());
     const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
@@ -328,5 +338,56 @@ describe("GET /api/bestiary", () => {
     const res = await GET(makeReq());
     const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
     expect(body.data.entries[0].cards).toEqual([]);
+  });
+
+  it("variante 1★ COMUM possuida com xp=50/level=1: expoe userCardXp/userCardLevel; demais variantes do mob ficam null", async () => {
+    const slimeCard3 = {
+      id: "card_slime_3",
+      name: "Cristal do Slime Lendario",
+      rarity: "RARO",
+      cardArtUrl: "https://x/card-slime-3.jpg",
+      requiredStars: 3,
+      dropChance: 1,
+      flavorText: "Brilho ancestral em forma de gosma.",
+    };
+    const mobMultiVariant = {
+      ...mob1,
+      cards: [slimeCard1, slimeCard2, slimeCard3],
+    };
+    mockMobFindMany.mockResolvedValue([mobMultiVariant]);
+    mockMobKillStatFindMany.mockResolvedValue([
+      {
+        userId: "user_a",
+        mobId: "mob_slime",
+        victories: 5,
+        defeats: 0,
+        damageDealt: 0,
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+      },
+    ]);
+    mockUserCardFindMany.mockResolvedValue([
+      { cardId: "card_slime_1", xp: 50, level: 1 },
+    ]);
+
+    const res = await GET(makeReq());
+    const body = (await res.json()) as { data: { entries: EntryInResponse[] } };
+    const entry = body.data.entries[0];
+    expect(entry.cards).toHaveLength(3);
+
+    const owned = entry.cards.find((c) => c.id === "card_slime_1");
+    expect(owned?.hasCard).toBe(true);
+    expect(owned?.userCardXp).toBe(50);
+    expect(owned?.userCardLevel).toBe(1);
+    expect(owned?.flavorText).not.toBeNull();
+
+    const notOwned = entry.cards.filter((c) => c.id !== "card_slime_1");
+    expect(notOwned).toHaveLength(2);
+    for (const c of notOwned) {
+      expect(c.hasCard).toBe(false);
+      expect(c.userCardXp).toBeNull();
+      expect(c.userCardLevel).toBeNull();
+      expect(c.flavorText).toBeNull();
+    }
   });
 });
