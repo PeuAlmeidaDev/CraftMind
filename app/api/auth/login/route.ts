@@ -7,6 +7,7 @@ import { setRefreshTokenCookie, setAccessTokenCookie } from "@/lib/auth/set-auth
 import { authRateLimit, getClientIp } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { logLogin } from "@/lib/auth/log-login";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       return apiError("Dados invalidos", "VALIDATION_ERROR", 422);
     }
 
-    const { email, password } = parsed.data;
+    const { email, password, visitorId } = parsed.data;
 
     // Buscar usuario pelo email (apenas para verificar senha)
     const userAuth = await prisma.user.findUnique({
@@ -113,6 +114,15 @@ export async function POST(request: NextRequest) {
       signAccessToken({ userId: user.id, email: user.email }),
       createPersistedRefreshToken({ userId: user.id }),
     ]);
+
+    // Registra login (anti multi-account). Fire-and-forget — falha no log
+    // NUNCA bloqueia a resposta ao usuario.
+    logLogin({
+      userId: user.id,
+      visitorId,
+      ip,
+      userAgent: request.headers.get("user-agent") ?? "unknown",
+    }).catch((err) => console.error("[logLogin] falha ao registrar login:", err));
 
     // Formatar habitos para resposta (remover nesting do UserHabit)
     const formattedHabits = user.habits.map((uh) => uh.habit);

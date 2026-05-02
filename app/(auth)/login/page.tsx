@@ -8,10 +8,12 @@ import type { ApiSuccess, ApiError } from "@/types/api";
 import RPGInput from "@/components/ui/RPGInput";
 import RPGButton from "@/components/ui/RPGButton";
 import AlertBanner from "@/components/ui/AlertBanner";
+import { useFingerprint } from "../_lib/use-fingerprint";
 import "./login-animations.css";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { visitorId, ready: fingerprintReady } = useFingerprint();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +42,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, visitorId }),
       });
 
       if (!res.ok) {
@@ -192,6 +194,7 @@ export default function LoginPage() {
               variant="primary"
               fullWidth
               loading={loading}
+              disabled={!fingerprintReady}
             >
               Entrar
             </RPGButton>

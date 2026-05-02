@@ -15,6 +15,12 @@
 | `register/_components/HabitCard.tsx` | Card de habito com checkbox visual para selecao |
 | `register/_components/PasswordRequirements.tsx` | Indicador visual dos requisitos de senha |
 
+## Hooks compartilhados
+
+| Arquivo | Descrição |
+|---|---|
+| `_lib/use-fingerprint.ts` | Hook `useFingerprint(): { visitorId, ready }` (anti multi-account). Carrega FingerprintJS via dynamic import, cacheia em `localStorage["cm:visitorId"]`. Em qualquer falha (ad blocker, lib bloqueada) retorna `{ visitorId: "unknown", ready: true }` — nunca lanca pro componente. Login e Register usam para incluir `visitorId` no body do POST e desabilitam o submit enquanto `ready === false` |
+
 ## Padrões obrigatórios
 
 - Formulários são Client Components (`"use client"`) — chamam API Routes via fetch.

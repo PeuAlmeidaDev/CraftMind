@@ -7,6 +7,7 @@ import type { Habit, HabitCategory, ApiSuccess, House, HabitSummary } from "@/ty
 import { PasswordRequirements } from "./_components/PasswordRequirements";
 import { StepIndicator } from "./_components/StepIndicator";
 import { HabitCard } from "./_components/HabitCard";
+import { useFingerprint } from "../_lib/use-fingerprint";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ function CornerTicks() {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { visitorId, ready: fingerprintReady } = useFingerprint();
 
   // Step state
   const [step, setStep] = useState<Step>(1);
@@ -246,6 +248,7 @@ export default function RegisterPage() {
           email: email.trim().toLowerCase(),
           password,
           habitIds: Array.from(selectedIds),
+          visitorId,
         }),
       });
 
@@ -687,7 +690,7 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={selectedIds.size < 3 || selectedIds.size > 10 || submitting}
+              disabled={selectedIds.size < 3 || selectedIds.size > 10 || submitting || !fingerprintReady}
               className="mt-6 w-full px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
               style={{
                 background: "linear-gradient(135deg, var(--ember), var(--accent-primary))",
