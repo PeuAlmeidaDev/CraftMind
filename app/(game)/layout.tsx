@@ -31,6 +31,7 @@ const NAV_LINKS = [
   { href: "/character", label: "Personagem" },
   { href: "/battle", label: "Batalha" },
   { href: "/bestiary", label: "Bestiario" },
+  { href: "/ranking", label: "Ranking" },
 ] as const;
 
 type UserProfile = {

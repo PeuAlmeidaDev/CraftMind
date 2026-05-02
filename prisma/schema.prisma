@@ -232,6 +232,8 @@ model HabitLog {
 
   // Um usuário não pode registrar o mesmo hábito mais de uma vez por dia
   @@unique([userId, habitId, date])
+  // Acelera groupBy(userId) + filtros de date range usados pelo ranking de habitos
+  @@index([userId, date])
 }
 
 // ============================================================
