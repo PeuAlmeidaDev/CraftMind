@@ -277,6 +277,7 @@ export function resolveTurn(
         skillId: skill.id,
         skillName: skill.name,
         damage: dmgResult.totalDamage,
+        damageType: skill.damageType,
         message: `${playerState.playerId} usa ${skill.name} e causa ${dmgResult.totalDamage} de dano (${dmgResult.hits} hit${dmgResult.hits > 1 ? "s" : ""})`,
       });
     } else {
@@ -309,6 +310,7 @@ export function resolveTurn(
           actorId: opponentState.playerId,
           targetId: playerState.playerId,
           damage: counterDamage,
+          damageType: skill.damageType,
           counterTriggered: true,
           message: `${opponentState.playerId} contra-ataca ${playerState.playerId} por ${counterDamage} de dano`,
         });

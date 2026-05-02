@@ -554,16 +554,20 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
 
       const battleId = crypto.randomUUID();
       const team = await Promise.all(
-        characters.map(async (char) => ({
-          userId: char.userId,
-          characterId: char.id,
-          stats: (await loadEquippedCardsAndApply(
+        characters.map(async (char) => {
+          const equipped = await loadEquippedCardsAndApply(
             prisma,
             char.userId,
             extractBaseStats(char),
-          )) as BaseStats,
-          skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
-        })),
+          );
+          return {
+            userId: char.userId,
+            characterId: char.id,
+            stats: equipped.baseStats as BaseStats,
+            skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
+            spectralSkill: equipped.spectralSkill,
+          };
+        }),
       );
 
       const battleConfig: CoopPveBattleConfig = {
@@ -806,16 +810,20 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
     // Criar battle config
     const battleId = crypto.randomUUID();
     const team = await Promise.all(
-      characters.map(async (char) => ({
-        userId: char.userId,
-        characterId: char.id,
-        stats: (await loadEquippedCardsAndApply(
+      characters.map(async (char) => {
+        const equipped = await loadEquippedCardsAndApply(
           prisma,
           char.userId,
           extractBaseStats(char),
-        )) as BaseStats,
-        skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
-      })),
+        );
+        return {
+          userId: char.userId,
+          characterId: char.id,
+          stats: equipped.baseStats as BaseStats,
+          skills: convertToEquippedSkills(char.characterSkills) as EquippedSkill[],
+          spectralSkill: equipped.spectralSkill,
+        };
+      }),
     );
 
     const battleConfig: CoopPveBattleConfig = {

@@ -71,11 +71,22 @@ export type ComboState = {
 // ---------------------------------------------------------------------------
 // Skill equipada (snapshot imutavel durante a batalha)
 // ---------------------------------------------------------------------------
+//
+// `fromSpectralCard` marca o 5o slot bonus que vem de um Cristal Espectral
+// (UserCard.purity === 100 com spectralSkillId definido). Skills normais nao
+// setam essa flag (campo opcional, default undefined). Quando true, a skill
+// esta sendo emprestada por um cristal e nao tem mastery aplicada (usa stats
+// raw da Skill table). Ver `loadEquippedCardsAndApply` em
+// `lib/cards/load-equipped.ts` para a fonte de dados e a regra de selecao
+// (apenas o cristal Espectral equipado de menor `slotIndex` contribui).
 
 export type EquippedSkill = {
   skillId: string;
   slotIndex: number;
   skill: Skill;
+  fromSpectralCard?: boolean;
+  /** UserCard.id de origem quando `fromSpectralCard === true`. */
+  sourceUserCardId?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -103,6 +114,11 @@ export type PlayerState = {
   counters: ActiveCounter[];
   cooldowns: Record<string, number>; // skillId -> turnos restantes (0 = disponivel)
   combo: ComboState;
+  // Array suporta 4 ou 5 elementos. O 5o (quando presente) eh sempre
+  // `fromSpectralCard: true` e vem do UserCard com purity 100 de menor
+  // slotIndex equipado. Append feito por `createPlayerState` em
+  // `lib/battle/shared-helpers.ts` quando `BattlePlayerConfig.spectralSkill`
+  // estiver definido.
   equippedSkills: EquippedSkill[];
 };
 
@@ -127,6 +143,7 @@ export type TurnLogEntry = {
   skillId?: string;
   skillName?: string;
   damage?: number;
+  damageType?: DamageType;
   healing?: number;
   statusApplied?: StatusEffect;
   statusDamage?: number;
@@ -171,6 +188,11 @@ export type BattlePlayerConfig = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Quando definido, adiciona um 5o slot (espectral) ao final de
+   *  `equippedSkills` com `fromSpectralCard: true`. A skill eh usada raw
+   *  (sem mastery), cooldown inicial 0. Ver
+   *  `lib/cards/load-equipped.ts → loadEquippedCardsAndApply`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
 };
 
 export type InitBattleConfig = {

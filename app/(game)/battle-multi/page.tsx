@@ -6,6 +6,7 @@ import { getToken, clearAuthAndRedirect, authFetchOptions } from "@/lib/client-a
 import { HOUSE_LORE } from "@/lib/constants-house";
 import EmberField from "@/components/ui/EmberField";
 import MultiBattleArena from "./_components/MultiBattleArena";
+import type { DamageType } from "@/types/skill";
 
 // ---------------------------------------------------------------------------
 // Types (exported for child components)
@@ -19,6 +20,7 @@ export type TurnLogEntry = {
   skillId?: string;
   skillName?: string;
   damage?: number;
+  damageType?: DamageType;
   healing?: number;
   statusApplied?: string;
   statusDamage?: number;
@@ -40,6 +42,8 @@ export type AvailableSkill = {
   target: string;
   cooldown: number;
   accuracy: number;
+  /** True quando esta skill vem do 5o slot (Cristal Espectral, purity 100). */
+  fromSpectralCard?: boolean;
 };
 
 export type ActiveStatusEffect = {

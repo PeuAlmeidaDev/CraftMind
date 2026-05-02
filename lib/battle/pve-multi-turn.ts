@@ -600,6 +600,7 @@ function resolvePlayerSkill(
         skillId: skill.id,
         skillName: skill.name,
         damage: dmgResult.totalDamage,
+        damageType: skill.damageType,
         message: `${player.playerId} usa ${skill.name} e causa ${dmgResult.totalDamage} de dano em ${target.playerId} (${dmgResult.hits} hit${dmgResult.hits > 1 ? "s" : ""})`,
       });
     } else {
@@ -629,6 +630,7 @@ function resolvePlayerSkill(
           actorId: target.playerId,
           targetId: player.playerId,
           damage: counterDamage,
+          damageType: skill.damageType,
           counterTriggered: true,
           message: `${target.playerId} contra-ataca ${player.playerId} por ${counterDamage} de dano`,
         });
@@ -814,6 +816,7 @@ function resolveMobSkill(
       skillId: skill.id,
       skillName: skill.name,
       damage: dmgResult.totalDamage,
+      damageType: skill.damageType,
       message: `${mob.playerId} usa ${skill.name} e causa ${dmgResult.totalDamage} de dano em ${target.playerId} (${dmgResult.hits} hit${dmgResult.hits > 1 ? "s" : ""})`,
     });
   } else {
@@ -844,6 +847,7 @@ function resolveMobSkill(
           actorId: player.playerId,
           targetId: mob.playerId,
           damage: counterDamage,
+          damageType: skill.damageType,
           counterTriggered: true,
           message: `${player.playerId} contra-ataca ${mob.playerId} por ${counterDamage} de dano`,
         });

@@ -117,6 +117,7 @@ type CardInResponse = {
   flavorText: string | null;
   userCardXp: number | null;
   userCardLevel: number | null;
+  userCardPurity: number | null;
 };
 
 type EntryInResponse = {
@@ -199,7 +200,7 @@ describe("GET /api/bestiary", () => {
       },
     ]);
     mockUserCardFindMany.mockResolvedValue([
-      { cardId: "card_slime_1", xp: 0, level: 1 },
+      { cardId: "card_slime_1", xp: 0, level: 1, purity: 50 },
     ]);
 
     const res = await GET(makeReq());
@@ -222,6 +223,7 @@ describe("GET /api/bestiary", () => {
       flavorText: "Resquicio mole de uma alma errante.",
       userCardXp: 0,
       userCardLevel: 1,
+      userCardPurity: 50,
     });
     expect(e.stats).not.toBeNull();
     expect(e.skills).not.toBeNull();
@@ -257,6 +259,7 @@ describe("GET /api/bestiary", () => {
       flavorText: null,
       userCardXp: null,
       userCardLevel: null,
+      userCardPurity: null,
     });
   });
 
@@ -314,7 +317,7 @@ describe("GET /api/bestiary", () => {
       { userId: "user_a", mobId: "mob_slime", victories: 5, defeats: 0, damageDealt: 0, firstSeenAt: new Date(), lastSeenAt: new Date() },
     ]);
     mockUserCardFindMany.mockResolvedValue([
-      { cardId: "card_slime_1", xp: 0, level: 1 },
+      { cardId: "card_slime_1", xp: 0, level: 1, purity: 50 },
     ]);
 
     const res = await GET(makeReq());
@@ -367,7 +370,7 @@ describe("GET /api/bestiary", () => {
       },
     ]);
     mockUserCardFindMany.mockResolvedValue([
-      { cardId: "card_slime_1", xp: 50, level: 1 },
+      { cardId: "card_slime_1", xp: 50, level: 1, purity: 50 },
     ]);
 
     const res = await GET(makeReq());

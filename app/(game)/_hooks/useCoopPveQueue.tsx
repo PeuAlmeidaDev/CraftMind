@@ -44,6 +44,8 @@ type SanitizedCoopPveState = {
       skillId: string;
       slotIndex: number;
       skill: { name: string; description: string; basePower: number; damageType: string; target: string; cooldown: number; accuracy: number };
+      /** True quando esta skill vem do 5o slot (Cristal Espectral, purity 100). */
+      fromSpectralCard?: boolean;
     }>;
     cooldowns: Record<string, number>;
     statusEffects: Array<{ status: string; remainingTurns: number }>;

@@ -32,7 +32,12 @@ export default function SkillBar({
   onSkipTurn,
   disabled,
 }: SkillBarProps) {
-  const slots = Array.from({ length: 4 }, (_, i) => {
+  // Suporta 4 ou 5 slots. O 5o vem do Cristal Espectral (purity 100) e tem
+  // `fromSpectralCard: true`. O `slotIndex` do espectral eh 4 (set por
+  // createPlayerState em lib/battle/shared-helpers.ts).
+  const hasSpectral = skills.some((s) => s.fromSpectralCard);
+  const totalSlots = hasSpectral ? 5 : 4;
+  const slots = Array.from({ length: totalSlots }, (_, i) => {
     return skills.find((s) => s.slotIndex === i) ?? null;
   });
 
@@ -60,7 +65,7 @@ export default function SkillBar({
             color: "color-mix(in srgb, var(--gold) 50%, transparent)",
           }}
         >
-          4 SLOTS
+          {totalSlots} SLOTS
         </span>
       </div>
 
@@ -96,6 +101,7 @@ export default function SkillBar({
 
           const inCooldown = skill.cooldown > 0;
           const isDisabled = disabled || inCooldown;
+          const isSpectral = skill.fromSpectralCard === true;
           const dmgType = DAMAGE_TYPE_LABEL[skill.damageType] ?? {
             text: skill.damageType,
             color: "#999",
@@ -110,21 +116,41 @@ export default function SkillBar({
                 playSfx(skill.name);
                 onSkillUse(skill.skillId);
               }}
-              className="relative min-h-[74px] p-[9px_10px] text-left flex flex-col gap-[3px] transition-all duration-[160ms]"
+              className={`relative min-h-[74px] p-[9px_10px] text-left flex flex-col gap-[3px] transition-all duration-[160ms]${isSpectral ? " skillbar-spectral" : ""}`}
               style={{
                 background:
                   "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
-                border: `1px solid ${
-                  isDisabled
-                    ? "color-mix(in srgb, var(--gold) 13%, transparent)"
-                    : `${dmgType.color}66`
-                }`,
+                border: isSpectral
+                  ? "1px solid var(--gold)"
+                  : `1px solid ${
+                      isDisabled
+                        ? "color-mix(in srgb, var(--gold) 13%, transparent)"
+                        : `${dmgType.color}66`
+                    }`,
                 cursor: isDisabled ? "not-allowed" : "pointer",
-                boxShadow: isDisabled
+                boxShadow: isSpectral
+                  ? "0 0 8px color-mix(in srgb, var(--gold) 45%, transparent), inset 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent)"
+                  : isDisabled
                   ? "none"
                   : `inset 0 0 0 1px ${dmgType.color}17`,
               }}
             >
+              {isSpectral && (
+                <span
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 7,
+                    letterSpacing: "0.3em",
+                    textTransform: "uppercase",
+                    color: "var(--bg-primary)",
+                    background: "var(--gold)",
+                    border: "1px solid var(--gold)",
+                  }}
+                >
+                  Espectral
+                </span>
+              )}
               {/* Line 1: type + power */}
               <div className="flex justify-between items-center">
                 <span

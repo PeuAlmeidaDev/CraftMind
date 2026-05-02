@@ -63,6 +63,77 @@ export type CardEffect =
   | CardStatusResistEffect;
 
 // ---------------------------------------------------------------------------
+// UserCardSummary — payload retornado por GET /api/cards
+// ---------------------------------------------------------------------------
+//
+// Forma compartilhada entre API e componentes da tela /character (CardSlots,
+// CardPickerModal). Inclui `purity` (0-100, baseline 50 = 1.0x).
+
+export type UserCardSummary = {
+  id: string;
+  equipped: boolean;
+  slotIndex: number | null;
+  xp: number;
+  level: number;
+  /** Purity 0-100 (baseline 50). 100 marca um Cristal Espectral. */
+  purity: number;
+  /** Skill espectral escolhida (5o slot em batalha). So tem efeito quando
+   *  purity === 100. Null/undefined se nao definida ainda. */
+  spectralSkillId?: string | null;
+  card: {
+    id: string;
+    name: string;
+    flavorText: string;
+    rarity: CardRarity;
+    effects: CardEffect[];
+    /** Arte padrao (Cloudinary). Null enquanto asset nao foi gerado. */
+    cardArtUrl?: string | null;
+    /** Arte alternativa exclusiva da versao Espectral (purity === 100).
+     *  Null => frontend faz fallback para `cardArtUrl` com filtro CSS holografico. */
+    cardArtUrlSpectral?: string | null;
+    mob: {
+      id: string;
+      name: string;
+      tier: number;
+      imageUrl: string | null;
+    };
+  };
+};
+
+// ---------------------------------------------------------------------------
+// PendingCardDuplicate — drop de duplicata aguardando decisao
+// ---------------------------------------------------------------------------
+//
+// Retornado por GET /api/cards/pending-duplicates. O jogador resolve via
+// POST /api/cards/pending-duplicates/[id]/resolve com decision REPLACE ou CONVERT.
+
+export type PendingDuplicateDecision = "REPLACE" | "CONVERT";
+
+export type PendingCardDuplicateSummary = {
+  id: string;
+  newPurity: number;
+  createdAt: string;
+  userCard: {
+    id: string;
+    xp: number;
+    level: number;
+    purity: number;
+    card: {
+      id: string;
+      name: string;
+      flavorText: string;
+      rarity: CardRarity;
+      mob: {
+        id: string;
+        name: string;
+        tier: number;
+        imageUrl: string | null;
+      };
+    };
+  };
+};
+
+// ---------------------------------------------------------------------------
 // Mapeamento Tier do Mob -> CardRarity
 // ---------------------------------------------------------------------------
 
@@ -146,12 +217,16 @@ export type BestiaryCardInfo = {
   hasCard: boolean;
   /** URL Cloudinary da arte. Null se o asset ainda nao foi gerado. */
   cardArtUrl: string | null;
+  /** Arte alternativa exclusiva da versao Espectral. Null => fallback CSS. */
+  cardArtUrlSpectral: string | null;
   /** Texto de lore da carta — null quando `hasCard === false`. */
   flavorText: string | null;
   /** XP acumulado na copia do user. Null quando hasCard === false. */
   userCardXp: number | null;
   /** Level da copia do user (1-5). Null quando hasCard === false. */
   userCardLevel: number | null;
+  /** Purity 0-100 da copia do user (50 = baseline). Null quando hasCard === false. */
+  userCardPurity: number | null;
 };
 
 export type BestiaryEntry = {
@@ -196,4 +271,34 @@ export type BestiaryTotals = {
 export type BestiaryResponse = {
   entries: BestiaryEntry[];
   totals: BestiaryTotals;
+};
+
+// ---------------------------------------------------------------------------
+// Spectral Drop — broadcast global e showcase publica
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload do evento Socket.io `global:spectral-drop` emitido para todos os
+ * sockets conectados quando alguem dropa um Cristal Espectral (purity === 100).
+ *
+ * O cliente filtra eventos onde `userId === currentUserId` para nao mostrar
+ * o toast pro proprio dropper (que ja viu via CardDropReveal).
+ */
+export type SpectralDropBroadcast = {
+  /** ID do usuario que dropou (usado para filtro client-side). */
+  userId: string;
+  /** Nome de exibicao do dropper. */
+  userName: string;
+  /** Nome da carta (Card.name). */
+  cardName: string;
+  /** Nome do mob de origem. */
+  mobName: string;
+};
+
+/** Resposta de GET /api/user/[id]/showcase. */
+export type ShowcaseResponse = {
+  /** IDs dos UserCards na ordem definida pelo dono. */
+  userCardIds: string[];
+  /** UserCards completos prontos para render. */
+  cards: UserCardSummary[];
 };

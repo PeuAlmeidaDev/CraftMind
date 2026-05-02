@@ -1,6 +1,6 @@
 // lib/battle/pvp-team-types.ts — Tipos para batalha PvP em equipe (2v2)
 
-import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill } from "./types";
+import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill, Skill } from "./types";
 
 export type PvpTeamMode = "TEAM_2V2";
 
@@ -32,6 +32,8 @@ export type PvpTeamPlayerConfig = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Mesma semantica de `BattlePlayerConfig.spectralSkill` em `types.ts`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
 };
 
 export type PvpTeamBattleConfig = {

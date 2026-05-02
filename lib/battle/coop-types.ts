@@ -1,6 +1,6 @@
 // lib/battle/coop-types.ts — Tipos para batalha cooperativa (Boss Fight 3v1)
 
-import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill } from "./types";
+import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill, Skill } from "./types";
 
 export type CoopBattleState = {
   battleId: string;
@@ -28,6 +28,8 @@ export type CoopBattlePlayerConfig = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Mesma semantica de `BattlePlayerConfig.spectralSkill` em `types.ts`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
 };
 
 export type CoopBossBattleConfig = {

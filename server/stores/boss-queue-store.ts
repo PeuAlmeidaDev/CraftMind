@@ -1,7 +1,7 @@
 // server/stores/boss-queue-store.ts — Store in-memory para fila de boss fight por categoria
 
 import type { HabitCategory } from "@prisma/client";
-import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
+import type { BaseStats, EquippedSkill, Skill } from "../../lib/battle/types";
 
 export type BossQueueEntry = {
   userId: string;
@@ -9,6 +9,8 @@ export type BossQueueEntry = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Skill espectral elegivel para o 5o slot. Ver `lib/cards/load-equipped.ts`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
   dominantCategory: HabitCategory;
   joinedAt: number;
 };

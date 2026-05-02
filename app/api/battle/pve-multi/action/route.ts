@@ -17,7 +17,8 @@ import { pveMultiActionSchema } from "@/lib/validations/pve-multi";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
 import { STAR_STAT_MULTIPLIER, type EncounterStars } from "@/lib/mobs/encounter-stars";
 import { processLevelUp } from "@/lib/exp/level-up";
-import { applyCardDropAndStats } from "@/lib/cards/drop";
+import { applyCardDropAndStats, dispatchSpectralBroadcast } from "@/lib/cards/drop";
+import type { ApplyCardDropAndStatsResult } from "@/lib/cards/drop";
 import type { CardRarity } from "@/types/cards";
 
 const RARITY_RANK: Record<CardRarity, number> = {
@@ -48,6 +49,9 @@ type CardXpGainedPayload = {
 type DropsAndStatsResult = {
   cardDropped: DroppedCardPayload | null;
   cardXpGainedList: CardXpGainedPayload[];
+  /** Espectrais (purity 100) dropados nesta batalha (UM por mob, no max).
+   *  O caller dispara broadcast FORA da transacao para cada item. */
+  spectralDrops: Array<NonNullable<ApplyCardDropAndStatsResult["spectralDrop"]>>;
 };
 
 /** Soma o dano causado pelo player (actorId) a um alvo especifico (targetId === mob.playerId). */
@@ -90,6 +94,7 @@ async function applyDropsAndStatsForMobs(
   let best: DroppedCardPayload | null = null;
   let bestRank = 0;
   const cardXpGainedList: CardXpGainedPayload[] = [];
+  const spectralDrops: DropsAndStatsResult["spectralDrops"] = [];
   for (const mob of mobs) {
     const damageDealt = sumDamageDealtToTarget(log, userId, mob.playerId);
     const result = mob.defeated ? "VICTORY" : "DEFEAT";
@@ -125,13 +130,26 @@ async function applyDropsAndStatsForMobs(
           leveledUp: dropResult.xpGained.leveledUp,
         });
       }
+      if (dropResult.spectralDrop) {
+        spectralDrops.push(dropResult.spectralDrop);
+      }
     } catch (err) {
       console.warn(
         `[pve-multi/action] applyCardDropAndStats falhou para mob ${mob.mobId}: ${String(err)}`,
       );
     }
   }
-  return { cardDropped: best, cardXpGainedList };
+  return { cardDropped: best, cardXpGainedList, spectralDrops };
+}
+
+/** Dispara um broadcast por Espectral dropado nesta batalha multi (fire-and-forget). */
+function dispatchAllSpectralBroadcasts(
+  userId: string,
+  spectralDrops: DropsAndStatsResult["spectralDrops"],
+): void {
+  for (const drop of spectralDrops) {
+    void dispatchSpectralBroadcast({ userId, spectralDrop: drop });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -192,6 +210,7 @@ export async function POST(request: NextRequest) {
         );
       });
 
+      dispatchAllSpectralBroadcasts(userId, dropsResult.spectralDrops);
       removeMultiPveBattle(battleId);
 
       return apiSuccess({
@@ -305,6 +324,7 @@ export async function POST(request: NextRequest) {
             );
           });
 
+          dispatchAllSpectralBroadcasts(userId, dropsResult.spectralDrops);
           removeMultiPveBattle(battleId);
 
           return apiSuccess({
@@ -345,6 +365,7 @@ export async function POST(request: NextRequest) {
           );
         });
 
+        dispatchAllSpectralBroadcasts(userId, dropsResult.spectralDrops);
         removeMultiPveBattle(battleId);
 
         return apiSuccess({
@@ -384,6 +405,7 @@ export async function POST(request: NextRequest) {
         );
       });
 
+      dispatchAllSpectralBroadcasts(userId, dropsResult.spectralDrops);
       removeMultiPveBattle(battleId);
 
       return apiSuccess({

@@ -11,6 +11,7 @@ import CardDropReveal from "./_components/CardDropReveal";
 import type { DroppedCard } from "./_components/CardDropReveal";
 import CardXpReveal from "./_components/CardXpReveal";
 import type { CardXpGainedInfo } from "./_components/CardXpReveal";
+import type { DamageType } from "@/types/skill";
 
 // ---------------------------------------------------------------------------
 // Types (exported for child components)
@@ -24,6 +25,7 @@ export type TurnLogEntry = {
   skillId?: string;
   skillName?: string;
   damage?: number;
+  damageType?: DamageType;
   healing?: number;
   statusApplied?: string;
   statusDamage?: number;
@@ -45,6 +47,8 @@ export type AvailableSkill = {
   target: string;
   cooldown: number;
   accuracy: number;
+  /** True quando esta skill vem do 5o slot (Cristal Espectral, purity 100). */
+  fromSpectralCard?: boolean;
 };
 
 export type ActiveStatusEffect = {
@@ -132,6 +136,9 @@ export default function BattlePage() {
   const [showCardReveal, setShowCardReveal] = useState(false);
   const [cardXpGained, setCardXpGained] = useState<CardXpGainedInfo | null>(null);
   const [showCardXpReveal, setShowCardXpReveal] = useState(false);
+  /** Indica se o jogador tem ao menos 1 cristal Espectral (purity 100) equipado.
+   *  Usado pelo BattleArena para aplicar overlay holografico no painel. */
+  const [hasEquippedSpectral, setHasEquippedSpectral] = useState(false);
 
   // -----------------------------------------------------------------------
   // Abort in-flight fetches on unmount
@@ -184,6 +191,29 @@ export default function BattlePage() {
 
     return () => ac.abort();
   }, [router]);
+
+  // -----------------------------------------------------------------------
+  // Detect equipped Espectral (purity 100) — para overlay holografico
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    const ac = new AbortController();
+    fetch("/api/cards", authFetchOptions(token, ac.signal))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { data: { userCards: Array<{ equipped: boolean; purity: number }> } } | null) => {
+        if (!json) return;
+        const has = json.data.userCards.some(
+          (uc) => uc.equipped && uc.purity === 100,
+        );
+        setHasEquippedSpectral(has);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      });
+    return () => ac.abort();
+  }, []);
 
   // -----------------------------------------------------------------------
   // Check for active battle on mount (reconnection)
@@ -463,6 +493,7 @@ export default function BattlePage() {
               rarity: string;
               mobId: string;
               flavorText?: string;
+              purity?: number;
             } | null;
             cardXpGained?: {
               cardId: string;
@@ -471,6 +502,15 @@ export default function BattlePage() {
               xp: number;
               newLevel: number;
               leveledUp: boolean;
+              purity?: number;
+            } | null;
+            pendingDuplicate?: {
+              id: string;
+              cardId: string;
+              cardName: string;
+              rarity: string;
+              currentPurity: number;
+              newPurity: number;
             } | null;
           };
         };
@@ -541,6 +581,7 @@ export default function BattlePage() {
                 name: drop.name,
                 flavorText: drop.flavorText ?? "Um fragmento da memoria desta criatura, cristalizado no eclipse.",
                 rarity: drop.rarity as DroppedCard["rarity"],
+                purity: drop.purity,
                 mob: {
                   id: drop.mobId,
                   name: mob.name,
@@ -563,6 +604,7 @@ export default function BattlePage() {
                 xp: xp.xp,
                 newLevel: xp.newLevel,
                 leveledUp: xp.leveledUp,
+                purity: xp.purity,
                 mob: {
                   name: mob.name,
                   imageUrl: mob.imageUrl,
@@ -571,6 +613,12 @@ export default function BattlePage() {
               setCardXpGained(hydrated);
               setShowCardXpReveal(true);
             }
+          }
+          if (data.pendingDuplicate) {
+            // Sinaliza ao usuario que ha pendencia para resolver no /character.
+            // router.refresh() invalida caches do server; o /character refaz fetch
+            // de /api/cards/pending-duplicates ao montar.
+            router.refresh();
           }
           setBattleResult(r);
         }
@@ -727,6 +775,7 @@ export default function BattlePage() {
         onSkipTurn={handleSkipTurn}
         onForfeit={handleForfeit}
         acting={acting}
+        hasEquippedSpectral={hasEquippedSpectral}
       />
 
       {/* Modal de resultado sobre a arena */}

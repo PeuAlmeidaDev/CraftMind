@@ -15,7 +15,7 @@ import { pveBattleActionSchema } from "@/lib/validations/battle";
 import { calculateMobExp, calculateExpGained } from "@/lib/exp/formulas";
 import { STAR_STAT_MULTIPLIER, type EncounterStars } from "@/lib/mobs/encounter-stars";
 import { processLevelUp } from "@/lib/exp/level-up";
-import { applyCardDropAndStats } from "@/lib/cards/drop";
+import { applyCardDropAndStats, dispatchSpectralBroadcast } from "@/lib/cards/drop";
 import type { TurnAction, TurnLogEntry } from "@/lib/battle/types";
 
 /** Soma o dano causado pelo player (actorId === userId) ao mob (targetId === mobId). */
@@ -155,7 +155,13 @@ export async function POST(request: NextRequest) {
       let expGained = 0;
       let levelsGained = 0;
       let newLevel = 0;
-      let cardDropped: { id: string; name: string; rarity: string; mobId: string } | null = null;
+      let cardDropped: {
+        id: string;
+        name: string;
+        rarity: string;
+        mobId: string;
+        purity: number;
+      } | null = null;
       let xpGained: {
         cardId: string;
         cardName: string;
@@ -163,6 +169,14 @@ export async function POST(request: NextRequest) {
         xp: number;
         newLevel: number;
         leveledUp: boolean;
+      } | null = null;
+      let pendingDuplicate: {
+        id: string;
+        cardId: string;
+        cardName: string;
+        rarity: string;
+        currentPurity: number;
+        newPurity: number;
       } | null = null;
 
       if (result === "VICTORY") {
@@ -237,6 +251,7 @@ export async function POST(request: NextRequest) {
               name: dropResult.cardDropped.name,
               rarity: dropResult.cardDropped.rarity,
               mobId: dropResult.cardDropped.mobId,
+              purity: dropResult.cardDropped.purity,
             };
           }
           if (dropResult.xpGained) {
@@ -249,10 +264,29 @@ export async function POST(request: NextRequest) {
               leveledUp: dropResult.xpGained.leveledUp,
             };
           }
+          if (dropResult.pendingDuplicate) {
+            pendingDuplicate = {
+              id: dropResult.pendingDuplicate.id,
+              cardId: dropResult.pendingDuplicate.card.id,
+              cardName: dropResult.pendingDuplicate.card.name,
+              rarity: dropResult.pendingDuplicate.card.rarity,
+              currentPurity: dropResult.pendingDuplicate.currentPurity,
+              newPurity: dropResult.pendingDuplicate.newPurity,
+            };
+          }
+
+          // Broadcast global de Espectral (purity 100) — fire and forget,
+          // FORA da transacao. Erros nao quebram a resposta do drop.
+          if (dropResult.spectralDrop) {
+            void dispatchSpectralBroadcast({
+              userId,
+              spectralDrop: dropResult.spectralDrop,
+            });
+          }
         } else {
           // Mob ou character nao encontrado — persistir historico sem EXP, mas
           // ainda atualizar MobKillStat (drop nao dispara sem mob.tier).
-          await prisma.$transaction(async (tx) => {
+          const fallbackDrop = await prisma.$transaction(async (tx) => {
             await tx.pveBattle.create({
               data: {
                 userId,
@@ -263,7 +297,7 @@ export async function POST(request: NextRequest) {
                 log: newState.turnLog as object[],
               },
             });
-            await applyCardDropAndStats(tx, {
+            return applyCardDropAndStats(tx, {
               userId,
               mobId: session.mobId,
               result,
@@ -271,6 +305,12 @@ export async function POST(request: NextRequest) {
               encounterStars: session.encounterStars,
             });
           });
+          if (fallbackDrop.spectralDrop) {
+            void dispatchSpectralBroadcast({
+              userId,
+              spectralDrop: fallbackDrop.spectralDrop,
+            });
+          }
         }
       } else {
         // Derrota ou empate: registrar batalha sem EXP + atualizar MobKillStat
@@ -308,6 +348,7 @@ export async function POST(request: NextRequest) {
         newLevel,
         cardDropped,
         cardXpGained: xpGained,
+        pendingDuplicate,
       });
     }
 

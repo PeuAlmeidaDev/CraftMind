@@ -9,6 +9,7 @@ import type {
   BuffSource,
   CounterTriggerPayload,
   BattlePlayerConfig,
+  EquippedSkill,
 } from "./types";
 import type { CoopBattlePlayerConfig } from "./coop-types";
 import { clampStage, generateId } from "./utils";
@@ -67,6 +68,25 @@ export function createPlayerState(
     );
   }
 
+  // Slot espectral (5o, opcional): vem de UserCard.purity === 100 com
+  // spectralSkillId definido. Logica de selecao (menor slotIndex de cristal
+  // equipado) fica em `lib/cards/load-equipped.ts`. Aqui apenas anexamos no
+  // final do array com `fromSpectralCard: true` e cooldown 0 (gerenciado via
+  // PlayerState.cooldowns igual as demais). Sem mastery (skill usada raw).
+  const spectral = config.spectralSkill;
+  const skills: EquippedSkill[] = spectral
+    ? [
+        ...config.skills,
+        {
+          skillId: spectral.skill.id,
+          slotIndex: config.skills.length, // proximo indice apos os 1-4 normais
+          skill: spectral.skill,
+          fromSpectralCard: true,
+          sourceUserCardId: spectral.sourceUserCardId,
+        },
+      ]
+    : config.skills;
+
   return {
     playerId: config.userId,
     characterId: config.characterId,
@@ -86,7 +106,7 @@ export function createPlayerState(
     counters: [],
     cooldowns: {},
     combo: { skillId: null, stacks: 0 },
-    equippedSkills: config.skills,
+    equippedSkills: skills,
   };
 }
 

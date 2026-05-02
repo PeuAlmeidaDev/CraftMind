@@ -1,6 +1,6 @@
 // server/stores/pvp-team-queue-store.ts — Store in-memory para filas de PvP Team 2v2
 
-import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
+import type { BaseStats, EquippedSkill, Skill } from "../../lib/battle/types";
 
 export type PvpTeamQueueEntry = {
   userId: string;
@@ -8,6 +8,8 @@ export type PvpTeamQueueEntry = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Skill espectral elegivel para o 5o slot. Ver `lib/cards/load-equipped.ts`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
   joinedAt: number;
 };
 

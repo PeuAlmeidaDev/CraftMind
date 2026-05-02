@@ -1,16 +1,21 @@
 // lib/cards/effects.ts — Aplicacao de efeitos de Card aos stats base do personagem.
 //
-// Pipeline (Fase 1):
-//   1. Soma todos os STAT_FLAT por target.
-//   2. Multiplica cada stat por (1 + sum(percents para esse target)/100).
-//   3. Arredonda para baixo (Math.floor).
-//   4. Garante minimo 1 para evitar dividir por zero em formulas de dano.
+// Pipeline (Fase 1 + Purity):
+//   1. Para cada carta, calcula combinedMultiplier = (purity / 50) * levelMultiplier.
+//   2. Soma todos os STAT_FLAT por target (cada effect.value escalado por
+//      combinedMultiplier antes do Math.floor).
+//   3. Multiplica cada stat por (1 + sum(percents para esse target)/100), onde
+//      cada percent ja foi escalado por combinedMultiplier (sem floor).
+//   4. Arredonda o resultado final para baixo (Math.floor).
+//   5. Garante minimo 1 para evitar dividir por zero em formulas de dano.
+//
+// Purity e o IV do cristal — 50 = baseline (1.0x, comportamento pre-Fase 1),
+// 100 = Espectral (2.0x), 0 = lixo (0.0x). Se a carta nao tiver purity definida
+// (null/undefined), usamos baseline 50 (preserva backward-compat com cards
+// pre-migration).
 //
 // TRIGGER e STATUS_RESIST sao IGNORADOS nesta fase (apenas console.warn na primeira
 // chamada de cada tipo, para facilitar debug).
-// Cada carta tem um multiplicador `level` (1.0 a 1.8) que escala os bonuses
-// STAT_FLAT (Math.floor por effect) e STAT_PERCENT (linear sem floor) antes
-// de serem somados aos acumuladores.
 //
 // O input `equippedCards` aceita tanto o tipo do Prisma (Json) quanto o array
 // ja parseado (CardEffect[]). A validacao Zod fica em `lib/validations/cards.ts`.
@@ -19,6 +24,7 @@ import type { CardEffect, CardStatFlatEffect, CardStatPercentEffect } from "@/ty
 import type { BaseStats } from "@/lib/battle/types";
 import type { StatName } from "@/types/skill";
 import { getLevelMultiplier } from "./level";
+import { getPurityMultiplier } from "./purity";
 
 /** Stat keys validos para BaseStats (sem "accuracy"). */
 type CardTargetStat = keyof BaseStats;
@@ -40,12 +46,18 @@ function isCardTargetStat(stat: StatName): stat is CardTargetStat {
  * Aplica os efeitos de um array de cartas aos stats base.
  *
  * @param baseStats Stats brutos do personagem (do banco, ja com pontos distribuidos).
- * @param equippedCards Array de cards equipadas (cada uma com `effects: CardEffect[]`).
+ * @param equippedCards Array de cards equipadas (cada uma com `effects: CardEffect[]`,
+ *   `level: number` e `purity?: number`). `purity` ausente/null e tratado como 50
+ *   (baseline 1.0x, preserva comportamento de cards anteriores a migration).
  *   Pode estar vazio — nesse caso retorna baseStats sem alteracao (deep clone).
  */
 export function applyCardEffects(
   baseStats: BaseStats,
-  equippedCards: ReadonlyArray<{ effects: ReadonlyArray<CardEffect>; level: number }>,
+  equippedCards: ReadonlyArray<{
+    effects: ReadonlyArray<CardEffect>;
+    level: number;
+    purity?: number | null;
+  }>,
 ): BaseStats {
   // Copia mutavel
   const flatBonuses: Record<CardTargetStat, number> = {
@@ -71,7 +83,9 @@ export function applyCardEffects(
   let warnedAccuracy = false;
 
   for (const card of equippedCards) {
-    const multiplier = getLevelMultiplier(card.level);
+    const purityMult = getPurityMultiplier(card.purity ?? 50);
+    const levelMult = getLevelMultiplier(card.level);
+    const multiplier = purityMult * levelMult;
     for (const effect of card.effects) {
       switch (effect.type) {
         case "STAT_FLAT": {

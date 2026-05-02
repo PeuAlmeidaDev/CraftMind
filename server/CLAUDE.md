@@ -42,6 +42,14 @@ Payload: `{ targetUserId: string, event: string, payload: object }`
 
 Usado pelo helper `lib/socket-emitter.ts` no lado do Next.js.
 
+### POST /internal/broadcast-spectral
+
+Broadcast global (`io.emit`) para TODOS os sockets conectados. Autenticado via `Authorization: Bearer <SOCKET_INTERNAL_SECRET>`.
+
+Payload: `{ event: string, payload: object }`
+
+Usado pelo helper `broadcastGlobal()` em `lib/socket-emitter.ts`. Atualmente disparado pelo evento `global:spectral-drop` quando alguem dropa um Cristal Espectral (purity 100) via API route do Next.js. O servidor Socket.io tambem emite o mesmo evento direto via `io.emit` quando o drop acontece dentro de um handler (ex: `coop-pve-battle.ts persistCoopPveResult`), evitando o roundtrip HTTP.
+
 ## Autenticacao de conexao
 
 Toda conexao deve enviar o `access_token` no handshake:
@@ -257,6 +265,18 @@ io.use((socket, next) => {
 |---|---|---|
 | `friend:request-received` | `{ friendshipId, sender: { id, name, level } }` | Pedido de amizade recebido (emitido pela API route POST /api/friends/request) |
 | `friend:request-accepted` | `{ friendshipId, friend: { id, name, level } }` | Pedido de amizade aceito (emitido pela API route PUT /api/friends/request/[id]/accept) |
+
+### Espectral — Servidor -> Cliente (broadcast global)
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `global:spectral-drop` | `{ userId, userName, cardName, mobName }` | Emitido para TODOS os sockets quando alguem dropa um Cristal Espectral (purity 100). Disparado via `POST /internal/broadcast-spectral` (das API routes do Next.js) ou direto via `io.emit` (dos handlers do servidor). Cliente filtra eventos onde `userId === currentUserId` para nao mostrar toast pro proprio dropper. |
+
+### Sessao — Servidor -> Cliente (anti multi-account)
+
+| Evento | Payload | Descricao |
+|---|---|---|
+| `session:replaced` | `{ reason: string }` | Emitido para o socket antigo quando o MESMO `userId` abre uma nova conexao. Logo apos o emit, o servidor chama `socket.disconnect(true)` no socket antigo. Cliente deve mostrar feedback ao usuario (toast/alert), limpar tokens locais e redirecionar para `/login` para evitar reconexao em loop. Implementado em `server/index.ts` no `io.on("connection", ...)` antes do `registerSocket(userId, socket.id)`. |
 
 ## Timers
 

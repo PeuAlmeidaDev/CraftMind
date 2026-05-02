@@ -15,6 +15,8 @@ export type CoopAvailableSkill = {
   target: string;
   cooldown: number;
   accuracy: number;
+  /** True quando esta skill vem do 5o slot (Cristal Espectral, purity 100). */
+  fromSpectralCard?: boolean;
 };
 
 type CoopSkillBarProps = {
@@ -102,8 +104,10 @@ export default function CoopSkillBar({
     setSelectingTargetForSkill(null);
   };
 
-  // Build 4 slots (same as SkillBar)
-  const slots = Array.from({ length: 4 }, (_, i) => {
+  // Build slots (4 ou 5 quando ha Cristal Espectral equipado)
+  const hasSpectral = skills.some((s) => s.fromSpectralCard);
+  const totalSlots = hasSpectral ? 5 : 4;
+  const slots = Array.from({ length: totalSlots }, (_, i) => {
     return skills.find((s) => s.slotIndex === i) ?? null;
   });
 
@@ -126,6 +130,7 @@ export default function CoopSkillBar({
           const inCooldown = skill.cooldown > 0;
           const isDisabled = disabled || inCooldown;
           const isSelectingThis = selectingTargetForSkill === skill.skillId;
+          const isSpectral = skill.fromSpectralCard === true;
           const dmgType = DAMAGE_TYPE_LABEL[skill.damageType] ?? {
             text: skill.damageType,
             color: "text-gray-400",
@@ -138,13 +143,38 @@ export default function CoopSkillBar({
               disabled={isDisabled}
               onClick={() => handleSkillClick(skill)}
               className={`relative rounded-lg border p-3 text-left transition-colors ${
-                isSelectingThis
+                isSpectral
+                  ? "bg-[var(--bg-secondary)]/60"
+                  : isSelectingThis
                   ? "border-amber-400 bg-amber-400/10"
                   : isDisabled
                   ? "border-[var(--border-subtle)] bg-[var(--bg-secondary)]/60 opacity-50 cursor-not-allowed"
                   : "border-[var(--border-subtle)] bg-[var(--bg-secondary)]/60 hover:border-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/5 cursor-pointer"
               }`}
+              style={
+                isSpectral
+                  ? {
+                      borderColor: "var(--gold)",
+                      boxShadow:
+                        "0 0 8px color-mix(in srgb, var(--gold) 40%, transparent), inset 0 0 4px color-mix(in srgb, var(--gold) 20%, transparent)",
+                      opacity: isDisabled ? 0.5 : 1,
+                    }
+                  : undefined
+              }
             >
+              {isSpectral && (
+                <span
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[7px] uppercase tracking-[0.3em]"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    color: "var(--bg-primary)",
+                    background: "var(--gold)",
+                    border: "1px solid var(--gold)",
+                  }}
+                >
+                  Espectral
+                </span>
+              )}
               <span className="block text-sm font-medium truncate">
                 {skill.name}
               </span>

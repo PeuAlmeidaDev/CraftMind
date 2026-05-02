@@ -13,19 +13,35 @@
 // cair Lendaria (ex: 0.3%) deve ser exatamente seu dropChance. Se rolassemos a
 // Comum primeiro e ela passasse no roll, a Lendaria nunca seria avaliada.
 //
-// Politica de duplicatas (atualizada):
-// - Se user NAO tem a variante que rolou positivo: cria UserCard novo (drop classico).
-// - Se user JA tem: a duplicata e convertida em XP/level no UserCard existente
-//   (via applyXpGain de lib/cards/level.ts) e a iteracao PARA. O XP varia pela
-//   raridade da carta (50/100/200/400/800 para COMUM/INCOMUM/RARO/EPICO/LENDARIO).
+// Politica de duplicatas (Fase 1 — Purity):
+// - Se user NAO tem a variante que rolou positivo: cria UserCard novo (drop classico)
+//   com purity rolada via `rollPurity`. Floor de 30 aplicado para variantes 3⭐.
+// - Se user JA tem: rola purity da nova copia.
+//   * Se nova_purity > purity_atual: cria PendingCardDuplicate e NAO toca xp/level.
+//     Jogador resolve via UI (REPLACE substitui purity zerando xp/level; CONVERT
+//     converte em XP normal mantendo purity atual).
+//   * Se nova_purity <= purity_atual: comportamento legado — converte em XP via
+//     applyXpGain.
+//
+// Espectral (Fase 2 — purity === 100):
+// - Quando um UserCard NOVO e criado com purity 100, a mesma transacao registra
+//   um `SpectralDropLog` (append-only) e o retorno inclui `spectralDrop` com
+//   `userCardId` e `cardName` para que o caller dispare `broadcastGlobal`
+//   FORA da transacao (fire-and-forget).
+// - Duplicatas com nova purity 100 NAO disparam log/broadcast aqui — elas
+//   entram no fluxo de PendingCardDuplicate e o broadcast acontece no momento
+//   da resolucao REPLACE (quando a UserCard de fato adota purity 100).
 //
 // Se nenhuma variante elegivel passar no roll, retorna
-// { cardDropped: null, xpGained: null }.
+// { cardDropped: null, xpGained: null, pendingDuplicate: null, spectralDrop: null }.
 
 import type { Prisma, PrismaClient, Card } from "@prisma/client";
 import { applyXpGain } from "./level";
 import type { ApplyXpResult } from "./level";
+import { rollPurity, SPECTRAL_PURITY } from "./purity";
 import type { CardRarity } from "@/types/cards";
+import { prisma } from "@/lib/prisma";
+import { broadcastGlobal } from "@/lib/socket-emitter";
 
 export type BattleResult = "VICTORY" | "DEFEAT" | "DRAW";
 
@@ -43,14 +59,32 @@ export type ApplyCardDropAndStatsInput = {
 
 export type ApplyCardDropAndStatsResult = {
   /** Card NOVA dropada (primeira copia). null caso o drop nao tenha sido uma carta nova. */
-  cardDropped: Card | null;
-  /** Info de XP ganho por duplicata. null caso o drop nao tenha sido uma duplicata. */
+  cardDropped: (Card & { purity: number }) | null;
+  /** Info de XP ganho por duplicata (nova_purity <= purity_atual). null caso o drop
+   *  nao tenha sido uma duplicata convertida em XP. */
   xpGained: {
     card: Card;
     xp: number;
     newXp: number;
     newLevel: number;
     leveledUp: boolean;
+  } | null;
+  /** Pendencia criada quando duplicata tem purity MAIOR que a atual. null caso
+   *  contrario. Jogador resolve via /api/cards/pending-duplicates/[id]/resolve. */
+  pendingDuplicate: {
+    id: string;
+    card: Card;
+    currentPurity: number;
+    newPurity: number;
+  } | null;
+  /** Set quando um UserCard NOVO e criado com purity 100 (Espectral). O caller
+   *  deve disparar `broadcastGlobal('global:spectral-drop', {...})` FORA da
+   *  transacao (fire-and-forget). null em qualquer outro cenario (incluindo
+   *  duplicata com nova purity 100, que vira PendingCardDuplicate). */
+  spectralDrop: {
+    userCardId: string;
+    cardName: string;
+    mobName: string;
   } | null;
 };
 
@@ -110,7 +144,7 @@ export async function applyCardDropAndStats(
 
   // 2. Drop so em VICTORY
   if (!isVictory) {
-    return { cardDropped: null, xpGained: null };
+    return { cardDropped: null, xpGained: null, pendingDuplicate: null, spectralDrop: null };
   }
 
   // 3. Buscar mob com todas as variantes de Card
@@ -120,7 +154,7 @@ export async function applyCardDropAndStats(
   });
 
   if (!mob || mob.cards.length === 0) {
-    return { cardDropped: null, xpGained: null };
+    return { cardDropped: null, xpGained: null, pendingDuplicate: null, spectralDrop: null };
   }
 
   // 4. Filtrar variantes elegiveis (requiredStars <= encounterStars)
@@ -130,13 +164,16 @@ export async function applyCardDropAndStats(
     .sort((a, b) => b.requiredStars - a.requiredStars);
 
   if (eligibleCards.length === 0) {
-    return { cardDropped: null, xpGained: null };
+    return { cardDropped: null, xpGained: null, pendingDuplicate: null, spectralDrop: null };
   }
 
   const rng = randomFn ?? Math.random;
 
   // 5. Iterar variantes em ordem decrescente. Para na primeira variante que
-  //    passa no roll: nova => cria UserCard; duplicata => aplica XP.
+  //    passa no roll. Comportamento depende de existencia da copia:
+  //      - Nova: cria UserCard com purity rolada.
+  //      - Duplicata com nova_purity > atual: cria PendingCardDuplicate (nao toca xp/level).
+  //      - Duplicata com nova_purity <= atual: aplica XP via applyXpGain.
   for (const card of eligibleCards) {
     const passed = rng() * 100 < card.dropChance;
     if (!passed) {
@@ -145,12 +182,39 @@ export async function applyCardDropAndStats(
 
     const existing = await client.userCard.findUnique({
       where: { userId_cardId: { userId, cardId: card.id } },
-      select: { id: true, xp: true, level: true },
+      select: { id: true, xp: true, level: true, purity: true },
     });
 
+    // Rola a purity da nova copia (mesma curva pra novo e duplicata).
+    const newPurity = rollPurity(rng, card.requiredStars);
+
     if (existing) {
-      // Duplicata — converte em XP/level no UserCard existente. Para o iter
-      // (drop "concluido" como XP).
+      // Duplicata — comportamento depende da comparacao de purity.
+      if (newPurity > existing.purity) {
+        // Nova copia melhor: criar pendencia, NAO tocar xp/level. Jogador
+        // resolve via UI (REPLACE ou CONVERT).
+        const pending = await client.pendingCardDuplicate.create({
+          data: {
+            userId,
+            userCardId: existing.id,
+            newPurity,
+          },
+          select: { id: true },
+        });
+        return {
+          cardDropped: null,
+          xpGained: null,
+          pendingDuplicate: {
+            id: pending.id,
+            card,
+            currentPurity: existing.purity,
+            newPurity,
+          },
+          spectralDrop: null,
+        };
+      }
+
+      // Nova copia menor ou igual: comportamento legado — vira XP.
       const xpResult: ApplyXpResult = applyXpGain(
         existing.xp,
         existing.level,
@@ -172,20 +236,85 @@ export async function applyCardDropAndStats(
           newLevel: xpResult.newLevel,
           leveledUp: xpResult.leveledUp,
         },
+        pendingDuplicate: null,
+        spectralDrop: null,
       };
     }
 
-    await client.userCard.create({
+    // Carta nova: cria UserCard com purity rolada.
+    const createdUserCard = await client.userCard.create({
       data: {
         userId,
         cardId: card.id,
         equipped: false,
         slotIndex: null,
+        purity: newPurity,
       },
+      select: { id: true },
     });
 
-    return { cardDropped: card, xpGained: null };
+    // Espectral: registra log append-only DENTRO da transacao. O caller
+    // dispara `broadcastGlobal('global:spectral-drop', ...)` FORA da transacao
+    // (fire-and-forget) usando o `spectralDrop` retornado.
+    let spectralDrop: ApplyCardDropAndStatsResult["spectralDrop"] = null;
+    if (newPurity === SPECTRAL_PURITY) {
+      await client.spectralDropLog.create({
+        data: {
+          userId,
+          userCardId: createdUserCard.id,
+        },
+      });
+      spectralDrop = {
+        userCardId: createdUserCard.id,
+        cardName: card.name,
+        mobName: mob.name,
+      };
+    }
+
+    return {
+      cardDropped: { ...card, purity: newPurity },
+      xpGained: null,
+      pendingDuplicate: null,
+      spectralDrop,
+    };
   }
 
-  return { cardDropped: null, xpGained: null };
+  return { cardDropped: null, xpGained: null, pendingDuplicate: null, spectralDrop: null };
+}
+
+// ---------------------------------------------------------------------------
+// Helper para callers do drop: dispara broadcast global de Espectral.
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper a ser chamado FORA da transacao Prisma quando `applyCardDropAndStats`
+ * retorna `spectralDrop != null`. Faz lookup do nome do dropper e dispara
+ * `broadcastGlobal('global:spectral-drop', ...)` fire-and-forget.
+ *
+ * Erros de banco/rede sao silenciados — broadcast e cosmetico, drop ja foi
+ * commitado com sucesso na transacao quando esta funcao roda.
+ */
+export async function dispatchSpectralBroadcast(params: {
+  userId: string;
+  spectralDrop: NonNullable<ApplyCardDropAndStatsResult["spectralDrop"]>;
+}): Promise<void> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: params.userId },
+      select: { name: true },
+    });
+    if (!user) return;
+
+    await broadcastGlobal("global:spectral-drop", {
+      userId: params.userId,
+      userName: user.name,
+      cardName: params.spectralDrop.cardName,
+      mobName: params.spectralDrop.mobName,
+    });
+  } catch (err) {
+    console.warn(
+      "[drop] dispatchSpectralBroadcast falhou:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 }

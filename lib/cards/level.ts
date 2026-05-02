@@ -10,6 +10,7 @@
 // - O multiplicador de level escala STAT_FLAT e STAT_PERCENT linearmente.
 
 import type { CardEffect, CardRarity } from "@/types/cards";
+import { getPurityMultiplier } from "./purity";
 
 /** XP ganho por uma duplicata, em funcao da raridade. */
 export const XP_PER_DUPLICATE_BY_RARITY: Record<CardRarity, number> = {
@@ -157,16 +158,32 @@ export function getDuplicateCount(xp: number, rarity: CardRarity): number {
 }
 
 /**
- * Retorna uma copia do effect com valores escalonados pelo multiplicador de level.
+ * Retorna uma copia do effect com valores escalonados pela combinacao de
+ * purity e level (espelha o pipeline real de `applyCardEffects`).
  *
- * - STAT_FLAT: `Math.floor(value * mult)` — espelha lib/cards/effects.ts:88.
- * - STAT_PERCENT: `percent * mult` (sem floor) — espelha lib/cards/effects.ts:102.
+ * Formula: `value * (purity / 50) * levelMultiplier`. Purity e aplicada
+ * ANTES do level multiplier — apenas multiplicacao escalar, ordem nao afeta
+ * o resultado matematico mas mantem a semantica do spec.
+ *
+ * - STAT_FLAT: `Math.floor(value * purityMult * levelMult)` — espelha
+ *   lib/cards/effects.ts (`Math.floor(flat.value * multiplier)`).
+ * - STAT_PERCENT: `percent * purityMult * levelMult` (sem floor) — espelha
+ *   `pct.percent * multiplier` em effects.ts.
  * - TRIGGER e STATUS_RESIST: copia rasa, sem alteracao (sao inertes na Fase 1).
+ *
+ * `purity` ausente (undefined) e tratado como 50 (baseline 1.0x), preservando
+ * compatibilidade com chamadas pre-existentes.
  *
  * Funcao pura: nao muta o input. Retorna um novo objeto.
  */
-export function scaleEffectForDisplay(effect: CardEffect, level: number): CardEffect {
-  const mult = getLevelMultiplier(level);
+export function scaleEffectForDisplay(
+  effect: CardEffect,
+  level: number,
+  purity?: number | null,
+): CardEffect {
+  const purityMult = getPurityMultiplier(purity ?? 50);
+  const levelMult = getLevelMultiplier(level);
+  const mult = purityMult * levelMult;
   switch (effect.type) {
     case "STAT_FLAT":
       return { ...effect, value: Math.floor(effect.value * mult) };

@@ -474,6 +474,16 @@ export default function BestiaryDetailModal({
                   label="Raridade"
                   value={RARITY_LABEL[selectedCard.rarity]}
                 />
+                {selectedCard.hasCard && selectedCard.userCardPurity !== null && (
+                  <StatRow
+                    label="Pureza"
+                    value={
+                      selectedCard.userCardPurity === 100
+                        ? "100% ESPECTRAL"
+                        : `${selectedCard.userCardPurity}% PURO`
+                    }
+                  />
+                )}
               </div>
               {selectedCard.hasCard && selectedCard.userCardLevel !== null && selectedCard.userCardXp !== null && (
                 <div className="mt-3 border-t pt-3" style={{ borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)" }}>

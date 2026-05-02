@@ -6,6 +6,7 @@ import type { CardEffect, CardRarity } from "@/types/cards";
 import type { StatName } from "@/types/skill";
 import type { UserCardSummary } from "./CardSlots";
 import { scaleEffectForDisplay } from "@/lib/cards/level";
+import { isSpectral } from "@/lib/cards/purity";
 import CardLevelBar from "../../_components/CardLevelBar";
 
 type Props = {
@@ -57,6 +58,20 @@ function formatEffect(effect: CardEffect): string | null {
     return `${sign}${rounded}% ${STAT_LABEL[effect.stat]}`;
   }
   return null;
+}
+
+function purityBadgeLabel(purity: number): string {
+  if (purity === 100) return "100% ESPECTRAL";
+  return `${purity}% PURO`;
+}
+
+function purityBadgeColor(purity: number): string {
+  if (purity === 100) return "#f4c45a";
+  if (purity >= 95) return "#b06bff";
+  if (purity >= 90) return "#6b9dff";
+  if (purity >= 70) return "#6bd47a";
+  if (purity >= 40) return "#9ba3ad";
+  return "#7a7280";
 }
 
 export default function CardPickerModal({
@@ -273,9 +288,12 @@ export default function CardPickerModal({
               const { card } = entry;
               const rarityClass = RARITY_CLASS[card.rarity];
               const bonuses = card.effects
-                .map((e) => formatEffect(scaleEffectForDisplay(e, entry.level)))
+                .map((e) => formatEffect(scaleEffectForDisplay(e, entry.level, entry.purity)))
                 .filter((s): s is string => s !== null);
               const equippedElsewhere = entry.equipped && entry.slotIndex !== null;
+              const spectral = isSpectral(entry.purity);
+              const purityLabel = purityBadgeLabel(entry.purity);
+              const purityColor = purityBadgeColor(entry.purity);
 
               return (
                 <button
@@ -360,6 +378,18 @@ export default function CardPickerModal({
                         }}
                       >
                         Lv {entry.level}
+                      </span>
+                      <span
+                        className="px-1.5 py-px text-[8px] uppercase tracking-[0.25em]"
+                        style={{
+                          fontFamily: "var(--font-cinzel)",
+                          color: purityColor,
+                          border: `1px solid ${purityColor}`,
+                          boxShadow: spectral ? `0 0 8px ${purityColor}` : undefined,
+                        }}
+                        aria-label={`Pureza ${entry.purity}${spectral ? " - Cristal Espectral" : ""}`}
+                      >
+                        {purityLabel}
                       </span>
                       {equippedElsewhere && entry.slotIndex !== null && (
                         <span

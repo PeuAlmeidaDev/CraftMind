@@ -17,11 +17,13 @@ api/
 │   ├── profile/route.ts  # GET (perfil do usuario: nome, email, casa, avatarUrl, character — protegida)
 │   ├── avatar/route.ts   # POST (upload de avatar via Cloudinary — protegida, formData, max 5MB, JPEG/PNG/WebP)
 │   ├── intro-seen/route.ts # PUT (marcar intro da casa como vista — protegida, sem body)
+│   ├── showcase/route.ts # PUT (define vitrine publica do usuario logado — protegida, body { userCardIds: string[] } max 6, valida ownership e dedup)
 │   ├── by-name/
 │   │   └── [name]/
 │   │       └── profile/route.ts  # GET (perfil publico por nome — protegida, mesmos dados de [id]/profile)
 │   └── [id]/
-│       └── profile/route.ts  # GET (perfil publico de qualquer jogador: nome, casa, character, pvpStats — protegida, sem email/senha/exp)
+│       ├── profile/route.ts   # GET (perfil publico de qualquer jogador: nome, casa, character, pvpStats — protegida, sem email/senha/exp)
+│       └── showcase/route.ts  # GET (vitrine publica de outro jogador — protegida, retorna { userCardIds, cards } com ate 6 UserCards completos; sem 404 quando vazia)
 ├── tasks/
 │   ├── daily/route.ts    # GET (listar tarefas do dia — protegida, somente leitura)
 │   ├── generate/route.ts # POST (gerar tarefas do dia — protegida, 409 se ja existem)
@@ -48,6 +50,15 @@ api/
 │   │       └── route.ts      # GET (status da relacao com outro usuario: NONE/PENDING/ACCEPTED/DECLINED/BLOCKED + direction — protegida, 10 req/60s)
 │   └── [id]/
 │       └── route.ts          # DELETE (remover amizade aceita — protegida, sender ou receiver)
+├── cards/
+│   ├── route.ts          # GET (listar UserCards do usuario, inclui purity e spectralSkillId — protegida)
+│   ├── equip/route.ts    # POST (equipar cristal em slot 0-2 — protegida)
+│   ├── unequip/route.ts  # POST (desequipar cristal — protegida)
+│   ├── [id]/
+│   │   └── spectral-skill/route.ts       # PUT (escolher skill espectral do 5o slot — protegida; valida purity 100, ownership e que skillId pertence aos 4 mob skills do mob de origem; resposta { ok: true, spectralSkillId })
+│   └── pending-duplicates/
+│       ├── route.ts                      # GET (listar pendencias do usuario — protegida)
+│       └── [id]/resolve/route.ts         # POST (resolver pendencia: decision REPLACE | CONVERT — protegida, transacao atomica, ownership validada)
 └── battle/
     ├── route.ts          # POST iniciar batalha
     ├── active/route.ts   # GET (verificar se usuario tem batalha ativa em qualquer modo — protegida, consulta stores locais + Socket.io server)

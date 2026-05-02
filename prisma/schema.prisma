@@ -100,11 +100,37 @@ model User {
   receivedFriendRequests Friendship[] @relation("FriendshipReceiver")
 
   // Cristais de Memoria + Bestiario
-  userCards    UserCard[]
-  mobKillStats MobKillStat[]
+  userCards               UserCard[]
+  mobKillStats            MobKillStat[]
+  pendingCardDuplicates   PendingCardDuplicate[]
+  spectralDropLogs        SpectralDropLog[]
+  showcase                UserShowcase?
+
+  // Logs de login (anti multi-account)
+  loginLogs LoginLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// LOGIN LOG — Registro de cada login (anti multi-account)
+// ============================================================
+// Append-only: nunca atualizado. Sem createdAt/updatedAt por design.
+// Retencao 90 dias via lib/jobs/cleanup-login-log.ts.
+// onDelete: Cascade — delete da conta apaga todos os logs (LGPD).
+
+model LoginLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visitorId  String // FingerprintJS visitorId, ou "unknown" se cliente nao enviou
+  ip         String
+  userAgent  String   @db.VarChar(500)
+  loggedInAt DateTime @default(now())
+
+  @@index([userId, loggedInAt])
+  @@index([visitorId, loggedInAt])
 }
 
 // ============================================================
@@ -257,6 +283,9 @@ model Skill {
   characterSkills CharacterSkill[]
   mobSkills       MobSkill[]
   bossSkills      BossSkill[]
+
+  // Cristais Espectrais (purity 100) que escolheram esta skill como 5o slot.
+  userCardsSpectral UserCard[] @relation("UserCardSpectralSkill")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -578,21 +607,25 @@ model TeamBattleParticipant {
 // ============================================================
 
 model Card {
-  id            String     @id @default(cuid())
-  mobId         String
-  name          String     @unique
-  flavorText    String
-  rarity        CardRarity
+  id                 String     @id @default(cuid())
+  mobId              String
+  name               String     @unique
+  flavorText         String
+  rarity             CardRarity
   // URL Cloudinary da arte da carta (separada da imageUrl do mob).
   // Pode ser null enquanto o asset nao foi gerado/uploaded.
-  cardArtUrl    String?
+  cardArtUrl         String?
+  // URL Cloudinary da arte alternativa exclusiva da versao Espectral
+  // (purity === 100). Quando null, o frontend faz fallback para `cardArtUrl`
+  // com filtro CSS holografico (hue-rotate + saturate).
+  cardArtUrlSpectral String?
   // Array tipado de CardEffect (validado em lib/validations/cards.ts).
   // Ver types/cards.ts para o discriminated union: STAT_FLAT | STAT_PERCENT | TRIGGER | STATUS_RESIST.
-  effects       Json       @default("[]")
+  effects            Json       @default("[]")
   // 0-100, percentual individual de drop quando a variante e elegivel
-  dropChance    Float      @default(5)
+  dropChance         Float      @default(5)
   // Estrela minima do encontro para esta variante cair (1, 2 ou 3)
-  requiredStars Int        @default(1)
+  requiredStars      Int        @default(1)
 
   mob       Mob        @relation(fields: [mobId], references: [id], onDelete: Cascade)
   userCards UserCard[]
@@ -615,9 +648,22 @@ model UserCard {
   slotIndex Int? // 0, 1 ou 2 quando equipped = true; null caso contrario
   xp        Int     @default(0) // XP acumulado por duplicatas (50/100/200/400/800 por raridade)
   level     Int     @default(1) // 1-5; afeta multiplicador de effects (1.0/1.2/1.4/1.6/1.8)
+  purity    Int     @default(50) // 0-100, escala efeitos via purity/50 (50 = 1.0x baseline)
+
+  // Skill espectral escolhida pelo dono. So aplica quando purity === 100
+  // (Cristal Espectral). Habilita o 5o slot de skill em batalha. A skill DEVE
+  // pertencer aos 4 mob skills do mob de origem (validado via MobSkill na rota
+  // PUT /api/cards/[id]/spectral-skill). onDelete: SetNull garante que se a
+  // Skill referenciada for removida do banco, a UserCard nao quebra — o 5o
+  // slot apenas desaparece silenciosamente na proxima batalha.
+  spectralSkillId String?
+  spectralSkill   Skill?  @relation("UserCardSpectralSkill", fields: [spectralSkillId], references: [id], onDelete: SetNull)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  pendingDuplicates PendingCardDuplicate[]
+  spectralDropLogs  SpectralDropLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -627,6 +673,35 @@ model UserCard {
   // Dois cristais nao podem ocupar o mesmo slot do mesmo usuario.
   @@unique([userId, slotIndex])
   @@index([userId])
+  @@index([spectralSkillId])
+}
+
+// ============================================================
+// PENDING CARD DUPLICATE — Drop de duplicata com purity MAIOR aguardando decisao
+// ============================================================
+//
+// Quando o jogador dropa uma copia de uma carta que ja possui e a nova copia
+// tem `purity` maior que a atual, o sistema cria uma pendencia (em vez de
+// converter automaticamente em XP). O jogador resolve via UI escolhendo:
+//   - REPLACE: zera xp/level da UserCard atual e adota a nova purity
+//   - CONVERT: aplica XP normal via applyXpGain (mantem purity atual)
+//
+// Pendencias acumulam sem expiracao. Cascade nas duas relacoes garante limpeza
+// se o User ou a UserCard for deletado.
+
+model PendingCardDuplicate {
+  id         String   @id @default(cuid())
+  userId     String
+  userCardId String
+  newPurity  Int // 0-100, purity rolada na nova copia
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userCard UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userCardId])
 }
 
 // ============================================================
@@ -653,4 +728,46 @@ model MobKillStat {
   @@unique([userId, mobId])
   @@index([userId])
   @@index([mobId])
+}
+
+// ============================================================
+// SPECTRAL DROP LOG — Append-only de drops com purity 100 (Espectral)
+// ============================================================
+//
+// Registro historico de cada Cristal Espectral dropado, alimenta feed/admin
+// futuros (ranking de Espectrais, hall da fama). Append-only: nunca atualizado.
+// Cascade nas duas relacoes para limpeza automatica.
+
+model SpectralDropLog {
+  id         String   @id @default(cuid())
+  userId     String
+  userCardId String
+  droppedAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userCard UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+
+  @@index([droppedAt])
+  @@index([userId])
+}
+
+// ============================================================
+// USER SHOWCASE — Vitrine de cristais escolhidos para exibir no perfil publico
+// ============================================================
+//
+// Ate 6 UserCardIds escolhidos pelo dono. Validacao do limite e da ownership
+// e feita na camada de aplicacao (PUT /api/user/showcase). Ordem do array
+// e preservada na renderizacao da vitrine. Sem expiracao.
+//
+// Relacao 1-1 com User (constraint unique em userId). Espectrais aparecem com
+// destaque visual (glow dourado) na pagina /character/[id]/showcase.
+
+model UserShowcase {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  userCardIds String[] @default([])
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

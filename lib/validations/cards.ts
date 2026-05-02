@@ -131,3 +131,40 @@ export const unequipCardSchema = z.object({
 
 export type EquipCardInput = z.infer<typeof equipCardSchema>;
 export type UnequipCardInput = z.infer<typeof unequipCardSchema>;
+
+// ---------------------------------------------------------------------------
+// Pending duplicate resolve (REPLACE | CONVERT)
+// ---------------------------------------------------------------------------
+//
+// Body do POST /api/cards/pending-duplicates/[id]/resolve:
+//   { decision: "REPLACE" | "CONVERT" }
+//
+// REPLACE: zera xp/level da UserCard atual e adota a newPurity da pendencia.
+// CONVERT: aplica `applyXpGain` na UserCard atual (mantem purity atual).
+// Em ambos os casos a pendencia e apagada apos a resolucao.
+
+export const resolveDuplicateSchema = z.object({
+  decision: z.enum(["REPLACE", "CONVERT"], {
+    message: "decision deve ser REPLACE ou CONVERT",
+  }),
+});
+
+export type ResolveDuplicateInput = z.infer<typeof resolveDuplicateSchema>;
+
+// ---------------------------------------------------------------------------
+// Spectral skill (PUT /api/cards/[id]/spectral-skill)
+// ---------------------------------------------------------------------------
+//
+// Body do PUT /api/cards/[id]/spectral-skill:
+//   { skillId: string }
+//
+// A rota valida (alem do schema):
+//   - UserCard pertence ao usuario autenticado (403 caso contrario)
+//   - UserCard.purity === 100 (422 "Apenas cristais Espectrais ...")
+//   - skillId pertence aos 4 mob skills do mob de origem da carta (422)
+
+export const spectralSkillSchema = z.object({
+  skillId: z.string().cuid("skillId deve ser um cuid valido"),
+});
+
+export type SpectralSkillInput = z.infer<typeof spectralSkillSchema>;

@@ -27,6 +27,8 @@ export type CoopPveSkillInfo = {
   target: string;
   cooldown: number;
   accuracy: number;
+  /** True quando esta skill vem do 5o slot (Cristal Espectral, purity 100). */
+  fromSpectralCard?: boolean;
 };
 
 export type CoopPveTeammateInfo = {
