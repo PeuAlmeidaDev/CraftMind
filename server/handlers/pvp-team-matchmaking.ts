@@ -37,6 +37,9 @@ import { prisma } from "../lib/prisma";
 const MATCH_ACCEPT_TIMEOUT_MS = 30_000;
 const QUEUE_TIMEOUT_MS = 5 * 60_000;
 
+// Timers de queue timeout por userId (compartilhado entre handlers e disconnect)
+const queueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 // ---------------------------------------------------------------------------
 // Type guards
 // ---------------------------------------------------------------------------
@@ -152,7 +155,6 @@ async function createPvpTeamSession(
 
 export function registerPvpTeamMatchmakingHandlers(io: Server, socket: Socket): void {
   const userId = socket.data.userId as string;
-  const queueTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   // -------------------------------------------------------------------------
   // pvp-team:queue:join — entrar na fila solo
@@ -502,60 +504,66 @@ export function registerPvpTeamMatchmakingHandlers(io: Server, socket: Socket): 
     );
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handlePvpTeamMatchmakingDisconnect
+}
 
-  socket.on("disconnect", () => {
-    // Se na fila: remover + limpar timeout
-    const timer = queueTimeouts.get(userId);
-    if (timer) {
-      clearTimeout(timer);
-      queueTimeouts.delete(userId);
+// ---------------------------------------------------------------------------
+// disconnect
+// ---------------------------------------------------------------------------
+
+export function handlePvpTeamMatchmakingDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  // Se na fila: remover + limpar timeout
+  const timer = queueTimeouts.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    queueTimeouts.delete(userId);
+  }
+  removeFromAnyQueue(userId);
+
+  // Se em match pendente: tratar como decline
+  const result = getPlayerPvpTeamBattle(userId);
+  if (result && result.session.matchTimer) {
+    const { battleId, session } = result;
+
+    if (session.matchTimer) {
+      clearTimeout(session.matchTimer);
+      session.matchTimer = null;
     }
-    removeFromAnyQueue(userId);
 
-    // Se em match pendente: tratar como decline
-    const result = getPlayerPvpTeamBattle(userId);
-    if (result && result.session.matchTimer) {
-      const { battleId, session } = result;
+    for (const [pUserId, pSocketId] of session.playerSockets) {
+      if (pUserId === userId) continue;
+      const pSocket = io.sockets.sockets.get(pSocketId);
+      pSocket?.emit("pvp-team:match:cancelled", {
+        message: "Um jogador desconectou durante a selecao.",
+      });
 
-      if (session.matchTimer) {
-        clearTimeout(session.matchTimer);
-        session.matchTimer = null;
-      }
-
-      for (const [pUserId, pSocketId] of session.playerSockets) {
-        if (pUserId === userId) continue;
-        const pSocket = io.sockets.sockets.get(pSocketId);
-        pSocket?.emit("pvp-team:match:cancelled", {
-          message: "Um jogador desconectou durante a selecao.",
-        });
-
-        if (session.matchAccepted.has(pUserId)) {
-          const teamNum = session.playerTeams.get(pUserId) ?? 1;
-          const teamPlayers = teamNum === 1 ? session.state.team1 : session.state.team2;
-          const playerState = teamPlayers.find((p) => p.playerId === pUserId);
-          if (playerState) {
-            addToSoloQueue({
-              userId: pUserId,
-              socketId: pSocketId,
-              characterId: playerState.characterId,
-              stats: playerState.baseStats,
-              skills: playerState.equippedSkills,
-              joinedAt: Date.now(),
-            });
-          }
+      if (session.matchAccepted.has(pUserId)) {
+        const teamNum = session.playerTeams.get(pUserId) ?? 1;
+        const teamPlayers = teamNum === 1 ? session.state.team1 : session.state.team2;
+        const playerState = teamPlayers.find((p) => p.playerId === pUserId);
+        if (playerState) {
+          addToSoloQueue({
+            userId: pUserId,
+            socketId: pSocketId,
+            characterId: playerState.characterId,
+            stats: playerState.baseStats,
+            skills: playerState.equippedSkills,
+            joinedAt: Date.now(),
+          });
         }
       }
-
-      removePvpTeamBattle(battleId);
-      console.log(
-        `[Socket.io] PvP Team match ${battleId} cancelado: ${userId} desconectou durante aceite`
-      );
     }
-    // Batalha ativa: delegado para pvp-team-battle handler via disconnect
-  });
+
+    removePvpTeamBattle(battleId);
+    console.log(
+      `[Socket.io] PvP Team match ${battleId} cancelado: ${userId} desconectou durante aceite`
+    );
+  }
+  // Batalha ativa: delegado para pvp-team-battle handler via disconnect
 }
 
 // ---------------------------------------------------------------------------

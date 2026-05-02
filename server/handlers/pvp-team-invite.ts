@@ -563,33 +563,39 @@ export function registerPvpTeamInviteHandlers(io: Server, socket: Socket): void 
     socket.emit("pvp-team:friends:online-status", { statuses });
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect — cleanup de convites pendentes
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handlePvpTeamInviteDisconnect
+}
 
-  socket.on("disconnect", () => {
-    const INVITE_DISCONNECT_GRACE_MS = 10_000;
+// ---------------------------------------------------------------------------
+// disconnect — cleanup de convites pendentes
+// ---------------------------------------------------------------------------
 
-    setTimeout(() => {
-      if (isOnline(userId)) return;
+export function handlePvpTeamInviteDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  const INVITE_DISCONNECT_GRACE_MS = 10_000;
 
-      // Se sender tem convites pendentes: notificar targets e remover
-      const senderInvite = getInviteBySender(userId);
-      if (senderInvite) {
-        emitToUser(io, senderInvite.targetId, "pvp-team:invite:expired", {
-          inviteId: senderInvite.inviteId,
-        });
-        removeInvitesBySender(userId);
-      }
+  setTimeout(() => {
+    if (isOnline(userId)) return;
 
-      // Se target tem convite pendente: cancelar
-      const targetInvite = getInviteByTarget(userId);
-      if (targetInvite) {
-        emitToUser(io, targetInvite.senderId, "pvp-team:invite:expired", {
-          inviteId: targetInvite.inviteId,
-        });
-        removeInvitesByTarget(userId);
-      }
-    }, INVITE_DISCONNECT_GRACE_MS);
-  });
+    // Se sender tem convites pendentes: notificar targets e remover
+    const senderInvite = getInviteBySender(userId);
+    if (senderInvite) {
+      emitToUser(io, senderInvite.targetId, "pvp-team:invite:expired", {
+        inviteId: senderInvite.inviteId,
+      });
+      removeInvitesBySender(userId);
+    }
+
+    // Se target tem convite pendente: cancelar
+    const targetInvite = getInviteByTarget(userId);
+    if (targetInvite) {
+      emitToUser(io, targetInvite.senderId, "pvp-team:invite:expired", {
+        inviteId: targetInvite.inviteId,
+      });
+      removeInvitesByTarget(userId);
+    }
+  }, INVITE_DISCONNECT_GRACE_MS);
 }

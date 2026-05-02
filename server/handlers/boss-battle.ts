@@ -446,83 +446,89 @@ export function registerBossBattleHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handleBossBattleDisconnect
+}
 
-  socket.on("disconnect", () => {
-    const result = getPlayerBossBattle(userId);
-    if (!result) return;
+// ---------------------------------------------------------------------------
+// disconnect
+// ---------------------------------------------------------------------------
 
-    const { battleId, session } = result;
+export function handleBossBattleDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  const result = getPlayerBossBattle(userId);
+  if (!result) return;
 
-    // Ignorar se match ainda pendente (tratado pelo boss-matchmaking handler)
-    if (session.matchTimer) return;
+  const { battleId, session } = result;
 
-    // Ignorar se batalha ja terminou
-    if (session.state.status !== "IN_PROGRESS") return;
+  // Ignorar se match ainda pendente (tratado pelo boss-matchmaking handler)
+  if (session.matchTimer) return;
 
-    const roomName = `boss-battle:${battleId}`;
+  // Ignorar se batalha ja terminou
+  if (session.state.status !== "IN_PROGRESS") return;
 
-    // Iniciar grace period — NAO finalizar batalha por 1 disconnect
-    const disconnectTimer = setTimeout(() => {
-      const currentSession = getBossBattle(battleId);
-      if (!currentSession) return;
+  const roomName = `boss-battle:${battleId}`;
 
-      // Se o player reconectou durante o grace period, o timer de disconnect
-      // foi limpo pelo handleBossReconnection. Se chegamos aqui, ele nao reconectou.
-      // Mas fazemos a checagem de seguranca para evitar race condition.
-      if (!currentSession.disconnectedPlayers.has(userId)) {
-        // Player reconectou — nada a fazer
-        return;
-      }
+  // Iniciar grace period — NAO finalizar batalha por 1 disconnect
+  const disconnectTimer = setTimeout(() => {
+    const currentSession = getBossBattle(battleId);
+    if (!currentSession) return;
 
-      currentSession.disconnectedPlayers.delete(userId);
+    // Se o player reconectou durante o grace period, o timer de disconnect
+    // foi limpo pelo handleBossReconnection. Se chegamos aqui, ele nao reconectou.
+    // Mas fazemos a checagem de seguranca para evitar race condition.
+    if (!currentSession.disconnectedPlayers.has(userId)) {
+      // Player reconectou — nada a fazer
+      return;
+    }
 
-      // Verificar se TODOS os players vivos estao desconectados
-      const allDisconnected = currentSession.state.team.every(
-        (pl) =>
-          pl.currentHp <= 0 ||
-          currentSession.disconnectedPlayers.has(pl.playerId)
-      );
+    currentSession.disconnectedPlayers.delete(userId);
 
-      if (allDisconnected) {
-        // Todos desconectaram — encerrar como derrota
-        currentSession.state.status = "FINISHED";
-        currentSession.state.winnerId = null;
-
-        io.to(roomName).emit("boss:battle:end", {
-          result: "DEFEAT",
-          winnerId: null,
-        });
-
-        persistBossBattleResult(battleId, currentSession).catch((err) => {
-          console.log(
-            `[Socket.io] Erro ao persistir boss battle ${battleId} (todos desconectaram): ${String(err)}`
-          );
-        });
-
-        readyPlayers.delete(battleId);
-        removeBossBattle(battleId);
-        console.log(
-          `[Socket.io] Boss battle ${battleId} encerrada: todos desconectaram`
-        );
-      }
-      // Se ainda ha players conectados, a batalha continua sem o desconectado
-    }, RECONNECT_GRACE_MS);
-
-    session.disconnectedPlayers.set(userId, { disconnectTimer });
-    session.lastActivityAt = Date.now();
-
-    io.to(roomName).emit("boss:battle:player-disconnected", {
-      playerId: userId,
-      gracePeriodMs: RECONNECT_GRACE_MS,
-    });
-
-    console.log(
-      `[Socket.io] ${userId} desconectou da boss battle ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+    // Verificar se TODOS os players vivos estao desconectados
+    const allDisconnected = currentSession.state.team.every(
+      (pl) =>
+        pl.currentHp <= 0 ||
+        currentSession.disconnectedPlayers.has(pl.playerId)
     );
+
+    if (allDisconnected) {
+      // Todos desconectaram — encerrar como derrota
+      currentSession.state.status = "FINISHED";
+      currentSession.state.winnerId = null;
+
+      io.to(roomName).emit("boss:battle:end", {
+        result: "DEFEAT",
+        winnerId: null,
+      });
+
+      persistBossBattleResult(battleId, currentSession).catch((err) => {
+        console.log(
+          `[Socket.io] Erro ao persistir boss battle ${battleId} (todos desconectaram): ${String(err)}`
+        );
+      });
+
+      readyPlayers.delete(battleId);
+      removeBossBattle(battleId);
+      console.log(
+        `[Socket.io] Boss battle ${battleId} encerrada: todos desconectaram`
+      );
+    }
+    // Se ainda ha players conectados, a batalha continua sem o desconectado
+  }, RECONNECT_GRACE_MS);
+
+  session.disconnectedPlayers.set(userId, { disconnectTimer });
+  session.lastActivityAt = Date.now();
+
+  io.to(roomName).emit("boss:battle:player-disconnected", {
+    playerId: userId,
+    gracePeriodMs: RECONNECT_GRACE_MS,
   });
+
+  console.log(
+    `[Socket.io] ${userId} desconectou da boss battle ${battleId}. Grace period de ${RECONNECT_GRACE_MS / 1000}s iniciado.`
+  );
 }
 
 // ---------------------------------------------------------------------------

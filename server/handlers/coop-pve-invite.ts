@@ -348,13 +348,20 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
     }
 
     // Verificar se o sender ainda esta online (pode ter reconectado com novo socket)
-    if (!isOnline(invite.senderId)) {
+    // Bug 2: isOnline() pode ficar dessincronizado com io.sockets.sockets, entao
+    // checamos tambem se existe ao menos 1 socketId real ativo no io.
+    const senderActiveSocketIds = getSocketIds(invite.senderId);
+    const hasActiveSocket = senderActiveSocketIds
+      ? Array.from(senderActiveSocketIds).some((sid) => io.sockets.sockets.has(sid))
+      : false;
+
+    if (!isOnline(invite.senderId) || !hasActiveSocket) {
       socket.emit("coop-pve:invite:error", {
         message: "O jogador que convidou nao esta mais online",
       });
       removeInvite(inviteId);
       console.log(
-        `[Socket.io] Coop PvE invite ${inviteId} rejeitado: sender ${invite.senderId} desconectou`
+        `[Socket.io] Coop PvE invite ${inviteId} rejeitado: sender ${invite.senderId} sem socket ativo`
       );
       return;
     }
@@ -984,52 +991,58 @@ export function registerCoopPveInviteHandlers(io: Server, socket: Socket): void 
     socket.emit("coop-pve:friends:online-status", { statuses });
   });
 
-  // -------------------------------------------------------------------------
-  // disconnect — cleanup de convites pendentes
-  // -------------------------------------------------------------------------
+  // disconnect cleanup centralizado em handleCoopPveInviteDisconnect
+}
 
-  socket.on("disconnect", () => {
-    // Grace period para reconexao antes de limpar convites
-    const INVITE_DISCONNECT_GRACE_MS = 10_000;
+// ---------------------------------------------------------------------------
+// disconnect — cleanup de convites pendentes
+// ---------------------------------------------------------------------------
 
-    setTimeout(() => {
-      // Verificar se o usuario reconectou
-      if (isOnline(userId)) return;
+export function handleCoopPveInviteDisconnect(
+  io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  // Grace period para reconexao antes de limpar convites
+  const INVITE_DISCONNECT_GRACE_MS = 10_000;
 
-      // Se sender tem convites pendentes: notificar targets e remover
-      const senderInvites = getInvitesBySender(userId);
-      for (const inv of senderInvites) {
-        emitToUser(io, inv.targetId, "coop-pve:invite:expired", {
-          inviteId: inv.inviteId,
-        });
-      }
-      removeInvitesBySender(userId);
+  setTimeout(() => {
+    // Verificar se o usuario reconectou
+    if (isOnline(userId)) return;
 
-      // Se target tem convite pendente NAO aceito: cancelar
-      const targetInvite = getInviteByTarget(userId);
-      if (targetInvite && !targetInvite.accepted) {
-        if (targetInvite.mode === "3v5") {
-          // Cancelar todo o grupo
-          const groupInvites = getInvitesByGroup(targetInvite.groupId);
-          for (const gi of groupInvites) {
-            if (gi.targetId !== userId) {
-              emitToUser(io, gi.targetId, "coop-pve:invite:expired", {
-                inviteId: gi.inviteId,
-              });
-            }
-            removeInvite(gi.inviteId);
+    // Se sender tem convites pendentes: notificar targets e remover
+    const senderInvites = getInvitesBySender(userId);
+    for (const inv of senderInvites) {
+      emitToUser(io, inv.targetId, "coop-pve:invite:expired", {
+        inviteId: inv.inviteId,
+      });
+    }
+    removeInvitesBySender(userId);
+
+    // Se target tem convite pendente NAO aceito: cancelar
+    const targetInvite = getInviteByTarget(userId);
+    if (targetInvite && !targetInvite.accepted) {
+      if (targetInvite.mode === "3v5") {
+        // Cancelar todo o grupo
+        const groupInvites = getInvitesByGroup(targetInvite.groupId);
+        for (const gi of groupInvites) {
+          if (gi.targetId !== userId) {
+            emitToUser(io, gi.targetId, "coop-pve:invite:expired", {
+              inviteId: gi.inviteId,
+            });
           }
-          emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
-            inviteId: targetInvite.inviteId,
-          });
-        } else {
-          emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
-            inviteId: targetInvite.inviteId,
-          });
-          removeInvitesByTarget(userId);
+          removeInvite(gi.inviteId);
         }
+        emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
+          inviteId: targetInvite.inviteId,
+        });
+      } else {
+        emitToUser(io, targetInvite.senderId, "coop-pve:invite:expired", {
+          inviteId: targetInvite.inviteId,
+        });
+        removeInvitesByTarget(userId);
       }
-      // Se accepted === true, nao fazer nada (convite aceito, aguardando grupo)
-    }, INVITE_DISCONNECT_GRACE_MS);
-  });
+    }
+    // Se accepted === true, nao fazer nada (convite aceito, aguardando grupo)
+  }, INVITE_DISCONNECT_GRACE_MS);
 }

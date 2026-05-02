@@ -11,6 +11,9 @@ import { z } from "zod";
 // CardEffect (discriminated union)
 // ---------------------------------------------------------------------------
 
+// Nota: accuracy NAO esta aqui de proposito. Cartas com accuracy nao tem efeito
+// em combate (accuracy e resolvida via stages, nao via BaseStats). Bloqueamos a
+// criacao/edicao no admin para evitar confusao.
 const statName = z.enum([
   "physicalAtk",
   "physicalDef",
@@ -18,7 +21,6 @@ const statName = z.enum([
   "magicDef",
   "hp",
   "speed",
-  "accuracy",
 ]);
 
 const statusEffect = z.enum(["STUN", "FROZEN", "BURN", "POISON", "SLOW"]);

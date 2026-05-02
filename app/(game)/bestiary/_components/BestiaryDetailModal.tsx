@@ -387,6 +387,20 @@ export default function BestiaryDetailModal({
                     ?
                   </span>
                 </div>
+              ) : !focusedOwned ? (
+                <div
+                  className="flex h-full w-full items-center justify-center"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse at center, color-mix(in srgb, var(--bg-secondary) 60%, transparent) 0%, var(--bg-primary) 80%)",
+                    fontFamily: "var(--font-cormorant)",
+                    fontSize: 100,
+                    color: "color-mix(in srgb, var(--gold) 35%, transparent)",
+                    filter: "grayscale(1)",
+                  }}
+                >
+                  ?
+                </div>
               ) : focusedArt ? (
                 <Image
                   src={focusedArt}
@@ -394,9 +408,6 @@ export default function BestiaryDetailModal({
                   fill
                   sizes="(max-width: 768px) 70vw, 280px"
                   className="object-cover"
-                  style={{
-                    filter: focusedOwned ? undefined : "grayscale(1) brightness(0.55)",
-                  }}
                 />
               ) : (
                 <div

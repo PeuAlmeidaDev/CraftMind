@@ -318,8 +318,12 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
     });
     console.log(`[Socket.io] ${userId} saiu da fila de matchmaking`);
   });
+}
 
-  socket.on("disconnect", () => {
-    removeFromQueue(userId);
-  });
+export function handleMatchmakingDisconnect(
+  _io: Server,
+  _socket: Socket,
+  userId: string,
+): void {
+  removeFromQueue(userId);
 }

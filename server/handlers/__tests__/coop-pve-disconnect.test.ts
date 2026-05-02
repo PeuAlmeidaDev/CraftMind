@@ -10,7 +10,7 @@ import {
   removeCoopPveBattle,
   getPlayerCoopPveBattle,
 } from "../../stores/coop-pve-battle-store";
-import { registerCoopPveBattleHandlers } from "../coop-pve-battle";
+import { handleCoopPveBattleDisconnect } from "../coop-pve-battle";
 import type { CoopPveBattleSession, CoopPveBattleState } from "../../../lib/battle/coop-pve-types";
 import type { Server, Socket } from "socket.io";
 
@@ -162,15 +162,10 @@ describe("coop-pve disconnect handler (Bug 1)", () => {
       setCoopPveBattle(battleId, session);
 
       const { io, emittedToRoom } = createMockIo();
-      const { socket, handlers } = createMockSocket("p1", `socket-p1`);
+      const { socket } = createMockSocket("p1", `socket-p1`);
 
-      // Registrar handlers no socket
-      registerCoopPveBattleHandlers(io, socket);
-
-      // Simular disconnect
-      const disconnectHandler = handlers.get("disconnect");
-      expect(disconnectHandler).toBeDefined();
-      disconnectHandler!();
+      // Invocar handler de disconnect centralizado
+      handleCoopPveBattleDisconnect(io, socket, "p1");
 
       // Verificar que grace period foi iniciado
       expect(session.disconnectedPlayers.has("p1")).toBe(true);
@@ -204,12 +199,9 @@ describe("coop-pve disconnect handler (Bug 1)", () => {
       setCoopPveBattle(battleId, session);
 
       const { io, emittedToRoom } = createMockIo();
-      const { socket, handlers } = createMockSocket("p3", `socket-p3`);
+      const { socket } = createMockSocket("p3", `socket-p3`);
 
-      registerCoopPveBattleHandlers(io, socket);
-
-      const disconnectHandler = handlers.get("disconnect");
-      disconnectHandler!();
+      handleCoopPveBattleDisconnect(io, socket, "p3");
 
       vi.advanceTimersByTime(30_000);
 
@@ -227,12 +219,9 @@ describe("coop-pve disconnect handler (Bug 1)", () => {
       setCoopPveBattle(battleId, session);
 
       const { io } = createMockIo();
-      const { socket, handlers } = createMockSocket("p5", `socket-p5`);
+      const { socket } = createMockSocket("p5", `socket-p5`);
 
-      registerCoopPveBattleHandlers(io, socket);
-
-      const disconnectHandler = handlers.get("disconnect");
-      disconnectHandler!();
+      handleCoopPveBattleDisconnect(io, socket, "p5");
 
       vi.advanceTimersByTime(30_000);
 
@@ -247,12 +236,9 @@ describe("coop-pve disconnect handler (Bug 1)", () => {
       setCoopPveBattle(battleId, session);
 
       const { io, emittedToRoom } = createMockIo();
-      const { socket, handlers } = createMockSocket("p7", `socket-p7`);
+      const { socket } = createMockSocket("p7", `socket-p7`);
 
-      registerCoopPveBattleHandlers(io, socket);
-
-      const disconnectHandler = handlers.get("disconnect");
-      disconnectHandler!();
+      handleCoopPveBattleDisconnect(io, socket, "p7");
 
       // Antes do grace expirar, deve ter emitido player-disconnected
       const dcEvents = emittedToRoom.filter(
@@ -269,12 +255,11 @@ describe("coop-pve disconnect handler (Bug 1)", () => {
   describe("quando jogador nao esta em batalha", () => {
     it("disconnect nao causa erro", () => {
       const { io } = createMockIo();
-      const { socket, handlers } = createMockSocket("sem-batalha", "socket-sem");
+      const { socket } = createMockSocket("sem-batalha", "socket-sem");
 
-      registerCoopPveBattleHandlers(io, socket);
-
-      const disconnectHandler = handlers.get("disconnect");
-      expect(() => disconnectHandler!()).not.toThrow();
+      expect(() =>
+        handleCoopPveBattleDisconnect(io, socket, "sem-batalha"),
+      ).not.toThrow();
     });
   });
 
@@ -288,12 +273,9 @@ describe("coop-pve disconnect handler (Bug 1)", () => {
       setCoopPveBattle(battleId, session);
 
       const { io, emittedToRoom } = createMockIo();
-      const { socket, handlers } = createMockSocket("pf1", `socket-pf1`);
+      const { socket } = createMockSocket("pf1", `socket-pf1`);
 
-      registerCoopPveBattleHandlers(io, socket);
-
-      const disconnectHandler = handlers.get("disconnect");
-      disconnectHandler!();
+      handleCoopPveBattleDisconnect(io, socket, "pf1");
 
       // Nao deve emitir player-disconnected porque status !== IN_PROGRESS
       // E tambem getPlayerCoopPveBattle ignora FINISHED (Bug 3 fix)

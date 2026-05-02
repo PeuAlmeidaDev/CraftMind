@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import TurnTimer from "./TurnTimer";
 import BossCard from "./BossCard";
 import TeamPanel from "./TeamPanel";
@@ -28,6 +29,7 @@ type CoopBattleArenaProps = {
   bossPlayerId: string;
   bossName: string;
   playerName: string;
+  playerNames: Record<string, string>;
   bossIsHit: boolean;
   skills: CoopAvailableSkill[];
   teammates: { playerId: string; name: string; isAlive: boolean }[];
@@ -47,12 +49,15 @@ export default function CoopBattleArena({
   bossPlayerId,
   bossName,
   playerName,
+  playerNames,
   bossIsHit,
   skills,
   teammates,
   onSkillUse,
   onSkipTurn,
 }: CoopBattleArenaProps) {
+  const nameMap = useMemo(() => ({ ...playerNames }), [playerNames]);
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 space-y-4">
       {/* Turn timer (full width) */}
@@ -110,6 +115,7 @@ export default function CoopBattleArena({
             playerName={playerName}
             mobId={bossPlayerId}
             mobName={bossName}
+            nameMap={nameMap}
           />
         </div>
       </div>
