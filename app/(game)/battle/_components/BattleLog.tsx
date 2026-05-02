@@ -42,6 +42,20 @@ const PHASE_ICON: Record<string, string> = {
   STUN: "\uD83D\uDE35",
 };
 
+// Icones por tipo de dano (PHYSICAL = espada, MAGICAL = cajado, NONE = brilho de suporte)
+const PHYSICAL_ICON = "\u2694\uFE0F";
+const MAGICAL_ICON = "\uD83E\uDE84";
+const SUPPORT_ICON = "\u2728";
+
+function getEventIcon(event: TurnLogEntry): string {
+  if (event.phase === "DAMAGE" || event.phase === "COUNTER") {
+    if (event.damageType === "PHYSICAL") return PHYSICAL_ICON;
+    if (event.damageType === "MAGICAL") return MAGICAL_ICON;
+    return SUPPORT_ICON;
+  }
+  return PHASE_ICON[event.phase] ?? "\u25B8";
+}
+
 function replaceIds(msg: string, playerId?: string, playerName?: string, mobId?: string, mobName?: string, nameMap?: Record<string, string>): string {
   let result = msg;
   if (playerId && playerName) result = result.replaceAll(playerId, playerName);
@@ -134,7 +148,7 @@ export default function BattleLog({ events, playerId, playerName, mobId, mobName
           >
             {events.map((event, idx) => {
               const phaseStyle = PHASE_STYLE[event.phase] ?? { color: "#d4d4d8" };
-              const icon = PHASE_ICON[event.phase] ?? "\u25B8";
+              const icon = getEventIcon(event);
 
               const isPlayer = !!event.actorId && event.actorId === playerId;
               const isMob = !!event.actorId && (event.actorId === mobId || (!isPlayer && !nameMap?.[event.actorId]));
