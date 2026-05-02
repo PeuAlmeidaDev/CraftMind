@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
-const ACCESS_TOKEN_MAX_AGE = 60 * 15; // 15 minutos
+const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24; // 1 dia
 
 /**
  * Define o cookie de refresh token na resposta.

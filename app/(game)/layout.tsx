@@ -315,6 +315,32 @@ export default function GameLayout({
                   />
                 </div>
 
+                <Link
+                  href="/codex"
+                  className="hidden h-8 w-8 cursor-pointer items-center justify-center transition-colors hover:bg-[var(--bg-secondary)] hover:text-white lg:flex"
+                  style={{
+                    color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--gold) 15%, transparent)",
+                  }}
+                  title="Codex de Combate"
+                  aria-label="Abrir Codex de Combate"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  </svg>
+                </Link>
+
                 <button
                   onClick={handleLogout}
                   className="hidden cursor-pointer px-3 py-1.5 text-[9px] uppercase tracking-[0.2em] transition-colors hover:border-[#d96a52]/60 hover:text-[#d96a52] lg:block"
@@ -449,6 +475,31 @@ export default function GameLayout({
               </span>
             )}
           </button>
+
+          <Link
+            href="/codex"
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-[11px] uppercase tracking-[0.2em] transition-colors hover:text-white"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span>Codex</span>
+          </Link>
         </nav>
 
         {/* Player search (mobile) */}

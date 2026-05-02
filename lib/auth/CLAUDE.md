@@ -13,7 +13,7 @@
 ## Decisoes de design
 
 - **jose** em vez de jsonwebtoken para compatibilidade com Edge Runtime do Next.js.
-- Access tokens expiram em 15 minutos; refresh tokens em 7 dias.
+- Access tokens expiram em 1 dia; refresh tokens em 7 dias.
 - Algoritmo HS256 com segredos distintos (`JWT_SECRET` e `JWT_REFRESH_SECRET`).
 - Erros de verificacao mapeados para tipos proprios (`TokenExpiredError`, `InvalidTokenError`) para facilitar tratamento no caller.
 - Refresh tokens sao persistidos no banco (model `RefreshToken`) com hash SHA-256. Rotacao por familia: cada login cria uma nova familia, e cada refresh emite novo token na mesma familia revogando o anterior. Reuso de token revogado invalida toda a familia (protecao contra roubo).
