@@ -43,7 +43,7 @@ const STAT_TOOLTIPS: Record<StatKey, string> = {
     "Reduz o dano que voce recebe de ataques magicos. Importante contra mobs que usam bolas de fogo, gelo e maldicoes.",
   hp: "Sua vida total. Quando chega a zero, voce e derrotado. Cada ponto investido em Vida vale 10 HP.",
   speed:
-    "Define quem ataca primeiro no turno. Tambem aumenta sua chance de esquivar de alguns efeitos. Em empate, e desempatado por sorte.",
+    "Define quem ataca primeiro no turno (ordem: prioridade > speed > sorte). NAO afeta esquiva — chance de errar e calculada via accuracy da skill + stages.",
 };
 
 // Botao "?" + tooltip controlado pelo pai (open/close).
