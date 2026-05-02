@@ -51,7 +51,8 @@ api/
 │   └── [id]/
 │       └── route.ts          # DELETE (remover amizade aceita — protegida, sender ou receiver)
 ├── cards/
-│   ├── route.ts          # GET (listar UserCards do usuario, inclui purity e spectralSkillId — protegida)
+│   ├── route.ts          # GET (listar UserCards do usuario, inclui purity, spectralSkillId, createdAt e card.dropChance/cardArtUrl/cardArtUrlSpectral — protegida)
+│   ├── total-count/route.ts # GET (total de Cards cadastrados no jogo — protegida, usado pela tela /inventario para o stat "X / Y unicas")
 │   ├── equip/route.ts    # POST (equipar cristal em slot 0-2 — protegida)
 │   ├── unequip/route.ts  # POST (desequipar cristal — protegida)
 │   ├── [id]/

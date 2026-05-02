@@ -7,6 +7,7 @@
 | `dashboard/page.tsx` | `/dashboard` | 3 | Hábitos diários e progresso |
 | `character/page.tsx` | `/character` | 5 | Tela do personagem com atributos e habilidades |
 | `character/[id]/showcase/page.tsx` | `/character/[id]/showcase` | Espectral Fase 2 | Vitrine publica com ate 6 cristais escolhidos pelo dono. Espectrais (purity 100) ganham glow dourado. Botao "Editar vitrine" so aparece quando o id da rota === userId logado. |
+| `inventario/page.tsx` | `/inventario` | Cristais | Inventario completo de UserCards (cristais). Stats globais (X/Y unicas, espectrais, Lv5, pureza media), filtros (raridade/pureza/equipada/busca), ordenacao e grid responsivo (2/3/4/6 cols). Click em carta abre modal de detalhes; modal expoe botao para abrir o `SpectralSkillSelectModal` em cima quando a carta e Espectral. Sem venda/trade — so colecao. |
 | `battle/page.tsx` | `/battle` | 6-7 | Tela de batalha por turnos |
 | `lobby/page.tsx` | `/lobby` | 8 | Matchmaking e sala de espera |
 | `pvp-1v1/page.tsx` | `/pvp-1v1` | 7 | Batalha PvP 1v1 em tempo real (lobby + arena + resultado) |

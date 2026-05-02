@@ -80,12 +80,18 @@ export type UserCardSummary = {
   /** Skill espectral escolhida (5o slot em batalha). So tem efeito quando
    *  purity === 100. Null/undefined se nao definida ainda. */
   spectralSkillId?: string | null;
+  /** ISO 8601 — data em que o UserCard foi criado (drop). Opcional para
+   *  manter compat com chamadas antigas; populado por GET /api/cards. */
+  createdAt?: string;
   card: {
     id: string;
     name: string;
     flavorText: string;
     rarity: CardRarity;
     effects: CardEffect[];
+    /** Percentual individual de drop quando a variante e elegivel (0-100).
+     *  Opcional para compat. Populado por GET /api/cards. */
+    dropChance?: number;
     /** Arte padrao (Cloudinary). Null enquanto asset nao foi gerado. */
     cardArtUrl?: string | null;
     /** Arte alternativa exclusiva da versao Espectral (purity === 100).
