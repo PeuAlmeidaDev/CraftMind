@@ -321,3 +321,25 @@ Modo de batalha onde 2 jogadores enfrentam 2 jogadores em turnos simultaneos. Es
 - Sem `any` — TypeScript strict
 - IDs gerados via `crypto.randomUUID()`
 - `randomFn` opcional em funcoes que usam aleatoriedade (para testes deterministicos)
+
+## 5o slot de skill (Cristal Espectral)
+
+Quando um jogador equipa um `UserCard` com `purity === 100` (Cristal Espectral)
+e tem `spectralSkillId` definido, ele ganha um 5o slot de skill em batalha. A
+fonte de dados eh `lib/cards/load-equipped.ts → loadEquippedCardsAndApply`,
+que retorna `{ baseStats, spectralSkill? }`. Os matchmaking handlers
+(`server/handlers/*-matchmaking.ts`, `*-invite.ts`, e os route handlers de
+PvE start) repassam isso em `BattlePlayerConfig.spectralSkill` (e equivalentes
+em `CoopBattlePlayerConfig`, `CoopPvePlayerConfig`, `PvpTeamPlayerConfig`).
+
+`createPlayerState` em `shared-helpers.ts` faz o append no fim de
+`equippedSkills` com `fromSpectralCard: true`, `slotIndex` igual ao tamanho do
+array original (4) e cooldown 0 (gerenciado normalmente via
+`PlayerState.cooldowns`). Skills espectrais sao usadas RAW (sem mastery). A
+selecao do "qual cristal contribui" (apenas 1 cristal Espectral equipado por
+jogador, o de menor `slotIndex`) eh feita em `loadEquippedCardsAndApply`.
+
+`getAvailableSkills` em `skills.ts` ja eh length-agnostic (itera o array
+inteiro). O 5o slot tambem participa de combos/cooldowns/accuracy normalmente.
+A flag `fromSpectralCard` eh usada apenas pelo frontend para o visual
+diferenciado do 5o slot (`SkillBar` e variantes).

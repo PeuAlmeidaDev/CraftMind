@@ -20,6 +20,7 @@ import PvpTeamMatchModal from "./_components/PvpTeamMatchModal";
 import Pvp1v1QueueBar from "./_components/Pvp1v1QueueBar";
 import PvpTeamInviteNotification from "./_components/PvpTeamInviteNotification";
 import CoopPveInviteNotification from "./_components/CoopPveInviteNotification";
+import SpectralDropToast from "./_components/SpectralDropToast";
 import { LayoutSocketProvider } from "./_hooks/useLayoutSocket";
 import PlayerSearchBar from "@/components/ui/PlayerSearchBar";
 import PlayerProfileCard from "@/components/ui/PlayerProfileCard";
@@ -155,6 +156,21 @@ export default function GameLayout({
       refreshFriends();
     });
 
+    // Anti multi-account: outra aba/dispositivo logou na mesma conta.
+    // Servidor desconecta esta sessao depois de emitir o evento.
+    socket.on("session:replaced", (payload: { reason?: string }) => {
+      const reason =
+        typeof payload?.reason === "string" && payload.reason.length > 0
+          ? payload.reason
+          : "Sua conta foi acessada em outro dispositivo.";
+      console.warn("[Socket.io] session:replaced ->", reason);
+      // Sem toast lib instalada: alert garante feedback visivel ao usuario.
+      if (typeof window !== "undefined") {
+        window.alert(reason);
+      }
+      clearAuthAndRedirect(router);
+    });
+
     socket.connect();
     layoutSocketRef.current = socket;
     setLayoutSocket(socket);
@@ -164,7 +180,7 @@ export default function GameLayout({
       layoutSocketRef.current = null;
       setLayoutSocket(null);
     };
-  }, [refreshFriends]);
+  }, [refreshFriends, router]);
 
   async function handleLogout() {
     try {
@@ -535,6 +551,9 @@ export default function GameLayout({
 
       {/* Coop PvE invite notification (visible on any page) */}
       <CoopPveInviteNotification socket={layoutSocket} />
+
+      {/* Spectral drop global toast (filtra o proprio dropper via userId) */}
+      <SpectralDropToast socket={layoutSocket} currentUserId={user?.id ?? null} />
 
       {/* Player profile modal */}
       {searchedPlayer && (

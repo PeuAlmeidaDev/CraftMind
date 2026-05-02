@@ -149,12 +149,14 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const verifiedStats = await loadEquippedCardsAndApply(
+    const verifiedEquipped = await loadEquippedCardsAndApply(
       prisma,
       userId,
       extractBaseStats(character),
     );
+    const verifiedStats = verifiedEquipped.baseStats;
     const verifiedSkills = convertToEquippedSkills(character.characterSkills);
+    const verifiedSpectral = verifiedEquipped.spectralSkill;
 
     const match = findMatch(userId);
 
@@ -173,6 +175,7 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
           characterId: character.id,
           stats: verifiedStats,
           skills: verifiedSkills,
+          spectralSkill: verifiedSpectral,
           joinedAt: Date.now(),
         });
 
@@ -200,6 +203,7 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
             characterId: match.characterId,
             stats: match.stats,
             skills: match.skills,
+            spectralSkill: match.spectralSkill,
             joinedAt: match.joinedAt,
           });
         }
@@ -210,6 +214,7 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
           characterId: character.id,
           stats: verifiedStats,
           skills: verifiedSkills,
+          spectralSkill: verifiedSpectral,
           joinedAt: Date.now(),
         });
 
@@ -220,12 +225,14 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
         return;
       }
 
-      const freshMatchStats = await loadEquippedCardsAndApply(
+      const freshMatchEquipped = await loadEquippedCardsAndApply(
         prisma,
         match.userId,
         extractBaseStats(matchCharacter),
       );
+      const freshMatchStats = freshMatchEquipped.baseStats;
       const freshMatchSkills = convertToEquippedSkills(matchCharacter.characterSkills);
+      const freshMatchSpectral = freshMatchEquipped.spectralSkill;
 
       const battleId = crypto.randomUUID();
 
@@ -236,12 +243,14 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
           characterId: matchCharacter.id,
           stats: freshMatchStats,
           skills: freshMatchSkills,
+          spectralSkill: freshMatchSpectral,
         },
         player2: {
           userId,
           characterId: character.id,
           stats: verifiedStats,
           skills: verifiedSkills,
+          spectralSkill: verifiedSpectral,
         },
       });
 
@@ -300,6 +309,7 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
         characterId: character.id,
         stats: verifiedStats,
         skills: verifiedSkills,
+        spectralSkill: verifiedSpectral,
         joinedAt: Date.now(),
       });
 

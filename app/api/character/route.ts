@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
       speed: characterAttributes.speed,
     };
 
-    const effective = await loadEquippedCardsAndApply(prisma, userId, baseStats);
+    const equipped = await loadEquippedCardsAndApply(prisma, userId, baseStats);
+    const effective = equipped.baseStats;
 
     const bonusStats: BonusStats = {
       physicalAtk: effective.physicalAtk - baseStats.physicalAtk,

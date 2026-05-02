@@ -10,11 +10,38 @@
 //   - Duplicata: a primeira variante que passa no roll, se ja pertence ao user,
 //     e convertida em XP/level no UserCard existente e a iteracao para.
 //
+// Fase 2 — Espectral:
+//   - UserCard NOVO com purity 100: grava SpectralDropLog na MESMA transacao
+//     e retorna spectralDrop populado.
+//   - UserCard NOVO com purity < 100: nao grava SpectralDropLog; spectralDrop=null.
+//   - dispatchSpectralBroadcast: chama broadcastGlobal com payload correto;
+//     fire-and-forget swallows erro de broadcast.
+//
 // O Prisma e mockado com objeto plano (vi.fn() em cada metodo) e cast
-// `prisma as never` na chamada.
+// `prisma as never` na chamada. Para tests de dispatchSpectralBroadcast,
+// `@/lib/prisma` e `@/lib/socket-emitter` sao mockados via vi.mock no topo.
 
-import { describe, it, expect, vi } from "vitest";
-import { applyCardDropAndStats } from "../drop";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// vi.mock precisa estar antes do import dinamico/static do modulo testado.
+// Esses mocks afetam APENAS dispatchSpectralBroadcast — applyCardDropAndStats
+// recebe seu proprio `client` por parametro e nao toca a singleton @/lib/prisma.
+const mockUserFindUnique = vi.fn();
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: {
+      findUnique: (...args: unknown[]) => mockUserFindUnique(...args),
+    },
+  },
+}));
+
+const mockBroadcastGlobal = vi.fn();
+vi.mock("@/lib/socket-emitter", () => ({
+  broadcastGlobal: (...args: unknown[]) => mockBroadcastGlobal(...args),
+  emitToUser: vi.fn(),
+}));
+
+import { applyCardDropAndStats, dispatchSpectralBroadcast } from "../drop";
 import { XP_PER_DUPLICATE_BY_RARITY } from "../level";
 
 type FakeCard = {
@@ -32,6 +59,7 @@ type FakeUserCard = {
   cardId: string;
   xp: number;
   level: number;
+  purity?: number;
 };
 
 function makePrismaMock(opts: {
@@ -92,15 +120,33 @@ function makePrismaMock(opts: {
   };
 
   const mob = {
-    findUnique: vi.fn(async () => opts.mob),
+    findUnique: vi.fn(async () => ({ ...opts.mob, name: "Slime" })),
+  };
+
+  // Fase 2: spectralDropLog e criado dentro da transacao quando newPurity === 100.
+  const spectralDropLog = {
+    create: vi.fn(async () => ({ id: "sdl_1" })),
+  };
+
+  // Fase 2: pendingCardDuplicate.create usado no fluxo de duplicata melhor.
+  const pendingCardDuplicate = {
+    create: vi.fn(async () => ({ id: "pend_1" })),
   };
 
   return {
-    prisma: { mobKillStat, userCard, mob },
+    prisma: {
+      mobKillStat,
+      userCard,
+      mob,
+      spectralDropLog,
+      pendingCardDuplicate,
+    },
     userCardStore,
     mobKillStat,
     userCard,
     mob,
+    spectralDropLog,
+    pendingCardDuplicate,
   };
 }
 
@@ -391,7 +437,7 @@ describe("applyCardDropAndStats — duplicata vira XP", () => {
     expect(userCard.findUnique).toHaveBeenCalledOnce();
     expect(userCard.findUnique).toHaveBeenCalledWith({
       where: { userId_cardId: { userId: "user_1", cardId: "card_slime_2s" } },
-      select: { id: true, xp: true, level: true },
+      select: { id: true, xp: true, level: true, purity: true },
     });
     expect(userCard.update).toHaveBeenCalledOnce();
     expect(userCard.create).not.toHaveBeenCalled();
@@ -429,5 +475,260 @@ describe("applyCardDropAndStats — duplicata vira XP", () => {
       "card_slime_1s",
       "card_slime_2s",
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fase 2 — Espectral (purity === 100)
+// ---------------------------------------------------------------------------
+
+/**
+ * RNG sequencial helper. Consome valores na ordem fornecida; quando esgota,
+ * lanca para nao mascarar bugs (chamada inesperada ao rng).
+ */
+function seqRng(values: number[]): () => number {
+  let i = 0;
+  return () => {
+    if (i >= values.length) {
+      throw new Error(`seqRng: chamadas alem do esperado (idx=${i})`);
+    }
+    return values[i++];
+  };
+}
+
+describe("applyCardDropAndStats — Fase 2 Espectral (purity === 100)", () => {
+  // Sequencia de rng para forcar drop+purity=100:
+  //   [0] check de dropChance: 0.001*100 = 0.1, passa em SLIME_1S (8%)
+  //   [1] rollPurity bucket: 0.001 < 0.005 -> bucket 100..100
+  //   [2] rollPurity valor:  0.001 -> 100 + floor(0.001*1) = 100
+  const RNG_SPECTRAL = (): (() => number) => seqRng([0.001, 0.001, 0.001]);
+
+  // Sequencia de rng para forcar drop+purity=55 (baseline-ish, NAO espectral):
+  //   [0] check: 0.01*100 = 1, passa em SLIME_1S (8%)
+  //   [1] bucket: 0.5 -> bucket 40..69 (cumulative 0.92)
+  //   [2] valor: 0.5 -> 40 + floor(0.5*30) = 55
+  const RNG_NORMAL_55 = (): (() => number) => seqRng([0.01, 0.5, 0.5]);
+
+  it("UserCard NOVO com purity 100 grava SpectralDropLog na MESMA transacao", async () => {
+    const { prisma, userCard, spectralDropLog, userCardStore } = makePrismaMock({
+      mob: { id: "mob_slime", tier: 1, cards: [SLIME_1S] },
+    });
+
+    const out = await applyCardDropAndStats(prisma as never, {
+      userId: "user_1",
+      mobId: "mob_slime",
+      result: "VICTORY",
+      damageDealt: 100,
+      randomFn: RNG_SPECTRAL(),
+    });
+
+    expect(out.cardDropped).not.toBeNull();
+    expect(out.cardDropped?.purity).toBe(100);
+
+    // SpectralDropLog DEVE ser criado na mesma transacao (mesmo prisma client).
+    expect(spectralDropLog.create).toHaveBeenCalledOnce();
+    const logCall = spectralDropLog.create.mock.calls[0][0] as {
+      data: { userId: string; userCardId: string };
+    };
+    expect(logCall.data.userId).toBe("user_1");
+    expect(logCall.data.userCardId).toBe(userCardStore[0].id);
+
+    // E DEVE preceder o retorno (foi chamado antes do final do create).
+    expect(userCard.create).toHaveBeenCalledOnce();
+  });
+
+  it("retorno inclui spectralDrop com userCardId, cardName e mobName", async () => {
+    const { prisma, userCardStore } = makePrismaMock({
+      mob: { id: "mob_slime", tier: 1, cards: [SLIME_1S] },
+    });
+
+    const out = await applyCardDropAndStats(prisma as never, {
+      userId: "user_1",
+      mobId: "mob_slime",
+      result: "VICTORY",
+      damageDealt: 50,
+      randomFn: RNG_SPECTRAL(),
+    });
+
+    expect(out.spectralDrop).not.toBeNull();
+    expect(out.spectralDrop?.userCardId).toBe(userCardStore[0].id);
+    expect(out.spectralDrop?.cardName).toBe("Cristal do Slime (Comum)");
+    // makePrismaMock fixa mob.name = "Slime"
+    expect(out.spectralDrop?.mobName).toBe("Slime");
+  });
+
+  it("UserCard NOVO com purity < 100 NAO cria SpectralDropLog", async () => {
+    const { prisma, spectralDropLog, userCardStore } = makePrismaMock({
+      mob: { id: "mob_slime", tier: 1, cards: [SLIME_1S] },
+    });
+
+    const out = await applyCardDropAndStats(prisma as never, {
+      userId: "user_1",
+      mobId: "mob_slime",
+      result: "VICTORY",
+      damageDealt: 100,
+      randomFn: RNG_NORMAL_55(),
+    });
+
+    expect(out.cardDropped).not.toBeNull();
+    expect(out.cardDropped?.purity).toBe(55);
+    expect(spectralDropLog.create).not.toHaveBeenCalled();
+    expect(out.spectralDrop).toBeNull();
+    expect(userCardStore[0].purity).toBe(55);
+  });
+
+  it("UserCard que NAO dropa nao mexe em SpectralDropLog", async () => {
+    const { prisma, spectralDropLog } = makePrismaMock({
+      mob: { id: "mob_slime", tier: 1, cards: [SLIME_1S] },
+    });
+
+    const out = await applyCardDropAndStats(prisma as never, {
+      userId: "user_1",
+      mobId: "mob_slime",
+      result: "VICTORY",
+      damageDealt: 100,
+      // 0.99 > 0.08 -> nao passa no roll
+      randomFn: () => 0.99,
+    });
+
+    expect(out.cardDropped).toBeNull();
+    expect(out.spectralDrop).toBeNull();
+    expect(spectralDropLog.create).not.toHaveBeenCalled();
+  });
+
+  it("DUPLICATA com nova purity 100 NAO cria SpectralDropLog (vai pra PendingCardDuplicate)", async () => {
+    // O fluxo: existing.purity=50; nova rola 100 -> 100 > 50 -> cria pending,
+    // NAO toca SpectralDropLog (broadcast acontece no resolve REPLACE).
+    const { prisma, spectralDropLog, pendingCardDuplicate, userCard } =
+      makePrismaMock({
+        mob: { id: "mob_slime", tier: 1, cards: [SLIME_1S] },
+        initialUserCards: [
+          {
+            id: "uc_existing",
+            userId: "user_1",
+            cardId: "card_slime_1s",
+            xp: 0,
+            level: 1,
+            purity: 50,
+          },
+        ],
+      });
+
+    const out = await applyCardDropAndStats(prisma as never, {
+      userId: "user_1",
+      mobId: "mob_slime",
+      result: "VICTORY",
+      damageDealt: 100,
+      randomFn: RNG_SPECTRAL(),
+    });
+
+    expect(out.pendingDuplicate).not.toBeNull();
+    expect(out.pendingDuplicate?.newPurity).toBe(100);
+    expect(out.cardDropped).toBeNull();
+    expect(out.spectralDrop).toBeNull();
+    expect(spectralDropLog.create).not.toHaveBeenCalled();
+    expect(pendingCardDuplicate.create).toHaveBeenCalledOnce();
+    expect(userCard.create).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dispatchSpectralBroadcast — fire-and-forget helper que chama broadcastGlobal
+// ---------------------------------------------------------------------------
+
+describe("dispatchSpectralBroadcast", () => {
+  beforeEach(() => {
+    mockUserFindUnique.mockReset();
+    mockBroadcastGlobal.mockReset();
+  });
+
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it("chama broadcastGlobal com payload correto (userId, userName, cardName, mobName)", async () => {
+    mockUserFindUnique.mockResolvedValue({ name: "Pedro" });
+    mockBroadcastGlobal.mockResolvedValue(undefined);
+
+    await dispatchSpectralBroadcast({
+      userId: "user_42",
+      spectralDrop: {
+        userCardId: "uc_xyz",
+        cardName: "Cristal do Slime (Lendario)",
+        mobName: "Slime Real",
+      },
+    });
+
+    expect(mockUserFindUnique).toHaveBeenCalledOnce();
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where: { id: "user_42" },
+      select: { name: true },
+    });
+
+    expect(mockBroadcastGlobal).toHaveBeenCalledOnce();
+    expect(mockBroadcastGlobal).toHaveBeenCalledWith("global:spectral-drop", {
+      userId: "user_42",
+      userName: "Pedro",
+      cardName: "Cristal do Slime (Lendario)",
+      mobName: "Slime Real",
+    });
+  });
+
+  it("nao chama broadcastGlobal quando user nao existe", async () => {
+    mockUserFindUnique.mockResolvedValue(null);
+
+    await dispatchSpectralBroadcast({
+      userId: "user_ghost",
+      spectralDrop: {
+        userCardId: "uc_xyz",
+        cardName: "Card",
+        mobName: "Mob",
+      },
+    });
+
+    expect(mockUserFindUnique).toHaveBeenCalledOnce();
+    expect(mockBroadcastGlobal).not.toHaveBeenCalled();
+  });
+
+  it("se broadcastGlobal falhar, NAO propaga (fire-and-forget) e loga via console.warn", async () => {
+    mockUserFindUnique.mockResolvedValue({ name: "Pedro" });
+    mockBroadcastGlobal.mockRejectedValue(new Error("network down"));
+
+    await expect(
+      dispatchSpectralBroadcast({
+        userId: "user_42",
+        spectralDrop: {
+          userCardId: "uc_xyz",
+          cardName: "Card",
+          mobName: "Mob",
+        },
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(warnSpy).toHaveBeenCalled();
+    const allMsgs = warnSpy.mock.calls.map((c) => String(c[0])).join(" ");
+    expect(allMsgs).toContain("dispatchSpectralBroadcast falhou");
+  });
+
+  it("se prisma.user.findUnique falhar, NAO propaga e loga via console.warn", async () => {
+    mockUserFindUnique.mockRejectedValue(new Error("db down"));
+
+    await expect(
+      dispatchSpectralBroadcast({
+        userId: "user_42",
+        spectralDrop: {
+          userCardId: "uc_xyz",
+          cardName: "Card",
+          mobName: "Mob",
+        },
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockBroadcastGlobal).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
   });
 });

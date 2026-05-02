@@ -36,6 +36,7 @@ type SkillInfo = {
   target: string;
   cooldown: number;
   accuracy: number;
+  fromSpectralCard?: boolean;
 };
 
 type Pvp1v1BattleArenaProps = {
@@ -355,6 +356,7 @@ export default function Pvp1v1BattleArena({
       target: es.skill.target,
       cooldown: myPlayer.cooldowns[es.skillId] ?? 0,
       accuracy: es.skill.accuracy,
+      fromSpectralCard: es.fromSpectralCard ?? false,
     }));
   }, [myPlayer]);
 

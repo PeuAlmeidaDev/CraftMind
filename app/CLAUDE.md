@@ -7,6 +7,7 @@
 | `(auth)/` | `/login`, `/register` | Fluxo de autenticação (sem layout do jogo) |
 | `(game)/` | `/dashboard`, `/battle`, `/character` | Rotas protegidas do jogo |
 | `api/` | `/api/*` | Route Handlers — ver `api/CLAUDE.md` |
+| `privacy/` | `/privacy` | Politica de privacidade publica (LGPD: dados coletados em login, retencao 90 dias, contato). Server Component sem layout do jogo nem auth |
 
 ## Server vs Client Components
 

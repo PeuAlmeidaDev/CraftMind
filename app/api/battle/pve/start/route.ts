@@ -162,11 +162,8 @@ export async function POST(request: NextRequest) {
       speed: character.speed,
     };
 
-    const playerStats: BaseStats = await loadEquippedCardsAndApply(
-      prisma,
-      userId,
-      baseStats,
-    );
+    const equipped = await loadEquippedCardsAndApply(prisma, userId, baseStats);
+    const playerStats: BaseStats = equipped.baseStats;
 
     // Sortear estrela do encontro e aplicar multiplicador nos stats do mob
     // (alteracao apenas em memoria — nao persiste no banco).
@@ -198,6 +195,7 @@ export async function POST(request: NextRequest) {
         characterId: character.id,
         stats: playerStats,
         skills: playerSkills,
+        spectralSkill: equipped.spectralSkill,
       },
       player2: {
         userId: mob.id,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getToken, authFetchOptions } from "@/lib/client-auth";
 import type { Character } from "@/types/character";
 import Panel from "@/components/ui/Panel";
@@ -31,13 +31,116 @@ const INITIAL_ALLOCATION: Record<StatKey, number> = {
   speed: 0,
 };
 
+// Textos explicativos por atributo (jogador novo). Sem acentos por convencao do projeto.
+const STAT_TOOLTIPS: Record<StatKey, string> = {
+  physicalAtk:
+    "Aumenta o dano dos seus ataques fisicos (espada, garra, soco). Quanto maior, mais forte voce bate. Funciona melhor contra alvos com pouca Defesa Fisica.",
+  physicalDef:
+    "Reduz o dano que voce recebe de ataques fisicos. Stat principal pra tanks que querem segurar lance corpo a corpo.",
+  magicAtk:
+    "Aumenta o dano dos seus ataques magicos (feiticos, runas, energia arcana). Funciona melhor contra alvos com pouca Defesa Magica.",
+  magicDef:
+    "Reduz o dano que voce recebe de ataques magicos. Importante contra mobs que usam bolas de fogo, gelo e maldicoes.",
+  hp: "Sua vida total. Quando chega a zero, voce e derrotado. Cada ponto investido em Vida vale 10 HP.",
+  speed:
+    "Define quem ataca primeiro no turno. Tambem aumenta sua chance de esquivar de alguns efeitos. Em empate, e desempatado por sorte.",
+};
+
+// Botao "?" + tooltip controlado pelo pai (open/close).
+function StatTooltip({
+  statKey,
+  label,
+  isOpen,
+  onToggle,
+}: {
+  statKey: StatKey;
+  label: string;
+  isOpen: boolean;
+  onToggle: (key: StatKey | null) => void;
+}) {
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        type="button"
+        aria-label={`Saiba mais sobre ${label}`}
+        aria-expanded={isOpen}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(isOpen ? null : statKey);
+        }}
+        onMouseEnter={() => onToggle(statKey)}
+        onMouseLeave={() => onToggle(null)}
+        className="cursor-pointer border-none bg-transparent p-0 leading-none transition-opacity hover:opacity-100"
+        style={{
+          fontFamily: "var(--font-cinzel)",
+          fontSize: 11,
+          color: "color-mix(in srgb, var(--gold) 60%, transparent)",
+          width: 14,
+          height: 14,
+          lineHeight: "14px",
+        }}
+      >
+        ?
+      </button>
+
+      {isOpen && (
+        <span
+          role="tooltip"
+          onClick={(e) => e.stopPropagation()}
+          onMouseEnter={() => onToggle(statKey)}
+          onMouseLeave={() => onToggle(null)}
+          className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2"
+          style={{
+            zIndex: 50,
+            width: 240,
+            background: "var(--bg-card)",
+            border: "1px solid color-mix(in srgb, var(--gold) 40%, transparent)",
+            padding: "10px 12px",
+            fontFamily: "var(--font-garamond)",
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: "color-mix(in srgb, var(--gold) 90%, white)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+          }}
+        >
+          {STAT_TOOLTIPS[statKey]}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function AttributePanel({ character, onDistribute }: Props) {
   const [allocation, setAllocation] = useState<Record<StatKey, number>>({ ...INITIAL_ALLOCATION });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openStat, setOpenStat] = useState<StatKey | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const totalAllocated = Object.values(allocation).reduce((sum, v) => sum + v, 0);
   const remaining = character.freePoints - totalAllocated;
   const isDistributeMode = character.freePoints > 0;
+
+  // Fecha tooltip ao apertar Esc ou clicar fora
+  useEffect(() => {
+    if (openStat === null) return;
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenStat(null);
+    }
+
+    function handleClickOutside(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpenStat(null);
+      }
+    }
+
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openStat]);
 
   function handleIncrement(key: StatKey) {
     if (remaining <= 0) return;
@@ -104,16 +207,17 @@ export default function AttributePanel({ character, onDistribute }: Props) {
     const CRYSTAL_WHITE = "#e3f4ff";
 
     return (
-      <Panel title="Atributos" right="6 dominios">
-        <AttributeRadar
-          attributes={STATS.map((s) => ({
-            key: s.key,
-            abbr: s.abbr,
-            icon: s.icon,
-            value: character[s.key] + (character.bonusStats?.[s.key] ?? 0),
-            max: s.key === "hp" ? 1000 : 100,
-          }))}
-        />
+      <div ref={rootRef}>
+        <Panel title="Atributos" right="6 dominios">
+          <AttributeRadar
+            attributes={STATS.map((s) => ({
+              key: s.key,
+              abbr: s.abbr,
+              icon: s.icon,
+              value: character[s.key] + (character.bonusStats?.[s.key] ?? 0),
+              max: s.key === "hp" ? 1000 : 100,
+            }))}
+          />
 
         <div className="mt-3 flex flex-col gap-1.5">
           {STATS.map((stat) => {
@@ -127,7 +231,7 @@ export default function AttributePanel({ character, onDistribute }: Props) {
               <div
                 key={stat.key}
                 className="grid items-center gap-2"
-                style={{ gridTemplateColumns: "20px 42px 1fr 56px" }}
+                style={{ gridTemplateColumns: "20px 60px 1fr 56px" }}
               >
                 {/* Icon */}
                 <span
@@ -140,15 +244,23 @@ export default function AttributePanel({ character, onDistribute }: Props) {
                   {stat.icon}
                 </span>
 
-                {/* Abbr */}
-                <span
-                  className="text-[10px]"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
-                  }}
-                >
-                  {stat.abbr}
+                {/* Abbr + tooltip */}
+                <span className="flex items-center gap-1">
+                  <span
+                    className="text-[10px]"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                    }}
+                  >
+                    {stat.abbr}
+                  </span>
+                  <StatTooltip
+                    statKey={stat.key}
+                    label={stat.label}
+                    isOpen={openStat === stat.key}
+                    onToggle={setOpenStat}
+                  />
                 </span>
 
                 {/* Bar (base + crystal bonus stacked) */}
@@ -205,14 +317,45 @@ export default function AttributePanel({ character, onDistribute }: Props) {
             );
           })}
         </div>
-      </Panel>
+
+        {/* Explicacao geral do calculo de dano */}
+        <details
+          className="mt-3"
+          style={{
+            fontFamily: "var(--font-garamond)",
+            fontSize: 12,
+            color: "color-mix(in srgb, var(--gold) 70%, transparent)",
+            borderTop: "1px solid color-mix(in srgb, var(--gold) 10%, transparent)",
+            paddingTop: 8,
+          }}
+        >
+          <summary
+            className="cursor-pointer"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              fontSize: 9,
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color: "color-mix(in srgb, var(--gold) 70%, transparent)",
+              listStyle: "none",
+            }}
+          >
+            Como o dano e calculado?
+          </summary>
+          <p className="mt-2" style={{ lineHeight: 1.5 }}>
+            O dano final depende do seu Atributo de Ataque (Fisico ou Magico) vs a Defesa correspondente do alvo, somado ao poder da skill usada. Vulnerabilidades, status como BURN/FROZEN e buffs/debuffs ativos tambem afetam. Acima de tudo, builds focadas batem mais forte que builds dispersas.
+          </p>
+        </details>
+        </Panel>
+      </div>
     );
   }
 
   // Modo distribuicao
   return (
-    <Panel title="Forjar o Destino" right={`${remaining} / ${character.freePoints} livres`}>
-      <div className="flex flex-col gap-2">
+    <div ref={rootRef}>
+      <Panel title="Forjar o Destino" right={`${remaining} / ${character.freePoints} livres`}>
+        <div className="flex flex-col gap-2">
         {STATS.map((stat) => {
           const hasAllocation = allocation[stat.key] > 0;
           const preview = getPreviewValue(stat.key, "multiplier" in stat ? stat.multiplier : undefined);
@@ -243,14 +386,22 @@ export default function AttributePanel({ character, onDistribute }: Props) {
 
               {/* Info */}
               <div className="flex flex-col gap-0.5">
-                <span
-                  className="text-[10px] uppercase tracking-wider"
-                  style={{
-                    fontFamily: "var(--font-cinzel)",
-                    color: "color-mix(in srgb, var(--gold) 80%, transparent)",
-                  }}
-                >
-                  {stat.label}
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="text-[10px] uppercase tracking-wider"
+                    style={{
+                      fontFamily: "var(--font-cinzel)",
+                      color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                    }}
+                  >
+                    {stat.label}
+                  </span>
+                  <StatTooltip
+                    statKey={stat.key}
+                    label={stat.label}
+                    isOpen={openStat === stat.key}
+                    onToggle={setOpenStat}
+                  />
                 </span>
                 <div className="flex items-center gap-1.5">
                   <span
@@ -385,6 +536,7 @@ export default function AttributePanel({ character, onDistribute }: Props) {
           </button>
         </div>
       )}
-    </Panel>
+      </Panel>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 // server/stores/queue-store.ts — Store in-memory para fila de matchmaking
 
-import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
+import type { BaseStats, EquippedSkill, Skill } from "../../lib/battle/types";
 
 export type QueueEntry = {
   userId: string;
@@ -8,6 +8,9 @@ export type QueueEntry = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Skill espectral elegivel (Cristal Espectral equipado, purity 100,
+   *  spectralSkillId valido). Quando definida, vira o 5o slot em batalha. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
   joinedAt: number;
 };
 

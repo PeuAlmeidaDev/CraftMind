@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+// Campo opcional para fingerprint do dispositivo (anti multi-account).
+// Cliente envia visitorId computado pelo FingerprintJS, ou omite (default "unknown").
+// Regex defensiva impede injection \u2014 apenas alfanumerico, underscore e hifen.
+const visitorIdSchema = z
+  .string()
+  .min(1, "visitorId invalido")
+  .max(100, "visitorId invalido")
+  .regex(/^[a-zA-Z0-9_-]+$/, "visitorId invalido")
+  .optional()
+  .default("unknown");
+
 export const registerSchema = z.object({
   name: z
     .string()
@@ -26,6 +37,7 @@ export const registerSchema = z.object({
     .array(z.string().cuid())
     .min(3, "Selecione no minimo 3 habitos")
     .max(10, "Selecione no maximo 10 habitos"),
+  visitorId: visitorIdSchema,
 });
 
 export const loginSchema = z.object({
@@ -39,6 +51,7 @@ export const loginSchema = z.object({
     .string()
     .min(1, "Senha e obrigatoria")
     .max(72, "Senha excede o limite permitido"),
+  visitorId: visitorIdSchema,
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

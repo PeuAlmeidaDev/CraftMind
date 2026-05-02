@@ -4,6 +4,8 @@
 // Types
 // ---------------------------------------------------------------------------
 
+// `fromSpectralCard` marca o 5o slot (Cristal Espectral, purity 100). Quando
+// true o slot recebe visual diferenciado (borda dourada + label "ESPECTRAL").
 type SkillInfo = {
   skillId: string;
   slotIndex: number;
@@ -14,6 +16,7 @@ type SkillInfo = {
   target: string;
   cooldown: number;
   accuracy: number;
+  fromSpectralCard?: boolean;
 };
 
 type PvpTeamSkillBarProps = {
@@ -79,12 +82,13 @@ export default function PvpTeamSkillBar({
         </div>
       )}
 
-      {/* Skill grid 2x2 (identical to CoopPveSkillBar) */}
+      {/* Skill grid 2x2 (5 slots quando ha Cristal Espectral equipado) */}
       <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         {skills.map((skill) => {
           const isPending = pendingSkillId === skill.skillId;
           const isOnCooldown = skill.cooldown > 0;
           const isDisabled = disabled || isTargeting || isOnCooldown;
+          const isSpectral = skill.fromSpectralCard === true;
 
           return (
             <button
@@ -96,7 +100,9 @@ export default function PvpTeamSkillBar({
               }}
               disabled={isDisabled}
               className={`relative rounded-lg border p-2 sm:p-2.5 text-left transition cursor-pointer ${
-                isPending
+                isSpectral
+                  ? "bg-[var(--bg-primary)]"
+                  : isPending
                   ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
                   : isOnCooldown
                   ? "border-[var(--border-subtle)] bg-[var(--bg-primary)] opacity-50"
@@ -104,7 +110,31 @@ export default function PvpTeamSkillBar({
                   ? "border-[var(--border-subtle)] bg-[var(--bg-primary)] opacity-60 cursor-not-allowed"
                   : "border-[var(--border-subtle)] bg-[var(--bg-primary)] hover:border-[var(--accent-primary)]/50 hover:bg-[var(--accent-primary)]/5"
               }`}
+              style={
+                isSpectral
+                  ? {
+                      borderColor: "var(--gold)",
+                      boxShadow:
+                        "0 0 8px color-mix(in srgb, var(--gold) 40%, transparent), inset 0 0 4px color-mix(in srgb, var(--gold) 20%, transparent)",
+                      opacity: isOnCooldown ? 0.5 : isDisabled ? 0.6 : 1,
+                    }
+                  : undefined
+              }
             >
+              {isSpectral && (
+                <span
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[7px] uppercase tracking-[0.3em]"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    color: "var(--bg-primary)",
+                    background: "var(--gold)",
+                    border: "1px solid var(--gold)",
+                  }}
+                >
+                  Espectral
+                </span>
+              )}
+
               {/* Cooldown overlay (identical to CoopPveSkillBar) */}
               {isOnCooldown && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40">

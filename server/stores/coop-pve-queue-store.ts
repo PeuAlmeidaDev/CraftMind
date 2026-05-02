@@ -1,6 +1,6 @@
 // server/stores/coop-pve-queue-store.ts — Store in-memory para fila de batalha coop PvE (2v3/2v5/3v5)
 
-import type { BaseStats, EquippedSkill } from "../../lib/battle/types";
+import type { BaseStats, EquippedSkill, Skill } from "../../lib/battle/types";
 import type { CoopPveMode } from "../../lib/battle/coop-pve-types";
 
 export type CoopPveQueueEntry = {
@@ -9,6 +9,8 @@ export type CoopPveQueueEntry = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Skill espectral elegivel para o 5o slot. Ver `lib/cards/load-equipped.ts`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
   mode: CoopPveMode;
   joinedAt: number;
 };

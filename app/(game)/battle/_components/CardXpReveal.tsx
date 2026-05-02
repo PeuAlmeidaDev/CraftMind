@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { CardRarity } from "@/types/cards";
+import { isSpectral } from "@/lib/cards/purity";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -14,6 +15,8 @@ export type CardXpGainedInfo = {
   xp: number;
   newLevel: number;
   leveledUp: boolean;
+  /** Purity da copia que recebeu o XP (0-100). Opcional para retrocompat. */
+  purity?: number;
   mob: {
     name: string;
     imageUrl: string | null;
@@ -39,6 +42,22 @@ const RARITY_CLASS: Record<CardRarity, string> = {
 
 export default function CardXpReveal({ info, onContinue }: Props) {
   const rarityClass = RARITY_CLASS[info.rarity];
+  const spectral = info.purity !== undefined && isSpectral(info.purity);
+  const purityLabel =
+    info.purity === undefined
+      ? null
+      : spectral
+        ? "100% ESPECTRAL"
+        : `${info.purity}% PURO`;
+  const purityColor = spectral
+    ? "#f4c45a"
+    : info.purity !== undefined && info.purity >= 95
+      ? "#b06bff"
+      : info.purity !== undefined && info.purity >= 90
+        ? "#6b9dff"
+        : info.purity !== undefined && info.purity >= 70
+          ? "#6bd47a"
+          : "#9ba3ad";
 
   return (
     <div
@@ -120,6 +139,24 @@ export default function CardXpReveal({ info, onContinue }: Props) {
         >
           {info.cardName}
         </h2>
+
+        {/* Badge de purity (sem toast global, sem alt art) */}
+        {purityLabel !== null && (
+          <span
+            className="px-3 py-1 text-[10px] uppercase tracking-[0.35em]"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              color: purityColor,
+              border: `1px solid ${purityColor}`,
+              background: "color-mix(in srgb, var(--bg-primary) 70%, transparent)",
+              boxShadow: spectral ? `0 0 18px ${purityColor}` : undefined,
+              marginTop: "-12px",
+            }}
+            aria-label={`Pureza ${info.purity}${spectral ? " - Cristal Espectral" : ""}`}
+          >
+            {purityLabel}
+          </span>
+        )}
 
         {/* +XP gigante */}
         <div

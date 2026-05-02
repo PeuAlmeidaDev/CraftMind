@@ -9,6 +9,8 @@
 | `auth/password.ts` | Hash e verificação de senhas com bcryptjs (12 rounds) |
 | `auth/jwt.ts` | Assinatura e verificação de JWT (access + refresh) via jose |
 | `auth/verify-session.ts` | Helper centralizado para extrair e verificar token de uma Request (header Authorization ou cookie access_token). Lanca `AuthenticationError` tipado |
+| `auth/log-login.ts` | Helper async puro `logLogin({ userId, visitorId, ip, userAgent })` que insere row em `LoginLog` (anti multi-account). Trunca defensivamente `userAgent` (500), `ip` (45) e `visitorId` (100). Caller decide se ignora erro com `.catch` (padrao em rotas de auth — log nunca bloqueia login) |
+| `jobs/cleanup-login-log.ts` | Script standalone executavel via `npx tsx lib/jobs/cleanup-login-log.ts`. Deleta `LoginLog` com `loggedInAt < now() - 90 dias`. Sai com `process.exit(0)` em sucesso, `1` em erro. Agendamento (cron) e responsabilidade de ops |
 | `api-response.ts` | Helpers `apiSuccess()` e `apiError()` para respostas JSON padronizadas em Route Handlers |
 | `cookies.ts` | Helpers para ler/escrever cookies de sessão (Next.js `cookies()`) |
 | `rate-limit.ts` | Rate limiting via @upstash/ratelimit (sliding window). Lazy init — se Upstash nao estiver configurado, opera como no-op com `console.warn`. Exporta `rateLimit()` generico, `authRateLimit()` pre-configurado para rotas de auth (5 req/60s) e `getClientIp(request)` que extrai IP real priorizando x-real-ip > x-forwarded-for > "unknown" |
@@ -21,7 +23,7 @@
 | `helpers/dominant-category.ts` | Calcula categoria dominante de um array de HabitCategory com desempate aleatorio. Funcao pura, apenas type import de @prisma/client. Exporta `getDominantCategory()` |
 | `helpers/public-profile.ts` | Busca perfil publico de um jogador por userId (user, house, character, pvpStats). Acessa Prisma. Exporta `getPublicProfile()` e interface `PublicProfileData` |
 | `theme.ts` | Mapa de temas visuais por casa (HouseTheme, HOUSE_THEMES, getHouseTheme, applyHouseTheme). Sem `"use client"` — chamado de Client Components |
-| `socket-emitter.ts` | Helper fire-and-forget para emitir eventos Socket.io a usuarios especificos via POST HTTP para o servidor Socket.io (`/internal/notify`). Requer `SOCKET_SERVER_URL` e `SOCKET_INTERNAL_SECRET`. Exporta `emitToUser()` |
+| `socket-emitter.ts` | Helper fire-and-forget para emitir eventos Socket.io. Exporta `emitToUser()` (target unico via `POST /internal/notify`) e `broadcastGlobal()` (broadcast para TODOS os sockets via `POST /internal/broadcast-spectral`). Requer `SOCKET_SERVER_URL` e `SOCKET_INTERNAL_SECRET`. Erros de rede sao logados mas nunca propagados ao chamador. |
 | `validations/auth.ts` | Schemas Zod para registro e login (reusaveis entre Route Handlers e Server Actions) |
 | `validations/battle.ts` | Schemas Zod para batalha PvE (`pveBattleActionSchema`, `distributePointsSchema`) e tipos inferidos |
 | `validations/tasks.ts` | Schema Zod para validacao de params ao completar tarefa |

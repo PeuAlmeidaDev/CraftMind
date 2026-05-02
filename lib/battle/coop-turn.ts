@@ -445,6 +445,7 @@ export function resolveCoopTurn(
           skillId: skill.id,
           skillName: skill.name,
           damage: dmgResult.totalDamage,
+          damageType: skill.damageType,
           message: `${actor.playerId} usa ${skill.name} e causa ${dmgResult.totalDamage} de dano em ${target.playerId} (${dmgResult.hits} hit${dmgResult.hits > 1 ? "s" : ""})`,
         });
       } else {
@@ -474,6 +475,7 @@ export function resolveCoopTurn(
             actorId: target.playerId,
             targetId: actor.playerId,
             damage: counterDamage,
+            damageType: skill.damageType,
             counterTriggered: true,
             message: `${target.playerId} contra-ataca ${actor.playerId} por ${counterDamage} de dano`,
           });

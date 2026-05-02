@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
               name: true,
               rarity: true,
               cardArtUrl: true,
+              cardArtUrlSpectral: true,
               requiredStars: true,
               dropChance: true,
               flavorText: true,
@@ -55,14 +56,14 @@ export async function GET(request: NextRequest) {
       prisma.mobKillStat.findMany({ where: { userId } }),
       prisma.userCard.findMany({
         where: { userId },
-        select: { cardId: true, xp: true, level: true },
+        select: { cardId: true, xp: true, level: true, purity: true },
       }),
     ]);
 
     const killStatByMobId = new Map(killStats.map((k) => [k.mobId, k]));
-    // Map para lookup O(1) de variantes possuidas + xp/level da copia do user.
+    // Map para lookup O(1) de variantes possuidas + xp/level/purity da copia do user.
     const ownedCardsByCardId = new Map(
-      userCards.map((u) => [u.cardId, { xp: u.xp, level: u.level }] as const),
+      userCards.map((u) => [u.cardId, { xp: u.xp, level: u.level, purity: u.purity }] as const),
     );
 
     const entries = mobs.map((mob) => {
@@ -81,9 +82,11 @@ export async function GET(request: NextRequest) {
           dropChance: c.dropChance,
           hasCard,
           cardArtUrl: c.cardArtUrl,
+          cardArtUrlSpectral: c.cardArtUrlSpectral,
           flavorText: hasCard ? c.flavorText : null,
           userCardXp: ownership?.xp ?? null,
           userCardLevel: ownership?.level ?? null,
+          userCardPurity: ownership?.purity ?? null,
         };
       });
 

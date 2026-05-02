@@ -440,16 +440,24 @@ export function registerPvpTeamInviteHandlers(io: Server, socket: Socket): void 
     const senderChar = characters.find((c) => c.userId === senderId)!;
     const targetChar = characters.find((c) => c.userId === userId)!;
 
+    const senderEquipped = await loadEquippedCardsAndApply(
+      prisma,
+      senderId,
+      extractBaseStats(senderChar),
+    );
+    const targetEquipped = await loadEquippedCardsAndApply(
+      prisma,
+      userId,
+      extractBaseStats(targetChar),
+    );
+
     const senderEntry = {
       userId: senderId,
       socketId: senderSocketId,
       characterId: senderChar.id,
-      stats: (await loadEquippedCardsAndApply(
-        prisma,
-        senderId,
-        extractBaseStats(senderChar),
-      )) as BaseStats,
+      stats: senderEquipped.baseStats as BaseStats,
       skills: convertToEquippedSkills(senderChar.characterSkills) as EquippedSkill[],
+      spectralSkill: senderEquipped.spectralSkill,
       joinedAt: Date.now(),
     };
 
@@ -457,12 +465,9 @@ export function registerPvpTeamInviteHandlers(io: Server, socket: Socket): void 
       userId,
       socketId: targetSocketId,
       characterId: targetChar.id,
-      stats: (await loadEquippedCardsAndApply(
-        prisma,
-        userId,
-        extractBaseStats(targetChar),
-      )) as BaseStats,
+      stats: targetEquipped.baseStats as BaseStats,
       skills: convertToEquippedSkills(targetChar.characterSkills) as EquippedSkill[],
+      spectralSkill: targetEquipped.spectralSkill,
       joinedAt: Date.now(),
     };
 

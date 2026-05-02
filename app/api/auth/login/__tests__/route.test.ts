@@ -7,10 +7,13 @@ import { NextRequest } from "next/server";
 
 const mockFindUnique = vi.fn();
 
+const mockLoginLogCreate = vi.fn();
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: (...args: unknown[]) => mockFindUnique(...args) },
     refreshToken: { create: vi.fn() },
+    loginLog: { create: (...args: unknown[]) => mockLoginLogCreate(...args) },
   },
 }));
 
@@ -138,6 +141,9 @@ const FAKE_USER_FULL = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockFindUnique.mockReset();
+  mockLoginLogCreate.mockReset();
+  // Default: loginLog grava com sucesso (resolved value generico)
+  mockLoginLogCreate.mockResolvedValue({ id: "log-1" });
 
   // Defaults: rate limit passa, IP extraido
   mockedGetClientIp.mockReturnValue("127.0.0.1");
@@ -478,6 +484,108 @@ describe("POST /api/auth/login", () => {
 
       expect(mockedSignAccessToken).toHaveBeenCalledOnce();
       expect(mockedCreatePersistedRefreshToken).toHaveBeenCalledOnce();
+    });
+  });
+
+  // =======================================================================
+  // Login log (anti multi-account)
+  // =======================================================================
+  describe("logLogin (anti multi-account)", () => {
+    beforeEach(() => {
+      mockFindUnique
+        .mockResolvedValueOnce(FAKE_USER_AUTH)
+        .mockResolvedValueOnce(FAKE_USER_FULL);
+      mockedVerifyPassword.mockResolvedValue(true);
+      mockedSignAccessToken.mockResolvedValue("fake-access-token");
+      mockedCreatePersistedRefreshToken.mockResolvedValue({
+        token: "fake-refresh-token",
+        family: "family-1",
+      });
+    });
+
+    it("chama loginLog.create com userId, visitorId, ip e userAgent quando body inclui visitorId", async () => {
+      const request = new NextRequest("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "user-agent": "TestBrowser/1.0",
+        },
+        body: JSON.stringify({ ...VALID_CREDENTIALS, visitorId: "abc-fingerprint-123" }),
+      });
+
+      await POST(request);
+
+      // Aguarda microtasks (logLogin e fire-and-forget via .catch)
+      await new Promise((r) => setImmediate(r));
+
+      expect(mockLoginLogCreate).toHaveBeenCalledOnce();
+      const callArg = mockLoginLogCreate.mock.calls[0][0] as {
+        data: { userId: string; visitorId: string; ip: string; userAgent: string };
+      };
+      expect(callArg.data.userId).toBe(FAKE_USER_FULL.id);
+      expect(callArg.data.visitorId).toBe("abc-fingerprint-123");
+      expect(callArg.data.ip).toBe("127.0.0.1");
+      expect(callArg.data.userAgent).toBe("TestBrowser/1.0");
+    });
+
+    it("usa visitorId 'unknown' quando body nao inclui visitorId (Zod default)", async () => {
+      await POST(makeRequest(VALID_CREDENTIALS));
+
+      await new Promise((r) => setImmediate(r));
+
+      expect(mockLoginLogCreate).toHaveBeenCalledOnce();
+      const callArg = mockLoginLogCreate.mock.calls[0][0] as {
+        data: { visitorId: string };
+      };
+      expect(callArg.data.visitorId).toBe("unknown");
+    });
+
+    it("usa userAgent 'unknown' quando header user-agent ausente", async () => {
+      // Cria request sem header user-agent — fetch internals podem ainda
+      // setar um default; o que importa e que a rota nao explode.
+      const request = new NextRequest("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(VALID_CREDENTIALS),
+      });
+
+      await POST(request);
+      await new Promise((r) => setImmediate(r));
+
+      expect(mockLoginLogCreate).toHaveBeenCalledOnce();
+      const callArg = mockLoginLogCreate.mock.calls[0][0] as {
+        data: { userAgent: string };
+      };
+      expect(typeof callArg.data.userAgent).toBe("string");
+      expect(callArg.data.userAgent.length).toBeGreaterThan(0);
+    });
+
+    it("rota retorna 200 mesmo quando loginLog.create rejeita (fire-and-forget)", async () => {
+      mockLoginLogCreate.mockRejectedValueOnce(new Error("DB write failed"));
+
+      const response = await POST(makeRequest(VALID_CREDENTIALS));
+
+      // Aguarda microtasks pra logLogin processar o erro
+      await new Promise((r) => setImmediate(r));
+
+      expect(response.status).toBe(200);
+    });
+
+    it("nao chama loginLog quando senha esta incorreta", async () => {
+      // Resetar mocks: este caso recria o estado base
+      vi.clearAllMocks();
+      mockFindUnique.mockReset();
+      mockLoginLogCreate.mockReset();
+      mockLoginLogCreate.mockResolvedValue({ id: "log-x" });
+      mockedGetClientIp.mockReturnValue("127.0.0.1");
+      mockedAuthRateLimit.mockResolvedValue({ success: true, remaining: 4, reset: Date.now() + 60_000 });
+      mockFindUnique.mockResolvedValueOnce(FAKE_USER_AUTH);
+      mockedVerifyPassword.mockResolvedValue(false);
+
+      await POST(makeRequest(VALID_CREDENTIALS));
+      await new Promise((r) => setImmediate(r));
+
+      expect(mockLoginLogCreate).not.toHaveBeenCalled();
     });
   });
 

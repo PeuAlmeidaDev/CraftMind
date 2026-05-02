@@ -231,12 +231,14 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
       return;
     }
 
-    const verifiedStats: BaseStats = await loadEquippedCardsAndApply(
+    const verifiedEquipped = await loadEquippedCardsAndApply(
       prisma,
       userId,
       extractBaseStats(character),
     );
+    const verifiedStats: BaseStats = verifiedEquipped.baseStats;
     const verifiedSkills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
+    const verifiedSpectral = verifiedEquipped.spectralSkill;
 
     // Adicionar na fila
     const added = addToBossQueue({
@@ -245,6 +247,7 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
       characterId: character.id,
       stats: verifiedStats,
       skills: verifiedSkills,
+      spectralSkill: verifiedSpectral,
       dominantCategory: category,
       joinedAt: Date.now(),
     });
@@ -343,6 +346,7 @@ export function registerBossMatchmakingHandlers(io: Server, socket: Socket): voi
       characterId: entry.characterId,
       stats: entry.stats,
       skills: entry.skills,
+      spectralSkill: entry.spectralSkill,
     }));
 
     const bossConfig: CoopBattlePlayerConfig = {

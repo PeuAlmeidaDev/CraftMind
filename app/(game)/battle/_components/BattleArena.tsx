@@ -37,6 +37,10 @@ type BattleArenaProps = {
   onSkipTurn: () => void;
   onForfeit: () => void;
   acting: boolean;
+  /** True quando o jogador tem ao menos 1 cristal Espectral (purity 100)
+   *  equipado. Aplica overlay holografico animado no painel do player.
+   *  Default false (sem overlay). */
+  hasEquippedSpectral?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -270,6 +274,7 @@ export default function BattleArena({
   onSkipTurn,
   onForfeit,
   acting,
+  hasEquippedSpectral = false,
 }: BattleArenaProps) {
   const [playerShaking, setPlayerShaking] = useState(false);
   const [mobShaking, setMobShaking] = useState(false);
@@ -428,6 +433,16 @@ export default function BattleArena({
             }}
           >
             <CornerTicks />
+
+            {/* Overlay holografico (so quando ha Espectral equipada). will-change
+                no overlay, nao no card inteiro, para nao promover GPU layer
+                desnecessario quando nao ha Espectral. */}
+            {hasEquippedSpectral && (
+              <span
+                aria-hidden="true"
+                className="spectral-overlay pointer-events-none absolute inset-0 z-[1]"
+              />
+            )}
 
             {/* Bandeira da casa como background */}
             {houseAssets && (
@@ -660,7 +675,7 @@ export default function BattleArena({
       <div className="flex flex-col gap-3 lg:hidden">
         {/* --- Player compact bar + skills --- */}
         <div
-          className={`relative ${playerShaking ? "animate-shake" : ""}`}
+          className={`relative overflow-hidden ${playerShaking ? "animate-shake" : ""}`}
           style={{
             background: "var(--bg-card)",
             border: hasActiveStatus(playerStatusEffects)
@@ -669,6 +684,12 @@ export default function BattleArena({
             padding: 12,
           }}
         >
+          {hasEquippedSpectral && (
+            <span
+              aria-hidden="true"
+              className="spectral-overlay pointer-events-none absolute inset-0 z-[1]"
+            />
+          )}
           <div className="flex items-center gap-2 mb-1">
             <span
               className="text-white truncate"
@@ -851,6 +872,34 @@ export default function BattleArena({
         }
         :global(.animate-hp-low) {
           animation: hpLowPulse 0.9s ease-in-out infinite;
+        }
+        /* Overlay holografico para painel com Espectral equipada.
+           Intensidade media (visivel mas nao gritante). will-change no overlay
+           para usar GPU compositor sem promover o card inteiro. */
+        @keyframes spectralOverlayShift {
+          0% {
+            background-position: 0% 0%;
+            filter: hue-rotate(0deg) saturate(1.3);
+          }
+          100% {
+            background-position: 100% 100%;
+            filter: hue-rotate(360deg) saturate(1.3);
+          }
+        }
+        :global(.spectral-overlay) {
+          will-change: filter, background-position;
+          background: linear-gradient(
+            120deg,
+            color-mix(in srgb, var(--gold) 18%, transparent) 0%,
+            color-mix(in srgb, var(--ember) 14%, transparent) 25%,
+            color-mix(in srgb, var(--gold) 8%, transparent) 50%,
+            color-mix(in srgb, var(--ember) 14%, transparent) 75%,
+            color-mix(in srgb, var(--gold) 18%, transparent) 100%
+          );
+          background-size: 220% 220%;
+          mix-blend-mode: screen;
+          opacity: 0.65;
+          animation: spectralOverlayShift 6s linear infinite;
         }
       `}</style>
     </div>

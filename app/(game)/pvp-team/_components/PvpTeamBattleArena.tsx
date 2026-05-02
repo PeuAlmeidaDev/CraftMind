@@ -29,6 +29,7 @@ type SkillInfo = {
   target: string;
   cooldown: number;
   accuracy: number;
+  fromSpectralCard?: boolean;
 };
 
 type TeammateInfo = {
@@ -122,7 +123,7 @@ export default function PvpTeamBattleArena({
   const timerColor =
     timerPercent > 60 ? "bg-emerald-500" : timerPercent > 30 ? "bg-yellow-500" : "bg-red-500";
 
-  // Derive skills for current player
+  // Derive skills for current player (includes 5o slot quando ha Espectral)
   const skills: SkillInfo[] = useMemo(() => {
     if (!currentPlayer) return [];
     return currentPlayer.equippedSkills.map((es) => ({
@@ -135,6 +136,7 @@ export default function PvpTeamBattleArena({
       target: es.skill.target,
       cooldown: currentPlayer.cooldowns[es.skillId] ?? 0,
       accuracy: es.skill.accuracy,
+      fromSpectralCard: es.fromSpectralCard ?? false,
     }));
   }, [currentPlayer]);
 

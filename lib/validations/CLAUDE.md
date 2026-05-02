@@ -5,6 +5,7 @@
 | Arquivo | Responsabilidade |
 |---|---|
 | `auth.ts` | Schemas de registro e login (`registerSchema`, `loginSchema`) |
+| `cards.ts` | Schemas para cristais — `cardEffectSchema`, `cardEffectsArraySchema`, `cardCreateSchema`, `cardUpdateSchema`, `equipCardSchema`, `unequipCardSchema`, `resolveDuplicateSchema` (decision: `REPLACE \| CONVERT`), `spectralSkillSchema` (`{ skillId: string cuid }` — body do PUT `/api/cards/[id]/spectral-skill`) |
 | `tasks.ts` | Schema de validacao de params para completar tarefa (`completeTaskParamsSchema`) |
 | `skill.ts` | Schemas de equip/unequip de skills (`equipSkillSchema`, `unequipSkillSchema`) |
 | `battle.ts` | Schemas de batalha PvE: `pveBattleActionSchema` (battleId + skillId nullable), `distributePointsSchema` (distribuicao de pontos livres) |

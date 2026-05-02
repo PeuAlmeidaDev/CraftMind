@@ -51,7 +51,7 @@ export default function CoopPveArena({
   const timerColor =
     timerPercent > 60 ? "bg-emerald-500" : timerPercent > 30 ? "bg-yellow-500" : "bg-red-500";
 
-  // Derive skills for current player
+  // Derive skills for current player (includes 5o slot quando ha Espectral)
   const skills: CoopPveSkillInfo[] = useMemo(() => {
     if (!currentPlayer) return [];
     return currentPlayer.equippedSkills.map((es) => ({
@@ -64,6 +64,7 @@ export default function CoopPveArena({
       target: es.skill.target,
       cooldown: currentPlayer.cooldowns[es.skillId] ?? 0,
       accuracy: es.skill.accuracy,
+      fromSpectralCard: es.fromSpectralCard ?? false,
     }));
   }, [currentPlayer]);
 

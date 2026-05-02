@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         target: es.skill.target,
         cooldown: state.player.cooldowns[es.skillId] ?? 0,
         accuracy: es.skill.accuracy,
+        fromSpectralCard: es.fromSpectralCard ?? false,
       })),
       mobs: state.mobs.map((mob, index) => ({
         index,

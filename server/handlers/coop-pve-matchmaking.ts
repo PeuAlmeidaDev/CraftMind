@@ -147,12 +147,14 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
       return;
     }
 
-    const stats: BaseStats = await loadEquippedCardsAndApply(
+    const equipped = await loadEquippedCardsAndApply(
       prisma,
       userId,
       extractBaseStats(character),
     );
+    const stats: BaseStats = equipped.baseStats;
     const skills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
+    const spectralSkill = equipped.spectralSkill;
 
     // Adicionar na fila
     const added = addToCoopPveQueue({
@@ -161,6 +163,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
       characterId: character.id,
       stats,
       skills,
+      spectralSkill,
       mode,
       joinedAt: Date.now(),
     });
@@ -334,6 +337,7 @@ export function registerCoopPveMatchmakingHandlers(io: Server, socket: Socket): 
         characterId: entry.characterId,
         stats: entry.stats,
         skills: entry.skills,
+        spectralSkill: entry.spectralSkill,
       })),
       mobs: mobConfigs,
       mode,

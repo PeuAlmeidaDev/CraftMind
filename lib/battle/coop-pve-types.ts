@@ -1,6 +1,6 @@
 // lib/battle/coop-pve-types.ts — Tipos para batalha cooperativa PvE (2v3 / 2v5 / 3v5)
 
-import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill } from "./types";
+import type { PlayerState, TurnLogEntry, BaseStats, EquippedSkill, Skill } from "./types";
 import type { MobState } from "./pve-multi-types";
 import type { AiProfile } from "./ai-profiles";
 
@@ -34,6 +34,8 @@ export type CoopPvePlayerConfig = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  /** Mesma semantica de `BattlePlayerConfig.spectralSkill` em `types.ts`. */
+  spectralSkill?: { skill: Skill; sourceUserCardId: string };
 };
 
 export type CoopPveMobConfig = {

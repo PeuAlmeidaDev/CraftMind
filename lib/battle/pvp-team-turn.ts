@@ -315,6 +315,7 @@ export function resolvePvpTeamTurn(
           skillId: skill.id,
           skillName: skill.name,
           damage: dmgResult.totalDamage,
+          damageType: skill.damageType,
           message: `${player.playerId} usa ${skill.name} e causa ${dmgResult.totalDamage} de dano em ${target.playerId} (${dmgResult.hits} hit${dmgResult.hits > 1 ? "s" : ""})`,
         });
       } else {
@@ -344,6 +345,7 @@ export function resolvePvpTeamTurn(
             actorId: target.playerId,
             targetId: player.playerId,
             damage: counterDamage,
+            damageType: skill.damageType,
             counterTriggered: true,
             message: `${target.playerId} contra-ataca ${player.playerId} por ${counterDamage} de dano`,
           });

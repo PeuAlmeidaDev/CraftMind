@@ -88,7 +88,15 @@ function makePrismaMock(opts: {
     ),
   };
   const mobCalls = {
-    findUnique: vi.fn(async () => opts.mob),
+    findUnique: vi.fn(async () => ({ ...opts.mob, name: "Slime" })),
+  };
+  // Fase 2: spectralDropLog gerado dentro da transacao quando newPurity === 100.
+  const spectralDropLogCalls = {
+    create: vi.fn(async () => ({ id: "sdl_1" })),
+  };
+  // Fase 2: pendingCardDuplicate.create usado em fluxos de duplicata melhor.
+  const pendingCardDuplicateCalls = {
+    create: vi.fn(async () => ({ id: "pend_1" })),
   };
 
   return {
@@ -96,6 +104,8 @@ function makePrismaMock(opts: {
       mobKillStat: mobKillStatCalls,
       userCard: userCardCalls,
       mob: mobCalls,
+      spectralDropLog: spectralDropLogCalls,
+      pendingCardDuplicate: pendingCardDuplicateCalls,
     },
     userCardStore,
     mobKillStatCalls,
@@ -343,7 +353,7 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
       where: {
         userId_cardId: { userId: "user_1", cardId: "card_slime_2s" },
       },
-      select: { id: true, xp: true, level: true },
+      select: { id: true, xp: true, level: true, purity: true },
     });
 
     expect(userCardCalls.update).toHaveBeenCalledOnce();

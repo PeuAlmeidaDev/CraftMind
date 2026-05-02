@@ -37,7 +37,9 @@ export default function MultiSkillBar({
   targetingMode,
   pendingSkillId,
 }: MultiSkillBarProps) {
-  const slots = Array.from({ length: 4 }, (_, i) => {
+  const hasSpectral = skills.some((s) => s.fromSpectralCard);
+  const totalSlots = hasSpectral ? 5 : 4;
+  const slots = Array.from({ length: totalSlots }, (_, i) => {
     return skills.find((s) => s.slotIndex === i) ?? null;
   });
 
@@ -65,7 +67,7 @@ export default function MultiSkillBar({
             color: "color-mix(in srgb, var(--gold) 50%, transparent)",
           }}
         >
-          4 SLOTS
+          {totalSlots} SLOTS
         </span>
       </div>
 
@@ -128,6 +130,7 @@ export default function MultiSkillBar({
           const inCooldown = skill.cooldown > 0;
           const isPending = pendingSkillId === skill.skillId;
           const isDisabled = disabled || inCooldown || (targetingMode && !isPending);
+          const isSpectral = skill.fromSpectralCard === true;
           const dmgType = DAMAGE_TYPE_LABEL[skill.damageType] ?? {
             text: skill.damageType,
             color: "#999",
@@ -144,7 +147,9 @@ export default function MultiSkillBar({
                 background: isPending
                   ? `linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%), color-mix(in srgb, var(--accent-primary) 6%, transparent)`
                   : "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
-                border: isPending
+                border: isSpectral
+                  ? "1px solid var(--gold)"
+                  : isPending
                   ? "1px solid var(--accent-primary)"
                   : `1px solid ${
                       isDisabled
@@ -152,13 +157,31 @@ export default function MultiSkillBar({
                         : `${dmgType.color}66`
                     }`,
                 cursor: isDisabled ? "not-allowed" : "pointer",
-                boxShadow: isDisabled
+                boxShadow: isSpectral
+                  ? "0 0 8px color-mix(in srgb, var(--gold) 45%, transparent), inset 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent)"
+                  : isDisabled
                   ? "none"
                   : isPending
                     ? `inset 0 0 12px color-mix(in srgb, var(--accent-primary) 10%, transparent)`
                     : `inset 0 0 0 1px ${dmgType.color}17`,
               }}
             >
+              {isSpectral && (
+                <span
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5"
+                  style={{
+                    fontFamily: "var(--font-cinzel)",
+                    fontSize: 7,
+                    letterSpacing: "0.3em",
+                    textTransform: "uppercase",
+                    color: "var(--bg-primary)",
+                    background: "var(--gold)",
+                    border: "1px solid var(--gold)",
+                  }}
+                >
+                  Espectral
+                </span>
+              )}
               {/* Line 1: type dot + label | power */}
               <div className="flex justify-between items-center">
                 <span

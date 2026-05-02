@@ -472,6 +472,7 @@ function BossFightContent() {
         target: es.skill.target,
         cooldown: currentPlayer.cooldowns[es.skillId] ?? 0,
         accuracy: es.skill.accuracy,
+        fromSpectralCard: es.fromSpectralCard ?? false,
       }))
     : [];
 

@@ -85,6 +85,7 @@ type MatchedPlayer = {
   characterId: string;
   stats: BaseStats;
   skills: EquippedSkill[];
+  spectralSkill?: { skill: import("../../lib/battle/types").Skill; sourceUserCardId: string };
 };
 
 async function createPvpTeamSession(
@@ -105,12 +106,14 @@ async function createPvpTeamSession(
       characterId: p.characterId,
       stats: p.stats,
       skills: p.skills,
+      spectralSkill: p.spectralSkill,
     })),
     team2: team2Players.map((p) => ({
       userId: p.userId,
       characterId: p.characterId,
       stats: p.stats,
       skills: p.skills,
+      spectralSkill: p.spectralSkill,
     })),
     mode: "TEAM_2V2",
   };
@@ -191,12 +194,14 @@ export function registerPvpTeamMatchmakingHandlers(io: Server, socket: Socket): 
       return;
     }
 
-    const stats: BaseStats = await loadEquippedCardsAndApply(
+    const equipped = await loadEquippedCardsAndApply(
       prisma,
       userId,
       extractBaseStats(character),
     );
+    const stats: BaseStats = equipped.baseStats;
     const skills: EquippedSkill[] = convertToEquippedSkills(character.characterSkills);
+    const spectralSkill = equipped.spectralSkill;
 
     const added = addToSoloQueue({
       userId,
@@ -204,6 +209,7 @@ export function registerPvpTeamMatchmakingHandlers(io: Server, socket: Socket): 
       characterId: character.id,
       stats,
       skills,
+      spectralSkill,
       joinedAt: Date.now(),
     });
 

@@ -1,41 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import type { CardEffect, CardRarity } from "@/types/cards";
+import type { CardEffect, CardRarity, UserCardSummary } from "@/types/cards";
 import type { StatName } from "@/types/skill";
 import { getLevelMultiplier, scaleEffectForDisplay } from "@/lib/cards/level";
+import { getPurityMultiplier, isSpectral } from "@/lib/cards/purity";
 import CardLevelBar from "../../_components/CardLevelBar";
 
-// ---------------------------------------------------------------------------
-// Tipos compartilhados com o parent (mesmo shape que GET /api/cards retorna)
-// ---------------------------------------------------------------------------
-
-export type UserCardSummary = {
-  id: string;
-  equipped: boolean;
-  slotIndex: number | null;
-  xp: number;
-  level: number;
-  card: {
-    id: string;
-    name: string;
-    flavorText: string;
-    rarity: CardRarity;
-    effects: CardEffect[];
-    mob: {
-      id: string;
-      name: string;
-      tier: number;
-      imageUrl: string | null;
-    };
-  };
-};
+// Re-export para preservar imports existentes (`import type { UserCardSummary } from "./CardSlots"`).
+export type { UserCardSummary };
 
 type Props = {
   /** Todas as UserCards do usuario (equipadas e nao equipadas). */
   userCards: UserCardSummary[];
   onSlotClick: (slotIndex: number) => void;
   onUnequip: (slotIndex: number) => void;
+  /** Aberto quando o jogador clica em "Trocar skill espectral" em um cristal
+   *  Espectral equipado. Recebe o `userCardId` do cristal. Pode ser omitido
+   *  para esconder o botao (modo legado). */
+  onSpectralSkillClick?: (userCardId: string) => void;
 };
 
 const RARITY_LABEL: Record<CardRarity, string> = {
@@ -82,11 +65,27 @@ function formatEffect(effect: CardEffect): string | null {
   return null;
 }
 
-/** Lista de efeitos ja escalonados pelo level, prontos para display. */
-function scaledEffectsList(effects: CardEffect[], level: number): string[] {
+/** Lista de efeitos ja escalonados por purity x level, prontos para display. */
+function scaledEffectsList(effects: CardEffect[], level: number, purity: number): string[] {
   return effects
-    .map((e) => formatEffect(scaleEffectForDisplay(e, level)))
+    .map((e) => formatEffect(scaleEffectForDisplay(e, level, purity)))
     .filter((s): s is string => s !== null);
+}
+
+/** Label e classe para badge de purity. */
+function purityBadgeLabel(purity: number): string {
+  if (purity === 100) return "100% ESPECTRAL";
+  return `${purity}% PURO`;
+}
+
+/** Cor do badge de purity baseado no valor (mapeia em CSS color literal). */
+function purityBadgeColor(purity: number): string {
+  if (purity === 100) return "#f4c45a"; // Espectral — dourado
+  if (purity >= 95) return "#b06bff"; // Excelente — roxo
+  if (purity >= 90) return "#6b9dff"; // Otimo — azul
+  if (purity >= 70) return "#6bd47a"; // Bom — verde
+  if (purity >= 40) return "#9ba3ad"; // Medio — cinza claro
+  return "#7a7280"; // Lixo — cinza escuro
 }
 
 // ---------------------------------------------------------------------------
@@ -158,22 +157,29 @@ function FilledSlot({
   slotIndex,
   onChange,
   onUnequip,
+  onSpectralSkillClick,
 }: {
   userCard: UserCardSummary;
   slotIndex: number;
   onChange: (slotIndex: number) => void;
   onUnequip: (slotIndex: number) => void;
+  onSpectralSkillClick?: (userCardId: string) => void;
 }) {
   const { card } = userCard;
   const rarityClass = RARITY_CLASS[card.rarity];
-  const multiplier = getLevelMultiplier(userCard.level);
-  const showMultiplier = multiplier > 1;
-  const bonuses = scaledEffectsList(card.effects, userCard.level);
-  const multiplierLabel = `×${multiplier.toFixed(1)}`;
+  const levelMult = getLevelMultiplier(userCard.level);
+  const purityMult = getPurityMultiplier(userCard.purity);
+  const combined = levelMult * purityMult;
+  const showMultiplier = Math.abs(combined - 1) > 0.001;
+  const bonuses = scaledEffectsList(card.effects, userCard.level, userCard.purity);
+  const multiplierLabel = `×${combined.toFixed(2)}`;
+  const spectral = isSpectral(userCard.purity);
+  const purityLabel = purityBadgeLabel(userCard.purity);
+  const purityColor = purityBadgeColor(userCard.purity);
 
   return (
     <div
-      className={`group relative aspect-[3/4] w-full overflow-hidden ${rarityClass} rarity-border`}
+      className={`group relative aspect-[3/4] w-full overflow-hidden ${rarityClass} rarity-border ${spectral ? "spectral-card-glow" : ""}`}
       style={{
         background:
           "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
@@ -183,6 +189,11 @@ function FilledSlot({
     >
       {/* Foil holografico animado */}
       <div className="card-foil" />
+
+      {/* Particula dourada sutil — apenas Espectral */}
+      {spectral && (
+        <span aria-hidden="true" className="spectral-card-particle" />
+      )}
 
       {/* Badge de level no canto superior esquerdo */}
       <div
@@ -197,6 +208,23 @@ function FilledSlot({
         }}
       >
         Lv {userCard.level}
+      </div>
+
+      {/* Badge de purity logo abaixo */}
+      <div
+        className="absolute top-9 left-1.5 z-10 flex h-5 items-center justify-center px-1.5"
+        style={{
+          fontFamily: "var(--font-cinzel)",
+          color: purityColor,
+          background: "color-mix(in srgb, var(--bg-primary) 85%, transparent)",
+          border: `1px solid ${purityColor}`,
+          fontSize: 8,
+          letterSpacing: "0.18em",
+          boxShadow: spectral ? `0 0 10px ${purityColor}` : undefined,
+        }}
+        aria-label={`Pureza ${userCard.purity}${spectral ? " - Cristal Espectral" : ""}`}
+      >
+        {purityLabel}
       </div>
 
       {/* Imagem do mob (mirror) */}
@@ -304,6 +332,41 @@ function FilledSlot({
             size="sm"
           />
         </div>
+
+        {/* Botao de skill espectral — apenas para Espectrais (purity 100) */}
+        {spectral && onSpectralSkillClick && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSpectralSkillClick(userCard.id);
+            }}
+            aria-label={
+              userCard.spectralSkillId
+                ? "Trocar skill espectral"
+                : "Definir skill espectral"
+            }
+            className="mt-1.5 cursor-pointer px-2 py-1 text-[8px] uppercase tracking-[0.25em] transition-colors"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              color: "var(--gold)",
+              border: "1px solid var(--gold)",
+              background: "color-mix(in srgb, var(--gold) 8%, transparent)",
+              boxShadow:
+                "0 0 6px color-mix(in srgb, var(--gold) 30%, transparent)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "color-mix(in srgb, var(--gold) 18%, transparent)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "color-mix(in srgb, var(--gold) 8%, transparent)";
+            }}
+          >
+            {userCard.spectralSkillId ? "Trocar skill" : "Definir skill"}
+          </button>
+        )}
       </div>
 
       {/* Hover overlay com delta de stats em verde */}
@@ -421,7 +484,12 @@ function FilledSlot({
 // CardSlots — secao com 3 slots horizontais
 // ---------------------------------------------------------------------------
 
-export default function CardSlots({ userCards, onSlotClick, onUnequip }: Props) {
+export default function CardSlots({
+  userCards,
+  onSlotClick,
+  onUnequip,
+  onSpectralSkillClick,
+}: Props) {
   // Indexar cards por slotIndex
   const equippedBySlot: Record<number, UserCardSummary | undefined> = {
     0: undefined,
@@ -514,6 +582,7 @@ export default function CardSlots({ userCards, onSlotClick, onUnequip }: Props) 
                 slotIndex={slotIndex}
                 onChange={onSlotClick}
                 onUnequip={onUnequip}
+                onSpectralSkillClick={onSpectralSkillClick}
               />
             );
           }
@@ -536,6 +605,49 @@ export default function CardSlots({ userCards, onSlotClick, onUnequip }: Props) 
         </p>
       )}
 
+      {/* Marcador Espectral: glow dourado animado + particula leve */}
+      <style jsx>{`
+        @keyframes spectralCardGlow {
+          0%,
+          100% {
+            box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 35%, transparent),
+              0 0 18px color-mix(in srgb, var(--gold) 25%, transparent);
+          }
+          50% {
+            box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 60%, transparent),
+              0 0 28px color-mix(in srgb, var(--gold) 40%, transparent);
+          }
+        }
+        @keyframes spectralCardParticle {
+          0% {
+            transform: translateY(0) scale(1);
+            opacity: 0;
+          }
+          25% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-32px) scale(0.55);
+            opacity: 0;
+          }
+        }
+        :global(.spectral-card-glow) {
+          animation: spectralCardGlow 2.4s ease-in-out infinite;
+        }
+        :global(.spectral-card-particle) {
+          position: absolute;
+          right: 8px;
+          top: 65%;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: var(--gold);
+          box-shadow: 0 0 8px var(--gold);
+          animation: spectralCardParticle 2.6s ease-in-out infinite;
+          z-index: 5;
+          pointer-events: none;
+        }
+      `}</style>
     </section>
   );
 }

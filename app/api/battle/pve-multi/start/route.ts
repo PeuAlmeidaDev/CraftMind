@@ -205,17 +205,15 @@ export async function POST(request: NextRequest) {
       speed: character.speed,
     };
 
-    const playerStats: BaseStats = await loadEquippedCardsAndApply(
-      prisma,
-      userId,
-      baseStats,
-    );
+    const equipped = await loadEquippedCardsAndApply(prisma, userId, baseStats);
+    const playerStats: BaseStats = equipped.baseStats;
 
     const playerState = createPlayerState({
       userId,
       characterId: character.id,
       stats: playerStats,
       skills: playerSkills,
+      spectralSkill: equipped.spectralSkill,
     });
 
     // Mapa mobId -> estrela do encontro daquele mob nesta batalha.

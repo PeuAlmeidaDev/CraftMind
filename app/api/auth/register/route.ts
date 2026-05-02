@@ -8,6 +8,7 @@ import { authRateLimit, getClientIp } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validations/auth";
 import { determineHouse } from "@/lib/helpers/determine-house";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { logLogin } from "@/lib/auth/log-login";
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, password, habitIds } = parsed.data;
+    const { name, email, password, habitIds, visitorId } = parsed.data;
 
     // Verificar se nome ou email ja estao em uso (queries paralelas)
     const [existingName, existingEmail] = await Promise.all([
@@ -195,6 +196,15 @@ export async function POST(request: NextRequest) {
       signAccessToken({ userId: user.id, email: user.email }),
       createPersistedRefreshToken({ userId: user.id }),
     ]);
+
+    // Registra login (anti multi-account). Fire-and-forget — falha no log
+    // NUNCA bloqueia a resposta ao usuario. Fora da transacao para isolar falha.
+    logLogin({
+      userId: user.id,
+      visitorId,
+      ip,
+      userAgent: request.headers.get("user-agent") ?? "unknown",
+    }).catch((err) => console.error("[logLogin] falha ao registrar login:", err));
 
     // Formatar habitos para resposta (remover nesting do UserHabit)
     const formattedHabits = user.habits.map((uh) => uh.habit);

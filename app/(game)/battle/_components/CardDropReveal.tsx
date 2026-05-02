@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { CardRarity } from "@/types/cards";
+import { isSpectral } from "@/lib/cards/purity";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -14,6 +15,8 @@ export type DroppedCard = {
   name: string;
   flavorText: string;
   rarity: CardRarity;
+  /** Purity rolada no drop (0-100). Opcional para retrocompat. */
+  purity?: number;
   mob: {
     id: string;
     name: string;
@@ -265,6 +268,40 @@ export default function CardDropReveal({ card, onContinue }: Props) {
                 >
                   {RARITY_LABEL[card.rarity]}
                 </span>
+                {card.purity !== undefined && (
+                  <span
+                    className="px-2 py-0.5 text-[8px] uppercase tracking-[0.3em]"
+                    style={{
+                      fontFamily: "var(--font-cinzel)",
+                      color: isSpectral(card.purity)
+                        ? "#f4c45a"
+                        : card.purity >= 95
+                          ? "#b06bff"
+                          : card.purity >= 90
+                            ? "#6b9dff"
+                            : card.purity >= 70
+                              ? "#6bd47a"
+                              : "#9ba3ad",
+                      border: `1px solid ${
+                        isSpectral(card.purity)
+                          ? "#f4c45a"
+                          : card.purity >= 95
+                            ? "#b06bff"
+                            : card.purity >= 90
+                              ? "#6b9dff"
+                              : card.purity >= 70
+                                ? "#6bd47a"
+                                : "#9ba3ad"
+                      }`,
+                      boxShadow: isSpectral(card.purity)
+                        ? "0 0 12px #f4c45a"
+                        : undefined,
+                    }}
+                    aria-label={`Pureza ${card.purity}${isSpectral(card.purity) ? " - Cristal Espectral" : ""}`}
+                  >
+                    {isSpectral(card.purity) ? "100% ESPECTRAL" : `${card.purity}% PURO`}
+                  </span>
+                )}
               </div>
             </div>
           </div>

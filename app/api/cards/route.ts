@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
       slotIndex: uc.slotIndex,
       xp: uc.xp,
       level: uc.level,
+      purity: uc.purity,
+      spectralSkillId: uc.spectralSkillId,
       card: {
         id: uc.card.id,
         name: uc.card.name,

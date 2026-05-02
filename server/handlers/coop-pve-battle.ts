@@ -133,9 +133,20 @@ export function sanitizeCoopPveStateForTeam(
 // Persistir resultado da coop PvE battle (fire-and-forget)
 // ---------------------------------------------------------------------------
 
-async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void> {
+async function persistCoopPveResult(
+  io: Server,
+  session: CoopPveBattleSession,
+): Promise<void> {
   const { state, mobConfigs, battleId } = session;
   const isVictory = state.result === "VICTORY";
+
+  // Acumula Espectrais (purity 100) dropados nesta batalha. Emitidos como
+  // broadcast global FORA da transacao, fire-and-forget (`io.emit` direto).
+  const spectralDrops: Array<{
+    userId: string;
+    cardName: string;
+    mobName: string;
+  }> = [];
 
   const COOP_EXP_MULTIPLIER = 1.25; // 25% bonus por ser cooperativo
 
@@ -223,12 +234,19 @@ async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void
         const mobResult = mob.defeated ? "VICTORY" : "DEFEAT";
 
         try {
-          await applyCardDropAndStats(tx, {
+          const dropResult = await applyCardDropAndStats(tx, {
             userId: playerId,
             mobId: mob.mobId,
             result: mobResult,
             damageDealt,
           });
+          if (dropResult.spectralDrop) {
+            spectralDrops.push({
+              userId: playerId,
+              cardName: dropResult.spectralDrop.cardName,
+              mobName: dropResult.spectralDrop.mobName,
+            });
+          }
         } catch (err) {
           console.log(
             `[Socket.io] Erro ao aplicar drop/stats em coop ${battleId} ` +
@@ -238,6 +256,29 @@ async function persistCoopPveResult(session: CoopPveBattleSession): Promise<void
       }
     }
   });
+
+  // Broadcast global de Espectrais — FORA da transacao, fire-and-forget.
+  // Em coop podem haver multiplos drops 100 simultaneos; emitimos um evento
+  // por drop. Cliente filtra eventos onde userId === currentUserId.
+  for (const drop of spectralDrops) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: drop.userId },
+        select: { name: true },
+      });
+      if (!user) continue;
+      io.emit("global:spectral-drop", {
+        userId: drop.userId,
+        userName: user.name,
+        cardName: drop.cardName,
+        mobName: drop.mobName,
+      });
+    } catch (err) {
+      console.log(
+        `[Socket.io] broadcast Espectral falhou para ${drop.userId}: ${String(err)}`,
+      );
+    }
+  }
 
   console.log(
     `[Socket.io] Coop PvE ${battleId} persistida. Resultado: ${isVictory ? "VICTORY" : "DEFEAT"}`
@@ -307,7 +348,7 @@ function processCoopPveTurn(
       expGained: expPerPlayer,
     });
 
-    persistCoopPveResult(session).catch((err) => {
+    persistCoopPveResult(io, session).catch((err) => {
       console.log(
         `[Socket.io] Erro ao persistir coop PvE ${battleId}: ${String(err)}`
       );
@@ -621,7 +662,7 @@ export function handleCoopPveBattleDisconnect(
       message: "Aliado desconectou permanentemente. Batalha encerrada.",
     });
 
-    persistCoopPveResult(currentSession).catch((err) => {
+    persistCoopPveResult(io, currentSession).catch((err) => {
       console.log(
         `[Socket.io] Erro ao persistir coop PvE ${battleId} (desconexao permanente de ${userId}): ${String(err)}`
       );

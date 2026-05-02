@@ -158,6 +158,66 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // POST /internal/broadcast-spectral — broadcast global para TODOS os sockets
+  // (usado pelo evento `global:spectral-drop` quando alguem dropa um Cristal
+  // Espectral via API route do Next.js).
+  if (req.method === "POST" && req.url === "/internal/broadcast-spectral") {
+    const authHeader = req.headers.authorization;
+    if (!INTERNAL_SECRET || authHeader !== `Bearer ${INTERNAL_SECRET}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    let body = "";
+    req.on("data", (chunk: Buffer) => {
+      body += chunk.toString();
+    });
+
+    req.on("end", () => {
+      try {
+        const parsed = JSON.parse(body) as {
+          event?: unknown;
+          payload?: unknown;
+        };
+
+        if (
+          typeof parsed.event !== "string" ||
+          parsed.event.length === 0 ||
+          parsed.payload === undefined
+        ) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing event or payload" }));
+          return;
+        }
+
+        // Type guard: payload precisa ser um objeto plano serializavel.
+        if (typeof parsed.payload !== "object" || parsed.payload === null) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Payload must be an object" }));
+          return;
+        }
+
+        // io.emit propaga para TODOS os sockets conectados (O(1) no servidor).
+        // Cliente filtra eventos irrelevantes (ex: o proprio dropper nao mostra
+        // toast pra si mesmo).
+        (io.emit as (event: string, payload: unknown) => boolean)(
+          parsed.event,
+          parsed.payload,
+        );
+
+        console.log(`[Broadcast] ${parsed.event} -> all sockets`);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ delivered: "all" }));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+      }
+    });
+    return;
+  }
+
   // POST /internal/notify — emite evento para um userId especifico
   if (req.method === "POST" && req.url === "/internal/notify") {
     // Verificar autorizacao
@@ -284,6 +344,28 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   const userId = socket.data.userId;
+
+  // Anti multi-account: 1 sessao Socket.io ativa por conta. Se ja existe
+  // socket(s) para este userId, derruba ANTES de registrar o novo.
+  // O cliente antigo recebe `session:replaced` e e desconectado.
+  const existingSockets = getSocketIds(userId);
+  if (existingSockets && existingSockets.size > 0) {
+    for (const oldSocketId of existingSockets) {
+      const oldSocket = io.sockets.sockets.get(oldSocketId);
+      if (oldSocket) {
+        // Tipos do Server estao com `Record<string, never>` para
+        // ServerToClientEvents (legado dos generics atuais), entao casting
+        // necessario para emitir um evento ad-hoc. Mesmo padrao usado pelos
+        // handlers (battle.ts, pvp-team-battle.ts, etc.).
+        (oldSocket.emit as (event: string, payload: unknown) => boolean)(
+          "session:replaced",
+          { reason: "Sua conta foi acessada em outro dispositivo." }
+        );
+        oldSocket.disconnect(true);
+      }
+    }
+  }
+
   registerSocket(userId, socket.id);
 
   console.log(
