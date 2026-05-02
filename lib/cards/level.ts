@@ -9,7 +9,7 @@
 //   foram convertidas no total).
 // - O multiplicador de level escala STAT_FLAT e STAT_PERCENT linearmente.
 
-import type { CardRarity } from "@/types/cards";
+import type { CardEffect, CardRarity } from "@/types/cards";
 
 /** XP ganho por uma duplicata, em funcao da raridade. */
 export const XP_PER_DUPLICATE_BY_RARITY: Record<CardRarity, number> = {
@@ -98,4 +98,88 @@ export function applyXpGain(
     leveledUp: newLevel > safePrevLevel,
     xpGained,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers de display (UI) — funcoes puras consumidas pelo frontend
+// ---------------------------------------------------------------------------
+
+/**
+ * Progresso do XP dentro do level atual.
+ *
+ * - `current`: XP acumulado dentro do level atual (xp - threshold[level]).
+ * - `needed`: XP necessario do level atual ao proximo (threshold[next] - threshold[current]). 0 se isMax.
+ * - `ratio`: `current / needed`, clampado em [0, 1]. 1 quando isMax.
+ * - `isMax`: true quando level >= CARD_LEVEL_CAP.
+ *
+ * Inputs invalidos (xp negativo, NaN, level invalido) retornam o estado neutro
+ * `{ current: 0, needed: 100, ratio: 0, isMax: false }` (assume Lv1 com 100 XP necessario).
+ * Levels acima do cap sao tratados como CARD_LEVEL_CAP.
+ */
+export function getXpProgress(
+  xp: number,
+  level: number,
+): { current: number; needed: number; ratio: number; isMax: boolean } {
+  const xpIsValid = Number.isFinite(xp) && xp >= 0;
+  const levelIsValid = Number.isFinite(level) && level >= 1;
+  if (!xpIsValid || !levelIsValid) {
+    return { current: 0, needed: 100, ratio: 0, isMax: false };
+  }
+
+  const safeLevel = Math.min(CARD_LEVEL_CAP, Math.max(1, Math.floor(level)));
+  const isMax = safeLevel >= CARD_LEVEL_CAP;
+
+  if (isMax) {
+    return { current: 0, needed: 0, ratio: 1, isMax: true };
+  }
+
+  const currentThreshold = CARD_LEVEL_THRESHOLDS[safeLevel];
+  const nextThreshold = CARD_LEVEL_THRESHOLDS[safeLevel + 1];
+  const needed = nextThreshold - currentThreshold;
+  const current = Math.max(0, xp - currentThreshold);
+  const rawRatio = needed > 0 ? current / needed : 0;
+  const ratio = Math.max(0, Math.min(1, rawRatio));
+
+  return { current, needed, ratio, isMax: false };
+}
+
+/**
+ * Quantas duplicatas o XP total representa, dada a raridade da carta.
+ *
+ * Ex: 800 XP em RARO (200 XP/dup) -> 4 duplicatas.
+ * Inputs invalidos (xp <= 0 ou NaN) retornam 0.
+ */
+export function getDuplicateCount(xp: number, rarity: CardRarity): number {
+  if (!Number.isFinite(xp) || xp <= 0) return 0;
+  const xpPerDup = XP_PER_DUPLICATE_BY_RARITY[rarity];
+  if (!xpPerDup || xpPerDup <= 0) return 0;
+  return Math.floor(xp / xpPerDup);
+}
+
+/**
+ * Retorna uma copia do effect com valores escalonados pelo multiplicador de level.
+ *
+ * - STAT_FLAT: `Math.floor(value * mult)` — espelha lib/cards/effects.ts:88.
+ * - STAT_PERCENT: `percent * mult` (sem floor) — espelha lib/cards/effects.ts:102.
+ * - TRIGGER e STATUS_RESIST: copia rasa, sem alteracao (sao inertes na Fase 1).
+ *
+ * Funcao pura: nao muta o input. Retorna um novo objeto.
+ */
+export function scaleEffectForDisplay(effect: CardEffect, level: number): CardEffect {
+  const mult = getLevelMultiplier(level);
+  switch (effect.type) {
+    case "STAT_FLAT":
+      return { ...effect, value: Math.floor(effect.value * mult) };
+    case "STAT_PERCENT":
+      return { ...effect, percent: effect.percent * mult };
+    case "TRIGGER":
+      return { ...effect };
+    case "STATUS_RESIST":
+      return { ...effect };
+    default: {
+      const _exhaustive: never = effect;
+      void _exhaustive;
+      return effect;
+    }
+  }
 }

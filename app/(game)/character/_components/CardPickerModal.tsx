@@ -5,6 +5,8 @@ import Image from "next/image";
 import type { CardEffect, CardRarity } from "@/types/cards";
 import type { StatName } from "@/types/skill";
 import type { UserCardSummary } from "./CardSlots";
+import { scaleEffectForDisplay } from "@/lib/cards/level";
+import CardLevelBar from "../../_components/CardLevelBar";
 
 type Props = {
   open: boolean;
@@ -50,7 +52,9 @@ function formatEffect(effect: CardEffect): string | null {
   }
   if (effect.type === "STAT_PERCENT") {
     const sign = effect.percent >= 0 ? "+" : "";
-    return `${sign}${effect.percent}% ${STAT_LABEL[effect.stat]}`;
+    // Arredonda em 1 casa para nao poluir com fracoes longas (ex: 8.4%, 14%).
+    const rounded = Math.round(effect.percent * 10) / 10;
+    return `${sign}${rounded}% ${STAT_LABEL[effect.stat]}`;
   }
   return null;
 }
@@ -269,7 +273,7 @@ export default function CardPickerModal({
               const { card } = entry;
               const rarityClass = RARITY_CLASS[card.rarity];
               const bonuses = card.effects
-                .map(formatEffect)
+                .map((e) => formatEffect(scaleEffectForDisplay(e, entry.level)))
                 .filter((s): s is string => s !== null);
               const equippedElsewhere = entry.equipped && entry.slotIndex !== null;
 
@@ -347,6 +351,16 @@ export default function CardPickerModal({
                       >
                         T{card.mob.tier}
                       </span>
+                      <span
+                        className="px-1.5 py-px text-[8px] uppercase tracking-[0.25em]"
+                        style={{
+                          fontFamily: "var(--font-cinzel)",
+                          color: "var(--rarity-color)",
+                          border: "1px solid color-mix(in srgb, var(--rarity-color) 60%, transparent)",
+                        }}
+                      >
+                        Lv {entry.level}
+                      </span>
                       {equippedElsewhere && entry.slotIndex !== null && (
                         <span
                           className="px-1.5 py-px text-[8px] uppercase tracking-[0.25em]"
@@ -375,6 +389,14 @@ export default function CardPickerModal({
                       }}
                     >
                       {card.flavorText}
+                    </div>
+                    <div className="mt-2">
+                      <CardLevelBar
+                        xp={entry.xp}
+                        level={entry.level}
+                        rarity={card.rarity}
+                        size="sm"
+                      />
                     </div>
                   </div>
 
