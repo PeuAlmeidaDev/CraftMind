@@ -3,6 +3,8 @@
 import Image from "next/image";
 import type { CardEffect, CardRarity } from "@/types/cards";
 import type { StatName } from "@/types/skill";
+import { getLevelMultiplier, scaleEffectForDisplay } from "@/lib/cards/level";
+import CardLevelBar from "../../_components/CardLevelBar";
 
 // ---------------------------------------------------------------------------
 // Tipos compartilhados com o parent (mesmo shape que GET /api/cards retorna)
@@ -73,13 +75,18 @@ function formatEffect(effect: CardEffect): string | null {
   }
   if (effect.type === "STAT_PERCENT") {
     const sign = effect.percent >= 0 ? "+" : "";
-    return `${sign}${effect.percent}% ${STAT_LABEL[effect.stat]}`;
+    // Arredonda em 1 casa para nao poluir com fracoes longas (ex: 8.4%, 14%).
+    const rounded = Math.round(effect.percent * 10) / 10;
+    return `${sign}${rounded}% ${STAT_LABEL[effect.stat]}`;
   }
   return null;
 }
 
-function effectsList(effects: CardEffect[]): string[] {
-  return effects.map(formatEffect).filter((s): s is string => s !== null);
+/** Lista de efeitos ja escalonados pelo level, prontos para display. */
+function scaledEffectsList(effects: CardEffect[], level: number): string[] {
+  return effects
+    .map((e) => formatEffect(scaleEffectForDisplay(e, level)))
+    .filter((s): s is string => s !== null);
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +166,10 @@ function FilledSlot({
 }) {
   const { card } = userCard;
   const rarityClass = RARITY_CLASS[card.rarity];
-  const bonuses = effectsList(card.effects);
+  const multiplier = getLevelMultiplier(userCard.level);
+  const showMultiplier = multiplier > 1;
+  const bonuses = scaledEffectsList(card.effects, userCard.level);
+  const multiplierLabel = `×${multiplier.toFixed(1)}`;
 
   return (
     <div
@@ -259,21 +269,41 @@ function FilledSlot({
           {card.mob.name}
         </div>
 
-        {/* Bonus listados */}
+        {/* Bonus listados (ja escalonados pelo level) */}
         <ul className="mt-auto flex flex-col gap-0.5">
           {bonuses.slice(0, 3).map((b, i) => (
             <li
               key={i}
-              className="truncate text-[9px] tracking-[0.05em]"
+              className="flex items-center justify-between gap-1 text-[9px] tracking-[0.05em]"
               style={{
                 fontFamily: "var(--font-mono)",
                 color: "color-mix(in srgb, var(--gold) 80%, transparent)",
               }}
             >
-              {b}
+              <span className="truncate">{b}</span>
+              {showMultiplier && (
+                <span
+                  className="shrink-0 text-[8px]"
+                  style={{
+                    color: "color-mix(in srgb, var(--gold) 50%, transparent)",
+                  }}
+                >
+                  {multiplierLabel}
+                </span>
+              )}
             </li>
           ))}
         </ul>
+
+        {/* Barra de XP / level do cristal */}
+        <div className="mt-1.5">
+          <CardLevelBar
+            xp={userCard.xp}
+            level={userCard.level}
+            rarity={card.rarity}
+            size="sm"
+          />
+        </div>
       </div>
 
       {/* Hover overlay com delta de stats em verde */}

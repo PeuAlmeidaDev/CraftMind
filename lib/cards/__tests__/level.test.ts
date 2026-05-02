@@ -15,7 +15,17 @@ import {
   getLevelMultiplier,
   getLevelFromXp,
   applyXpGain,
+  getXpProgress,
+  getDuplicateCount,
+  scaleEffectForDisplay,
 } from "../level";
+import type {
+  CardEffect,
+  CardStatFlatEffect,
+  CardStatPercentEffect,
+  CardTriggerEffect,
+  CardStatusResistEffect,
+} from "@/types/cards";
 
 describe("XP_PER_DUPLICATE_BY_RARITY", () => {
   it("COMUM da 50 XP por duplicata", () => {
@@ -218,5 +228,309 @@ describe("applyXpGain", () => {
     expect(result.newXp).toBe(50);
     expect(result.newLevel).toBe(1);
     expect(result.leveledUp).toBe(false);
+  });
+});
+
+describe("getXpProgress", () => {
+  it("xp=0 / Lv1 -> { current: 0, needed: 100, ratio: 0, isMax: false }", () => {
+    const result = getXpProgress(0, 1);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(100);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp=50 / Lv1 -> 50% do caminho ate Lv2 (50/100)", () => {
+    const result = getXpProgress(50, 1);
+    expect(result.current).toBe(50);
+    expect(result.needed).toBe(100);
+    expect(result.ratio).toBeCloseTo(0.5);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp=175 / Lv3 -> { current: -75... mas Lv3 comeca em 250 }", () => {
+    // xp=175 esta abaixo do threshold de Lv3 (250). O caller passou level=3
+    // mesmo assim — funcao trata defensivamente clampando current em 0.
+    const result = getXpProgress(175, 3);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(250);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp=375 / Lv3 -> 50% (375 - 250 = 125 de 250 ate Lv4)", () => {
+    const result = getXpProgress(375, 3);
+    expect(result.current).toBe(125);
+    expect(result.needed).toBe(250);
+    expect(result.ratio).toBeCloseTo(0.5);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp=500 / Lv4 (exato no threshold) -> { current: 0, needed: 500 }", () => {
+    const result = getXpProgress(500, 4);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(500);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp=999 / Lv4 -> 99.8% rumo a Lv5 (499/500)", () => {
+    const result = getXpProgress(999, 4);
+    expect(result.current).toBe(499);
+    expect(result.needed).toBe(500);
+    expect(result.ratio).toBeCloseTo(0.998);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp=1000 / Lv5 -> isMax true, ratio 1, needed 0", () => {
+    const result = getXpProgress(1000, 5);
+    expect(result.isMax).toBe(true);
+    expect(result.ratio).toBe(1);
+    expect(result.needed).toBe(0);
+  });
+
+  it("xp=2300 / Lv5 (excedente apos cap) -> ainda isMax true", () => {
+    const result = getXpProgress(2300, 5);
+    expect(result.isMax).toBe(true);
+    expect(result.ratio).toBe(1);
+    expect(result.needed).toBe(0);
+  });
+
+  it("level > 5 (defensivo) e clampado para Lv5 -> isMax true", () => {
+    const result = getXpProgress(5000, 99);
+    expect(result.isMax).toBe(true);
+    expect(result.ratio).toBe(1);
+  });
+
+  it("xp negativo -> estado neutro (0/100, ratio 0)", () => {
+    const result = getXpProgress(-50, 2);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(100);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("xp NaN -> estado neutro (0/100, ratio 0)", () => {
+    const result = getXpProgress(Number.NaN, 1);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(100);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("level NaN -> estado neutro", () => {
+    const result = getXpProgress(50, Number.NaN);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(100);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+
+  it("level 0 (invalido) -> estado neutro", () => {
+    const result = getXpProgress(50, 0);
+    expect(result.current).toBe(0);
+    expect(result.needed).toBe(100);
+    expect(result.ratio).toBe(0);
+    expect(result.isMax).toBe(false);
+  });
+});
+
+describe("getDuplicateCount", () => {
+  it("xp=0 retorna 0 para qualquer raridade", () => {
+    expect(getDuplicateCount(0, "COMUM")).toBe(0);
+    expect(getDuplicateCount(0, "INCOMUM")).toBe(0);
+    expect(getDuplicateCount(0, "RARO")).toBe(0);
+    expect(getDuplicateCount(0, "EPICO")).toBe(0);
+    expect(getDuplicateCount(0, "LENDARIO")).toBe(0);
+  });
+
+  it("COMUM: 50 XP -> 1 duplicata (50/50)", () => {
+    expect(getDuplicateCount(50, "COMUM")).toBe(1);
+  });
+
+  it("COMUM: 250 XP -> 5 duplicatas", () => {
+    expect(getDuplicateCount(250, "COMUM")).toBe(5);
+  });
+
+  it("INCOMUM: 350 XP -> 3 duplicatas (floor 350/100)", () => {
+    expect(getDuplicateCount(350, "INCOMUM")).toBe(3);
+  });
+
+  it("RARO: 800 XP -> 4 duplicatas (800/200)", () => {
+    expect(getDuplicateCount(800, "RARO")).toBe(4);
+  });
+
+  it("RARO: 199 XP -> 0 duplicatas (floor abaixo do limite)", () => {
+    expect(getDuplicateCount(199, "RARO")).toBe(0);
+  });
+
+  it("EPICO: 1500 XP -> 3 duplicatas (1500/400 = 3.75 -> 3)", () => {
+    expect(getDuplicateCount(1500, "EPICO")).toBe(3);
+  });
+
+  it("LENDARIO: 800 XP -> 1 duplicata", () => {
+    expect(getDuplicateCount(800, "LENDARIO")).toBe(1);
+  });
+
+  it("LENDARIO: 4000 XP -> 5 duplicatas", () => {
+    expect(getDuplicateCount(4000, "LENDARIO")).toBe(5);
+  });
+
+  it("xp gigante: 100000 XP em COMUM -> 2000 duplicatas", () => {
+    expect(getDuplicateCount(100_000, "COMUM")).toBe(2000);
+  });
+
+  it("xp negativo retorna 0", () => {
+    expect(getDuplicateCount(-50, "COMUM")).toBe(0);
+  });
+
+  it("xp NaN retorna 0", () => {
+    expect(getDuplicateCount(Number.NaN, "RARO")).toBe(0);
+  });
+});
+
+describe("scaleEffectForDisplay", () => {
+  const flatEffect: CardStatFlatEffect = {
+    type: "STAT_FLAT",
+    stat: "physicalAtk",
+    value: 5,
+  };
+
+  const percentEffect: CardStatPercentEffect = {
+    type: "STAT_PERCENT",
+    stat: "magicDef",
+    percent: 10,
+  };
+
+  const triggerEffect: CardTriggerEffect = {
+    type: "TRIGGER",
+    trigger: "ON_LOW_HP",
+    payload: { threshold: 0.25, action: "buff_self" },
+  };
+
+  const resistEffect: CardStatusResistEffect = {
+    type: "STATUS_RESIST",
+    status: "BURN",
+    percent: 50,
+  };
+
+  it("STAT_FLAT em Lv1 retorna o mesmo valor (mult=1.0)", () => {
+    const result = scaleEffectForDisplay(flatEffect, 1);
+    expect(result.type).toBe("STAT_FLAT");
+    if (result.type === "STAT_FLAT") {
+      expect(result.value).toBe(5);
+      expect(result.stat).toBe("physicalAtk");
+    }
+  });
+
+  it("STAT_FLAT em Lv5: value=5 -> floor(5 * 1.8) = 9", () => {
+    const result = scaleEffectForDisplay(flatEffect, 5);
+    if (result.type === "STAT_FLAT") {
+      expect(result.value).toBe(9);
+    } else {
+      throw new Error("expected STAT_FLAT");
+    }
+  });
+
+  it("STAT_FLAT em Lv3: value=5 -> floor(5 * 1.4) = 7 (floor de 7.0)", () => {
+    const result = scaleEffectForDisplay(flatEffect, 3);
+    if (result.type === "STAT_FLAT") {
+      expect(result.value).toBe(7);
+    } else {
+      throw new Error("expected STAT_FLAT");
+    }
+  });
+
+  it("STAT_FLAT com value negativo em Lv5: floor(-5 * 1.8) = -9", () => {
+    const negative: CardStatFlatEffect = { type: "STAT_FLAT", stat: "speed", value: -5 };
+    const result = scaleEffectForDisplay(negative, 5);
+    if (result.type === "STAT_FLAT") {
+      expect(result.value).toBe(-9);
+    } else {
+      throw new Error("expected STAT_FLAT");
+    }
+  });
+
+  it("STAT_PERCENT em Lv3: percent=10 -> 10 * 1.4 = 14 (sem floor)", () => {
+    const result = scaleEffectForDisplay(percentEffect, 3);
+    if (result.type === "STAT_PERCENT") {
+      expect(result.percent).toBeCloseTo(14);
+      expect(result.stat).toBe("magicDef");
+    } else {
+      throw new Error("expected STAT_PERCENT");
+    }
+  });
+
+  it("STAT_PERCENT em Lv5: percent=10 -> 10 * 1.8 = 18 (sem floor)", () => {
+    const result = scaleEffectForDisplay(percentEffect, 5);
+    if (result.type === "STAT_PERCENT") {
+      expect(result.percent).toBeCloseTo(18);
+    } else {
+      throw new Error("expected STAT_PERCENT");
+    }
+  });
+
+  it("STAT_PERCENT com fracao em Lv2: percent=7 -> 7 * 1.2 = 8.4 (sem floor)", () => {
+    const fractional: CardStatPercentEffect = { type: "STAT_PERCENT", stat: "hp", percent: 7 };
+    const result = scaleEffectForDisplay(fractional, 2);
+    if (result.type === "STAT_PERCENT") {
+      expect(result.percent).toBeCloseTo(8.4);
+    } else {
+      throw new Error("expected STAT_PERCENT");
+    }
+  });
+
+  it("TRIGGER passa inalterado em Lv5 (mas em copia rasa)", () => {
+    const result = scaleEffectForDisplay(triggerEffect, 5);
+    expect(result.type).toBe("TRIGGER");
+    if (result.type === "TRIGGER") {
+      expect(result.trigger).toBe("ON_LOW_HP");
+      expect(result.payload).toEqual({ threshold: 0.25, action: "buff_self" });
+    }
+  });
+
+  it("STATUS_RESIST passa inalterado em Lv5 (mas em copia rasa)", () => {
+    const result = scaleEffectForDisplay(resistEffect, 5);
+    expect(result.type).toBe("STATUS_RESIST");
+    if (result.type === "STATUS_RESIST") {
+      expect(result.status).toBe("BURN");
+      expect(result.percent).toBe(50);
+    }
+  });
+
+  it("nao muta o input original (STAT_FLAT)", () => {
+    const original: CardStatFlatEffect = { type: "STAT_FLAT", stat: "hp", value: 10 };
+    const snapshotValue = original.value;
+    const result = scaleEffectForDisplay(original, 5);
+    expect(original.value).toBe(snapshotValue);
+    expect(result).not.toBe(original);
+  });
+
+  it("nao muta o input original (STAT_PERCENT)", () => {
+    const original: CardStatPercentEffect = { type: "STAT_PERCENT", stat: "physicalDef", percent: 5 };
+    const snapshotPercent = original.percent;
+    const result = scaleEffectForDisplay(original, 4);
+    expect(original.percent).toBe(snapshotPercent);
+    expect(result).not.toBe(original);
+  });
+
+  it("retorna copia rasa para TRIGGER (referencia diferente)", () => {
+    const result = scaleEffectForDisplay(triggerEffect, 3);
+    expect(result).not.toBe(triggerEffect);
+  });
+
+  it("level invalido (NaN) clampa para Lv1: STAT_FLAT inalterado", () => {
+    const result = scaleEffectForDisplay(flatEffect, Number.NaN);
+    if (result.type === "STAT_FLAT") {
+      expect(result.value).toBe(5);
+    } else {
+      throw new Error("expected STAT_FLAT");
+    }
+  });
+
+  it("aceita CardEffect generico (uniao discriminada)", () => {
+    const generic: CardEffect = flatEffect;
+    const result = scaleEffectForDisplay(generic, 5);
+    expect(result.type).toBe("STAT_FLAT");
   });
 });
