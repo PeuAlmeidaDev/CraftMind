@@ -52,7 +52,7 @@ export default function CoopPveTeamPanel({
         }
       `}</style>
 
-      <div className={`flex justify-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto pb-1 ${teammates.length >= 3 ? "flex-wrap sm:flex-nowrap" : ""}`}>
+      <div className={`flex justify-center gap-1.5 sm:gap-3 md:gap-4 overflow-x-auto pb-1 ${teammates.length >= 3 ? "flex-wrap sm:flex-nowrap" : ""}`}>
         {teammates.map((player) => {
           const isCurrent = player.playerId === currentPlayerId;
           const isAlive = player.isAlive;
@@ -81,8 +81,8 @@ export default function CoopPveTeamPanel({
               onClick={() => {
                 if (isTargetable) onAllyClick(player.playerId);
               }}
-              className={`relative flex flex-col items-center rounded-xl border p-2 sm:p-3 shrink-0 transition-all ${
-                teammates.length >= 3 ? "w-24 min-w-24 sm:w-32 sm:min-w-32 md:w-40 md:min-w-40" : "w-28 min-w-28 sm:w-36 sm:min-w-36 md:w-44 md:min-w-44"
+              className={`relative flex flex-col items-center rounded-xl border p-1.5 sm:p-3 shrink-0 transition-all ${
+                teammates.length >= 3 ? "w-[88px] min-w-[88px] sm:w-32 sm:min-w-32 md:w-40 md:min-w-40" : "w-28 min-w-28 sm:w-36 sm:min-w-36 md:w-44 md:min-w-44"
               } ${
                 isCurrent
                   ? "border-[var(--accent-primary)]/60 bg-[var(--bg-card)]"
