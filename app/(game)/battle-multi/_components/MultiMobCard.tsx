@@ -40,7 +40,7 @@ function MobStatusBadges({ effects }: { effects: ActiveStatusEffect[] }) {
   if (effects.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
+    <div className="flex flex-wrap gap-1 mt-1 overflow-hidden">
       {effects.map((effect) => {
         const config = STATUS_CONFIG[effect.status];
         const label = config?.label ?? effect.status;
@@ -184,7 +184,7 @@ export default function MultiMobCard({
     return (
       <div
         className={`relative overflow-hidden pointer-events-none ${
-          compact ? "p-[12px_10px]" : ""
+          compact ? "p-[8px_6px] sm:p-[12px_10px]" : ""
         }`}
         style={{
           background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
@@ -197,7 +197,7 @@ export default function MultiMobCard({
         <div
           className={
             compact
-              ? "flex items-center gap-2"
+              ? "flex items-center gap-1.5 sm:gap-2"
               : "flex flex-col gap-[8px] items-center p-[12px_10px]"
           }
         >
@@ -299,7 +299,7 @@ export default function MultiMobCard({
       <div
         className={
           compact
-            ? "flex items-center gap-2 p-[12px_10px]"
+            ? "flex items-center gap-1.5 sm:gap-2 p-[8px_6px] sm:p-[12px_10px]"
             : "flex flex-col gap-[8px] items-center p-[12px_10px]"
         }
       >

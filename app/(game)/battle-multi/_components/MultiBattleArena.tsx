@@ -379,7 +379,7 @@ export default function MultiBattleArena({
   // -------------------------------------------------------------------------
 
   return (
-    <div className="mx-auto max-w-5xl px-2 sm:px-4 py-3 sm:py-6">
+    <div className="mx-auto max-w-5xl sm:px-4 py-3 sm:py-6">
       {/* ================================================================= */}
       {/* DESKTOP (md+)                                                     */}
       {/* ================================================================= */}
@@ -593,7 +593,7 @@ export default function MultiBattleArena({
       {/* ================================================================= */}
       {/* MOBILE (<md)                                                      */}
       {/* ================================================================= */}
-      <div className="flex flex-col gap-2 sm:gap-3 md:hidden">
+      <div className="flex flex-col gap-2 sm:gap-3 md:hidden overflow-x-hidden">
         {/* Mob row(s) - compact */}
         {mobs.length <= 3 ? (
           <div className="flex gap-1.5 sm:gap-2">
