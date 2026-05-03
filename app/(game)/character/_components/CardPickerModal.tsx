@@ -271,7 +271,7 @@ export default function CardPickerModal({
         )}
 
         {/* Lista */}
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-3.5">
+        <div className="flex flex-1 flex-col gap-2 px-5 py-3.5 md:overflow-y-auto">
           {totalCards === 0 ? (
             <div
               className="py-9 text-center italic"
