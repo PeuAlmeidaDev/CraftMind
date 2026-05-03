@@ -133,23 +133,24 @@ export type EquipCardInput = z.infer<typeof equipCardSchema>;
 export type UnequipCardInput = z.infer<typeof unequipCardSchema>;
 
 // ---------------------------------------------------------------------------
-// Pending duplicate resolve (REPLACE | CONVERT)
+// Sacrificio de cartas (POST /api/cards/[id]/absorb)
 // ---------------------------------------------------------------------------
 //
-// Body do POST /api/cards/pending-duplicates/[id]/resolve:
-//   { decision: "REPLACE" | "CONVERT" }
+// Body do POST /api/cards/[id]/absorb:
+//   { sourceUserCardIds: string[] }  // 1..50 ids de cartas-fonte
 //
-// REPLACE: zera xp/level da UserCard atual e adota a newPurity da pendencia.
-// CONVERT: aplica `applyXpGain` na UserCard atual (mantem purity atual).
-// Em ambos os casos a pendencia e apagada apos a resolucao.
+// O alvo (`[id]` na URL) recebe XP de cada source via `applyXpGain` (mesma
+// tabela de duplicata por raridade). Sources sao deletados na mesma transacao.
+// Validacoes de ownership, equipped e same-cardId sao feitas na rota.
 
-export const resolveDuplicateSchema = z.object({
-  decision: z.enum(["REPLACE", "CONVERT"], {
-    message: "decision deve ser REPLACE ou CONVERT",
-  }),
+export const absorbSchema = z.object({
+  sourceUserCardIds: z
+    .array(z.string().cuid("sourceUserCardId deve ser um cuid valido"))
+    .min(1, "Selecione ao menos uma carta fonte")
+    .max(50, "No maximo 50 cartas fonte por sacrificio"),
 });
 
-export type ResolveDuplicateInput = z.infer<typeof resolveDuplicateSchema>;
+export type AbsorbInput = z.infer<typeof absorbSchema>;
 
 // ---------------------------------------------------------------------------
 // Spectral skill (PUT /api/cards/[id]/spectral-skill)

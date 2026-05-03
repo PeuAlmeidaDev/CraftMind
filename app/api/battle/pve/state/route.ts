@@ -2,6 +2,38 @@ import { NextRequest } from "next/server";
 import { verifySession, AuthenticationError } from "@/lib/auth/verify-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { getPveBattle, removePveBattle, isSessionTimedOut } from "@/lib/battle/pve-store";
+import type {
+  ActiveBuff,
+  ActiveVulnerability,
+  ActiveCounter,
+} from "@/lib/battle/types";
+
+// Sanitizers — removem campos internos da engine (id, onExpire, onTrigger)
+// antes de expor ao cliente. Mantem apenas o que o frontend precisa renderizar.
+
+function sanitizeActiveBuff(b: ActiveBuff) {
+  return {
+    source: b.source,
+    stat: b.stat,
+    value: b.value,
+    remainingTurns: b.remainingTurns,
+  };
+}
+
+function sanitizeVuln(v: ActiveVulnerability) {
+  return {
+    damageType: v.damageType,
+    percent: v.percent,
+    remainingTurns: v.remainingTurns,
+  };
+}
+
+function sanitizeCounter(c: ActiveCounter) {
+  return {
+    powerMultiplier: c.powerMultiplier,
+    remainingTurns: c.remainingTurns,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +73,9 @@ export async function GET(request: NextRequest) {
         maxHp: playerState.baseStats.hp,
         stages: playerState.stages,
         statusEffects: playerState.statusEffects,
-        buffs: playerState.buffs,
+        buffs: playerState.buffs.map(sanitizeActiveBuff),
+        vulnerabilities: playerState.vulnerabilities.map(sanitizeVuln),
+        counters: playerState.counters.map(sanitizeCounter),
         availableSkills: playerState.equippedSkills.map((es) => ({
           skillId: es.skillId,
           slotIndex: es.slotIndex,
@@ -59,6 +93,9 @@ export async function GET(request: NextRequest) {
         currentHp: mobState.currentHp,
         maxHp: mobState.baseStats.hp,
         statusEffects: mobState.statusEffects,
+        buffs: mobState.buffs.map(sanitizeActiveBuff),
+        vulnerabilities: mobState.vulnerabilities.map(sanitizeVuln),
+        counters: mobState.counters.map(sanitizeCounter),
         name: session.mobName,
         description: session.mobDescription,
         tier: session.mobTier,

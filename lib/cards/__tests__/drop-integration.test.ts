@@ -1,17 +1,13 @@
 // Integracao do helper applyCardDropAndStats com um PrismaClient mockado.
-// Cobre os comportamentos exigidos pela Task 3 (versao multi-variante):
+// Cobre os comportamentos do refator "multiplas copias permitidas":
 //   1. Vitoria PvE incrementa MobKillStat.victories.
 //   2. Com randomFn determinist1co, dispara drop e cria UserCard.
-//   3. Segunda vitoria contra o mesmo mob converte duplicata em XP/level.
+//   3. Segunda vitoria contra o mesmo mob CRIA outra UserCard (sem unique
+//      constraint — multiplas copias sao permitidas).
 //   4. Derrota incrementa defeats sem dropar.
-//
-// Migrado de `drop: true/false` (booleano) para `randomFn` (override de RNG):
-//   drop=true  -> randomFn = () => 0.01 (sempre passa em dropChance >= ~1%)
-//   drop=false -> randomFn = () => 0.99 (nunca passa em dropChance <= 99%)
 
 import { describe, it, expect, vi } from "vitest";
 import { applyCardDropAndStats } from "../drop";
-import { XP_PER_DUPLICATE_BY_RARITY } from "../level";
 
 type FakeCard = {
   id: string;
@@ -28,6 +24,7 @@ type FakeUserCard = {
   cardId: string;
   xp: number;
   level: number;
+  purity?: number;
 };
 
 function makePrismaMock(opts: {
@@ -44,21 +41,8 @@ function makePrismaMock(opts: {
     upsert: vi.fn(),
   };
   const userCardCalls = {
-    findUnique: vi.fn(
-      async ({
-        where,
-      }: {
-        where: { userId_cardId: { userId: string; cardId: string } };
-      }) => {
-        const { userId, cardId } = where.userId_cardId;
-        return (
-          userCardStore.find((u) => u.userId === userId && u.cardId === cardId) ??
-          null
-        );
-      },
-    ),
     create: vi.fn(
-      async ({ data }: { data: { userId: string; cardId: string } }) => {
+      async ({ data }: { data: { userId: string; cardId: string; purity?: number } }) => {
         const created: FakeUserCard = {
           id: `uc_${userCardStore.length + 1}`,
           xp: 0,
@@ -69,34 +53,13 @@ function makePrismaMock(opts: {
         return created;
       },
     ),
-    update: vi.fn(
-      async ({
-        where,
-        data,
-      }: {
-        where: { id: string };
-        data: { xp?: number; level?: number };
-      }) => {
-        const target = userCardStore.find((u) => u.id === where.id);
-        if (!target) {
-          throw new Error(`UserCard not found: ${where.id}`);
-        }
-        if (typeof data.xp === "number") target.xp = data.xp;
-        if (typeof data.level === "number") target.level = data.level;
-        return target;
-      },
-    ),
   };
   const mobCalls = {
     findUnique: vi.fn(async () => ({ ...opts.mob, name: "Slime" })),
   };
-  // Fase 2: spectralDropLog gerado dentro da transacao quando newPurity === 100.
+  // spectralDropLog gerado dentro da transacao quando newPurity === 100.
   const spectralDropLogCalls = {
     create: vi.fn(async () => ({ id: "sdl_1" })),
-  };
-  // Fase 2: pendingCardDuplicate.create usado em fluxos de duplicata melhor.
-  const pendingCardDuplicateCalls = {
-    create: vi.fn(async () => ({ id: "pend_1" })),
   };
 
   return {
@@ -105,7 +68,6 @@ function makePrismaMock(opts: {
       userCard: userCardCalls,
       mob: mobCalls,
       spectralDropLog: spectralDropLogCalls,
-      pendingCardDuplicate: pendingCardDuplicateCalls,
     },
     userCardStore,
     mobKillStatCalls,
@@ -145,7 +107,6 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     });
 
     expect(out.cardDropped).toBeNull();
-    expect(out.xpGained).toBeNull();
     expect(mobKillStatCalls.upsert).toHaveBeenCalledOnce();
     const upsertCall = mobKillStatCalls.upsert.mock.calls[0][0];
     expect(upsertCall.create).toMatchObject({
@@ -158,7 +119,6 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     expect(upsertCall.update.victories).toEqual({ increment: 1 });
     expect(upsertCall.update.defeats).toEqual({ increment: 0 });
     expect(userCardCalls.create).not.toHaveBeenCalled();
-    expect(userCardCalls.update).not.toHaveBeenCalled();
   });
 
   it("vitoria com rng baixo cria UserCard e retorna a Card", async () => {
@@ -176,7 +136,6 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
 
     expect(out.cardDropped).not.toBeNull();
     expect(out.cardDropped?.id).toBe("card_slime");
-    expect(out.xpGained).toBeNull();
     expect(userCardCalls.create).toHaveBeenCalledOnce();
     expect(userCardStore).toHaveLength(1);
     expect(userCardStore[0]).toMatchObject({
@@ -185,7 +144,7 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     });
   });
 
-  it("segunda vitoria com rng baixo NAO duplica UserCard — converte em XP", async () => {
+  it("segunda vitoria com rng baixo CRIA outra UserCard (multiplas copias permitidas)", async () => {
     const { prisma, userCardStore, userCardCalls } = makePrismaMock({
       mob: SAMPLE_MOB,
       initialUserCard: {
@@ -194,6 +153,7 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
         cardId: "card_slime",
         xp: 0,
         level: 1,
+        purity: 50,
       },
     });
 
@@ -205,26 +165,12 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
       randomFn: () => 0.01,
     });
 
-    expect(out.cardDropped).toBeNull();
-    expect(out.xpGained).not.toBeNull();
-    expect(out.xpGained?.card.id).toBe("card_slime");
-    expect(out.xpGained?.xp).toBe(XP_PER_DUPLICATE_BY_RARITY.COMUM);
-    expect(out.xpGained?.newXp).toBe(50);
-    expect(out.xpGained?.newLevel).toBe(1);
-    expect(out.xpGained?.leveledUp).toBe(false);
-
-    expect(userCardCalls.create).not.toHaveBeenCalled();
-    expect(userCardCalls.update).toHaveBeenCalledOnce();
-    expect(userCardCalls.update).toHaveBeenCalledWith({
-      where: { id: "uc_existing" },
-      data: { xp: 50, level: 1 },
-    });
-    expect(userCardStore).toHaveLength(1); // continua so com a copia existente
-    expect(userCardStore[0]).toMatchObject({
-      id: "uc_existing",
-      xp: 50,
-      level: 1,
-    });
+    expect(out.cardDropped).not.toBeNull();
+    expect(out.cardDropped?.id).toBe("card_slime");
+    expect(userCardCalls.create).toHaveBeenCalledOnce();
+    // Store agora tem 2 copias do mesmo cardId.
+    expect(userCardStore).toHaveLength(2);
+    expect(userCardStore.every((u) => u.cardId === "card_slime")).toBe(true);
   });
 
   it("derrota incrementa defeats e nunca dropa", async () => {
@@ -241,7 +187,6 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     });
 
     expect(out.cardDropped).toBeNull();
-    expect(out.xpGained).toBeNull();
     const upsertCall = mobKillStatCalls.upsert.mock.calls[0][0];
     expect(upsertCall.create).toMatchObject({
       victories: 0,
@@ -251,7 +196,6 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     expect(upsertCall.update.defeats).toEqual({ increment: 1 });
     expect(upsertCall.update.victories).toEqual({ increment: 0 });
     expect(userCardCalls.create).not.toHaveBeenCalled();
-    expect(userCardCalls.update).not.toHaveBeenCalled();
   });
 
   it("vitoria contra mob sem Card cadastrada nao quebra (retorna null)", async () => {
@@ -268,12 +212,10 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     });
 
     expect(out.cardDropped).toBeNull();
-    expect(out.xpGained).toBeNull();
     expect(userCardCalls.create).not.toHaveBeenCalled();
-    expect(userCardCalls.update).not.toHaveBeenCalled();
   });
 
-  it("usa rng interno (Math.random) e dropa quando randomFn=()=>0", async () => {
+  it("usa rng interno e dropa quando randomFn=()=>0", async () => {
     const { prisma } = makePrismaMock({ mob: SAMPLE_MOB });
 
     const out = await applyCardDropAndStats(prisma as never, {
@@ -285,7 +227,6 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     });
 
     expect(out.cardDropped?.id).toBe("card_slime");
-    expect(out.xpGained).toBeNull();
   });
 
   it("usa rng interno e nao dropa quando random > rate", async () => {
@@ -300,10 +241,9 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
     });
 
     expect(out.cardDropped).toBeNull();
-    expect(out.xpGained).toBeNull();
   });
 
-  it("primeira variante elegivel duplicada vira XP e iter para — variantes menores nao sao tocadas", async () => {
+  it("primeira variante elegivel passa: cria UserCard NOVO mesmo se ja existe outra cobre desta variante", async () => {
     const SLIME_2S: FakeCard = {
       id: "card_slime_2s",
       mobId: "mob_slime",
@@ -327,6 +267,7 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
           cardId: "card_slime_2s",
           xp: 0,
           level: 1,
+          purity: 50,
         },
       ],
     });
@@ -338,31 +279,16 @@ describe("applyCardDropAndStats (integracao com Prisma mockado)", () => {
       damageDealt: 100,
       encounterStars: 2,
       // 0.01 -> 1.0; passa em ambas, mas a 2 estrelas e avaliada primeiro
-      // (ordem decrescente). Como e duplicata, vira XP e iter PARA — a
-      // 1 estrela nao deve ser nem consultada via findUnique.
+      // (ordem decrescente). Cria UserCard novo dela.
       randomFn: () => 0.01,
     });
 
-    expect(out.cardDropped).toBeNull();
-    expect(out.xpGained?.card.id).toBe("card_slime_2s");
-    expect(out.xpGained?.xp).toBe(XP_PER_DUPLICATE_BY_RARITY.INCOMUM);
-
-    // findUnique chamado UMA unica vez — apenas para a 2 estrelas.
-    expect(userCardCalls.findUnique).toHaveBeenCalledOnce();
-    expect(userCardCalls.findUnique).toHaveBeenCalledWith({
-      where: {
-        userId_cardId: { userId: "user_1", cardId: "card_slime_2s" },
-      },
-      select: { id: true, xp: true, level: true, purity: true },
-    });
-
-    expect(userCardCalls.update).toHaveBeenCalledOnce();
-    expect(userCardCalls.create).not.toHaveBeenCalled();
-    expect(userCardStore).toHaveLength(1);
-    expect(userCardStore[0]).toMatchObject({
-      id: "uc_2s_existing",
-      xp: 100,
-      level: 2,
-    });
+    expect(out.cardDropped?.id).toBe("card_slime_2s");
+    expect(userCardCalls.create).toHaveBeenCalledOnce();
+    expect(userCardStore).toHaveLength(2);
+    expect(userCardStore.map((u) => u.cardId).sort()).toEqual([
+      "card_slime_2s",
+      "card_slime_2s",
+    ]);
   });
 });

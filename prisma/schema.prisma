@@ -100,11 +100,10 @@ model User {
   receivedFriendRequests Friendship[] @relation("FriendshipReceiver")
 
   // Cristais de Memoria + Bestiario
-  userCards               UserCard[]
-  mobKillStats            MobKillStat[]
-  pendingCardDuplicates   PendingCardDuplicate[]
-  spectralDropLogs        SpectralDropLog[]
-  showcase                UserShowcase?
+  userCards        UserCard[]
+  mobKillStats     MobKillStat[]
+  spectralDropLogs SpectralDropLog[]
+  showcase         UserShowcase?
 
   // Logs de login (anti multi-account)
   loginLogs LoginLog[]
@@ -662,46 +661,19 @@ model UserCard {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
-  pendingDuplicates PendingCardDuplicate[]
-  spectralDropLogs  SpectralDropLog[]
+  spectralDropLogs SpectralDropLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Politica de duplicata: primeira copia cria UserCard; duplicatas viram xp/level.
-  @@unique([userId, cardId])
   // Dois cristais nao podem ocupar o mesmo slot do mesmo usuario.
   @@unique([userId, slotIndex])
+  // Multiplas copias permitidas: cada drop cria UserCard novo. O jogador
+  // sacrifica copias manualmente no inventario para transferir XP entre elas.
+  // Indice composto acelera "listar minhas copias deste cardId".
+  @@index([userId, cardId])
   @@index([userId])
   @@index([spectralSkillId])
-}
-
-// ============================================================
-// PENDING CARD DUPLICATE — Drop de duplicata com purity MAIOR aguardando decisao
-// ============================================================
-//
-// Quando o jogador dropa uma copia de uma carta que ja possui e a nova copia
-// tem `purity` maior que a atual, o sistema cria uma pendencia (em vez de
-// converter automaticamente em XP). O jogador resolve via UI escolhendo:
-//   - REPLACE: zera xp/level da UserCard atual e adota a nova purity
-//   - CONVERT: aplica XP normal via applyXpGain (mantem purity atual)
-//
-// Pendencias acumulam sem expiracao. Cascade nas duas relacoes garante limpeza
-// se o User ou a UserCard for deletado.
-
-model PendingCardDuplicate {
-  id         String   @id @default(cuid())
-  userId     String
-  userCardId String
-  newPurity  Int // 0-100, purity rolada na nova copia
-
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userCard UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@index([userId, createdAt])
-  @@index([userCardId])
 }
 
 // ============================================================

@@ -39,12 +39,16 @@ export async function GET(request: NextRequest) {
       level: uc.level,
       purity: uc.purity,
       spectralSkillId: uc.spectralSkillId,
+      createdAt: uc.createdAt.toISOString(),
       card: {
         id: uc.card.id,
         name: uc.card.name,
         flavorText: uc.card.flavorText,
         rarity: uc.card.rarity,
         effects: uc.card.effects,
+        dropChance: uc.card.dropChance,
+        cardArtUrl: uc.card.cardArtUrl,
+        cardArtUrlSpectral: uc.card.cardArtUrlSpectral,
         mob: uc.card.mob,
       },
     }));

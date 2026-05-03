@@ -80,12 +80,18 @@ export type UserCardSummary = {
   /** Skill espectral escolhida (5o slot em batalha). So tem efeito quando
    *  purity === 100. Null/undefined se nao definida ainda. */
   spectralSkillId?: string | null;
+  /** ISO 8601 — data em que o UserCard foi criado (drop). Opcional para
+   *  manter compat com chamadas antigas; populado por GET /api/cards. */
+  createdAt?: string;
   card: {
     id: string;
     name: string;
     flavorText: string;
     rarity: CardRarity;
     effects: CardEffect[];
+    /** Percentual individual de drop quando a variante e elegivel (0-100).
+     *  Opcional para compat. Populado por GET /api/cards. */
+    dropChance?: number;
     /** Arte padrao (Cloudinary). Null enquanto asset nao foi gerado. */
     cardArtUrl?: string | null;
     /** Arte alternativa exclusiva da versao Espectral (purity === 100).
@@ -101,36 +107,26 @@ export type UserCardSummary = {
 };
 
 // ---------------------------------------------------------------------------
-// PendingCardDuplicate — drop de duplicata aguardando decisao
+// Absorb — resposta do POST /api/cards/[id]/absorb
 // ---------------------------------------------------------------------------
 //
-// Retornado por GET /api/cards/pending-duplicates. O jogador resolve via
-// POST /api/cards/pending-duplicates/[id]/resolve com decision REPLACE ou CONVERT.
+// `[id]` e o userCardId do ALVO (carta que recebe XP). O body especifica os
+// sources (1..50 cartas-fonte do MESMO cardId), que sao deletados na mesma
+// transacao apos transferir o XP.
 
-export type PendingDuplicateDecision = "REPLACE" | "CONVERT";
-
-export type PendingCardDuplicateSummary = {
-  id: string;
-  newPurity: number;
-  createdAt: string;
-  userCard: {
-    id: string;
-    xp: number;
-    level: number;
-    purity: number;
-    card: {
-      id: string;
-      name: string;
-      flavorText: string;
-      rarity: CardRarity;
-      mob: {
-        id: string;
-        name: string;
-        tier: number;
-        imageUrl: string | null;
-      };
-    };
-  };
+export type AbsorbResponse = {
+  /** ID da carta alvo (recebeu o XP). */
+  targetUserCardId: string;
+  /** Total de XP transferido (soma de XP_PER_DUPLICATE_BY_RARITY[rarity] por source). */
+  xpGained: number;
+  /** XP cumulativo do alvo apos a operacao. */
+  newXp: number;
+  /** Level do alvo apos recalculo via getLevelFromXp(newXp). */
+  newLevel: number;
+  /** True se o level do alvo subiu (estritamente). */
+  leveledUp: boolean;
+  /** Quantidade de cartas-fonte deletadas. */
+  sacrificed: number;
 };
 
 // ---------------------------------------------------------------------------

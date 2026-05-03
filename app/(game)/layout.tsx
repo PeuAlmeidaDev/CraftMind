@@ -30,6 +30,7 @@ import type { PlayerPublicProfile } from "@/components/ui/PlayerSearchBar";
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/character", label: "Personagem" },
+  { href: "/inventario", label: "Inventario" },
   { href: "/battle", label: "Batalha" },
   { href: "/bestiary", label: "Bestiario" },
   { href: "/ranking", label: "Ranking" },

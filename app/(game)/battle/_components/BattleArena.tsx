@@ -12,6 +12,9 @@ import type {
   TurnLogEntry,
   AvailableSkill,
   ActiveStatusEffect,
+  ActiveBuffSummary,
+  ActiveVulnerabilitySummary,
+  ActiveCounterSummary,
   MobInfo,
   PlayerProfile,
 } from "../page";
@@ -31,6 +34,12 @@ type BattleArenaProps = {
   mobMaxHp: number;
   playerStatusEffects: ActiveStatusEffect[];
   mobStatusEffects: ActiveStatusEffect[];
+  playerBuffs: ActiveBuffSummary[];
+  mobBuffs: ActiveBuffSummary[];
+  playerVulnerabilities: ActiveVulnerabilitySummary[];
+  mobVulnerabilities: ActiveVulnerabilitySummary[];
+  playerCounters: ActiveCounterSummary[];
+  mobCounters: ActiveCounterSummary[];
   events: TurnLogEntry[];
   availableSkills: AvailableSkill[];
   onSkillUse: (skillId: string) => void;
@@ -87,6 +96,154 @@ function getStatusBorderStyle(effects: ActiveStatusEffect[]): string {
 
 function hasActiveStatus(effects: ActiveStatusEffect[]): boolean {
   return STATUS_BORDER_PRIORITY.some((s) => effects.some((e) => e.status === s));
+}
+
+// ---------------------------------------------------------------------------
+// Stat label map (siglas curtas para badges de buff/debuff)
+// ---------------------------------------------------------------------------
+
+const STAT_LABEL: Record<string, string> = {
+  physicalAtk: "ATK F",
+  physicalDef: "DEF F",
+  magicAtk: "ATK M",
+  magicDef: "DEF M",
+  speed: "VEL",
+  accuracy: "PRC",
+  priority: "PRI",
+};
+
+const DAMAGE_TYPE_LABEL: Record<string, string> = {
+  PHYSICAL: "FIS",
+  MAGICAL: "MAG",
+  NONE: "PUR",
+};
+
+// ---------------------------------------------------------------------------
+// Effect badge palette (cores fixas em hex pra contraste — pattern aceito pra
+// badges, ja em uso por STATUS_BORDER_COLOR/STATUS_CONFIG)
+// ---------------------------------------------------------------------------
+
+const BADGE_COLOR = {
+  buff: "#7acf8a",
+  debuff: "#ff8a70",
+  vuln: "#b06bff",
+  // counter usa var(--gold) inline (token de tema)
+} as const;
+
+// ---------------------------------------------------------------------------
+// Effect badges — buffs, debuffs, vulnerabilidades, counters
+// ---------------------------------------------------------------------------
+
+type EffectBadgesProps = {
+  buffs: ActiveBuffSummary[];
+  vulnerabilities: ActiveVulnerabilitySummary[];
+  counters: ActiveCounterSummary[];
+};
+
+function EffectBadges({ buffs, vulnerabilities, counters }: EffectBadgesProps) {
+  // Filtra defensivamente buffs com value 0
+  const visibleBuffs = buffs.filter((b) => b.value !== 0);
+
+  if (
+    visibleBuffs.length === 0 &&
+    vulnerabilities.length === 0 &&
+    counters.length === 0
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 overflow-x-auto">
+      {visibleBuffs.map((b, idx) => {
+        // PRIORITY_SHIFT classifica por sinal do value
+        const isBuff =
+          b.source === "BUFF" ||
+          (b.source === "PRIORITY_SHIFT" && b.value > 0);
+        const color = isBuff ? BADGE_COLOR.buff : BADGE_COLOR.debuff;
+        const arrow = isBuff ? "↑" : "↓";
+        const label = STAT_LABEL[b.stat] ?? b.stat.toUpperCase();
+        const sign = b.value > 0 ? "+" : "";
+        return (
+          <span
+            key={`buff-${b.source}-${b.stat}-${idx}`}
+            className="inline-flex items-center gap-[4px] uppercase"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              color,
+              padding: "2px 6px",
+              border: `1px solid color-mix(in srgb, ${color} 50%, transparent)`,
+              background: `color-mix(in srgb, ${color} 12%, transparent)`,
+            }}
+          >
+            <span
+              className="rounded-full shrink-0"
+              style={{
+                width: 4,
+                height: 4,
+                background: color,
+                boxShadow: `0 0 3px ${color}`,
+              }}
+            />
+            {label} {arrow} {sign}{b.value} ({b.remainingTurns}t)
+          </span>
+        );
+      })}
+
+      {vulnerabilities.map((v, idx) => {
+        const color = BADGE_COLOR.vuln;
+        const dmgLabel = DAMAGE_TYPE_LABEL[v.damageType] ?? v.damageType;
+        return (
+          <span
+            key={`vuln-${v.damageType}-${idx}`}
+            className="inline-flex items-center gap-[4px] uppercase"
+            style={{
+              fontFamily: "var(--font-cinzel)",
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              color,
+              padding: "2px 6px",
+              border: `1px solid color-mix(in srgb, ${color} 50%, transparent)`,
+              background: `color-mix(in srgb, ${color} 12%, transparent)`,
+            }}
+          >
+            <span
+              className="rounded-full shrink-0"
+              style={{
+                width: 4,
+                height: 4,
+                background: color,
+                boxShadow: `0 0 3px ${color}`,
+              }}
+            />
+            VULN {dmgLabel} +{v.percent}% ({v.remainingTurns}t)
+          </span>
+        );
+      })}
+
+      {counters.map((c, idx) => (
+        <span
+          key={`counter-${idx}`}
+          className="inline-flex items-center gap-[4px] uppercase animate-status-pulse"
+          style={{
+            fontFamily: "var(--font-cinzel)",
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            color: "var(--gold)",
+            padding: "3px 7px",
+            border: "1px solid var(--gold)",
+            background: "color-mix(in srgb, var(--gold) 14%, transparent)",
+            boxShadow: "0 0 6px color-mix(in srgb, var(--gold) 40%, transparent)",
+            fontWeight: 600,
+          }}
+        >
+          <span aria-hidden="true">{"⦸"}</span>
+          CONTRA-ATAQUE x{c.powerMultiplier} ({c.remainingTurns}t)
+        </span>
+      ))}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +425,12 @@ export default function BattleArena({
   mobMaxHp,
   playerStatusEffects,
   mobStatusEffects,
+  playerBuffs,
+  mobBuffs,
+  playerVulnerabilities,
+  mobVulnerabilities,
+  playerCounters,
+  mobCounters,
   events,
   availableSkills,
   onSkillUse,
@@ -512,10 +675,15 @@ export default function BattleArena({
               </div>
             </div>
 
-            {/* HP + Status */}
+            {/* HP + Status + Effects */}
             <div className="relative z-10 mt-[14px] flex flex-col gap-[10px]">
               <HpBar current={playerHp} max={playerMaxHp} variant="player" size="lg" />
               <StatusBadges effects={playerStatusEffects} />
+              <EffectBadges
+                buffs={playerBuffs}
+                vulnerabilities={playerVulnerabilities}
+                counters={playerCounters}
+              />
             </div>
 
             {/* Floating numbers */}
@@ -635,10 +803,15 @@ export default function BattleArena({
             </div>
           </div>
 
-          {/* HP + Status below image */}
+          {/* HP + Status + Effects below image */}
           <div className="p-4 flex flex-col gap-[10px]">
             <HpBar current={mobHp} max={mobMaxHp} variant="mob" size="lg" />
             <StatusBadges effects={mobStatusEffects} />
+            <EffectBadges
+              buffs={mobBuffs}
+              vulnerabilities={mobVulnerabilities}
+              counters={mobCounters}
+            />
           </div>
 
           {/* Floating numbers */}
@@ -702,8 +875,13 @@ export default function BattleArena({
             </span>
           </div>
           <HpBar current={playerHp} max={playerMaxHp} variant="player" size="compact" />
-          <div className="mt-1">
+          <div className="mt-1 flex flex-col gap-1">
             <StatusBadges effects={playerStatusEffects} />
+            <EffectBadges
+              buffs={playerBuffs}
+              vulnerabilities={playerVulnerabilities}
+              counters={playerCounters}
+            />
           </div>
           <div className="mt-3">
             <SkillBar
@@ -802,6 +980,11 @@ export default function BattleArena({
           <div className="px-3 py-3 flex flex-col gap-[6px]">
             <HpBar current={mobHp} max={mobMaxHp} variant="mob" size="compact" />
             <StatusBadges effects={mobStatusEffects} />
+            <EffectBadges
+              buffs={mobBuffs}
+              vulnerabilities={mobVulnerabilities}
+              counters={mobCounters}
+            />
           </div>
           {mobFloats.map((f) => (
             <span
