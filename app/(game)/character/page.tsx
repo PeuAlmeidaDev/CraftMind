@@ -18,9 +18,7 @@ import HouseBanner from "./_components/HouseBanner";
 import CardSlots from "./_components/CardSlots";
 import type { UserCardSummary } from "./_components/CardSlots";
 import CardPickerModal from "./_components/CardPickerModal";
-import PendingDuplicatesModal from "./_components/PendingDuplicatesModal";
 import SpectralSkillSelectModal from "./_components/SpectralSkillSelectModal";
-import type { PendingCardDuplicateSummary } from "@/types/cards";
 import EmberField from "@/components/ui/EmberField";
 import { HOUSE_LORE } from "@/lib/constants-house";
 import Link from "next/link";
@@ -48,10 +46,6 @@ export default function CharacterPage() {
   const [equippedSkills, setEquippedSkills] = useState<CharacterSkillSlot[]>([]);
   const [unequippedSkills, setUnequippedSkills] = useState<CharacterSkillSlot[]>([]);
   const [userCards, setUserCards] = useState<UserCardSummary[]>([]);
-  const [pendingDuplicates, setPendingDuplicates] = useState<
-    PendingCardDuplicateSummary[]
-  >([]);
-  const [pendingModalOpen, setPendingModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedCardSlot, setSelectedCardSlot] = useState<number | null>(null);
@@ -78,21 +72,19 @@ export default function CharacterPage() {
       const opts = authFetchOptions(token, controller.signal);
 
       try {
-        const [profileRes, characterRes, skillsRes, cardsRes, pendingRes] =
+        const [profileRes, characterRes, skillsRes, cardsRes] =
           await Promise.all([
             fetch("/api/user/profile", opts),
             fetch("/api/character", opts),
             fetch("/api/character/skills", opts),
             fetch("/api/cards", opts),
-            fetch("/api/cards/pending-duplicates", opts),
           ]);
 
         if (
           profileRes.status === 401 ||
           characterRes.status === 401 ||
           skillsRes.status === 401 ||
-          cardsRes.status === 401 ||
-          pendingRes.status === 401
+          cardsRes.status === 401
         ) {
           clearAuthAndRedirect(router);
           return;
@@ -125,16 +117,6 @@ export default function CharacterPage() {
             data: { userCards: UserCardSummary[] };
           };
           setUserCards(cardsJson.data.userCards);
-        }
-
-        if (pendingRes.ok) {
-          const pendingJson = (await pendingRes.json()) as {
-            data: { pendingDuplicates: PendingCardDuplicateSummary[] };
-          };
-          setPendingDuplicates(pendingJson.data.pendingDuplicates);
-          if (pendingJson.data.pendingDuplicates.length > 0) {
-            setPendingModalOpen(true);
-          }
         }
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -293,31 +275,6 @@ export default function CharacterPage() {
     await refetchCards();
   }
 
-  const refetchPendingDuplicates = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
-    const res = await fetch(
-      "/api/cards/pending-duplicates",
-      authFetchOptions(token),
-    );
-    if (res.ok) {
-      const json = (await res.json()) as {
-        data: { pendingDuplicates: PendingCardDuplicateSummary[] };
-      };
-      setPendingDuplicates(json.data.pendingDuplicates);
-    }
-  }, []);
-
-  const handlePendingResolved = useCallback(
-    async (resolvedId: string) => {
-      // Atualizacao otimista: remove do estado local imediatamente.
-      setPendingDuplicates((prev) => prev.filter((p) => p.id !== resolvedId));
-      // Refetch UserCards para refletir mudanca de purity/level/xp.
-      await Promise.all([refetchCards(), refetchPendingDuplicates()]);
-    },
-    [refetchCards, refetchPendingDuplicates],
-  );
-
   async function handleUnequipCard(slotIndex: number) {
     if (cardActionRef.current) return;
     const token = getToken();
@@ -472,14 +429,6 @@ export default function CharacterPage() {
         userCards={userCards}
         onSelect={handleEquipCard}
         onClose={() => setSelectedCardSlot(null)}
-      />
-
-      {/* Modal de pendencias de duplicatas */}
-      <PendingDuplicatesModal
-        open={pendingModalOpen && pendingDuplicates.length > 0}
-        pendings={pendingDuplicates}
-        onResolved={handlePendingResolved}
-        onClose={() => setPendingModalOpen(false)}
       />
 
       {/* Modal de skill espectral (5o slot em batalha) */}

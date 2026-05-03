@@ -36,19 +36,8 @@ type DroppedCardPayload = {
   mobId: string;
 };
 
-type CardXpGainedPayload = {
-  cardId: string;
-  cardName: string;
-  rarity: string;
-  mobId: string;
-  xp: number;
-  newLevel: number;
-  leveledUp: boolean;
-};
-
 type DropsAndStatsResult = {
   cardDropped: DroppedCardPayload | null;
-  cardXpGainedList: CardXpGainedPayload[];
   /** Espectrais (purity 100) dropados nesta batalha (UM por mob, no max).
    *  O caller dispara broadcast FORA da transacao para cada item. */
   spectralDrops: Array<NonNullable<ApplyCardDropAndStatsResult["spectralDrop"]>>;
@@ -81,8 +70,11 @@ function sumDamageDealtToTarget(
  *
  * Retorna:
  * - `cardDropped`: melhor cristal NOVO dropado (maior raridade) ou null.
- * - `cardXpGainedList`: lista de XP ganho por cristais duplicados (um por mob
- *   que rolou positivo numa variante ja possuida).
+ * - `spectralDrops`: array de Espectrais (purity 100) para broadcast fora da tx.
+ *
+ * Nota: apos o refator de "multiplas copias permitidas", o helper de drop
+ * sempre cria UserCard novo — nao existe mais conversao automatica em XP de
+ * duplicata (acontece apenas via /api/cards/[id]/absorb manual).
  */
 async function applyDropsAndStatsForMobs(
   tx: Prisma.TransactionClient,
@@ -93,7 +85,6 @@ async function applyDropsAndStatsForMobs(
 ): Promise<DropsAndStatsResult> {
   let best: DroppedCardPayload | null = null;
   let bestRank = 0;
-  const cardXpGainedList: CardXpGainedPayload[] = [];
   const spectralDrops: DropsAndStatsResult["spectralDrops"] = [];
   for (const mob of mobs) {
     const damageDealt = sumDamageDealtToTarget(log, userId, mob.playerId);
@@ -119,17 +110,6 @@ async function applyDropsAndStatsForMobs(
           };
         }
       }
-      if (dropResult.xpGained) {
-        cardXpGainedList.push({
-          cardId: dropResult.xpGained.card.id,
-          cardName: dropResult.xpGained.card.name,
-          rarity: dropResult.xpGained.card.rarity,
-          mobId: dropResult.xpGained.card.mobId,
-          xp: dropResult.xpGained.xp,
-          newLevel: dropResult.xpGained.newLevel,
-          leveledUp: dropResult.xpGained.leveledUp,
-        });
-      }
       if (dropResult.spectralDrop) {
         spectralDrops.push(dropResult.spectralDrop);
       }
@@ -139,7 +119,7 @@ async function applyDropsAndStatsForMobs(
       );
     }
   }
-  return { cardDropped: best, cardXpGainedList, spectralDrops };
+  return { cardDropped: best, spectralDrops };
 }
 
 /** Dispara um broadcast por Espectral dropado nesta batalha multi (fire-and-forget). */
@@ -223,7 +203,6 @@ export async function POST(request: NextRequest) {
         mobsHp: state.mobs.map((m) => m.currentHp),
         mobsDefeated: state.mobs.map((m) => m.defeated),
         cardDropped: dropsResult.cardDropped,
-        cardXpGainedList: dropsResult.cardXpGainedList,
       });
     }
 
@@ -338,8 +317,7 @@ export async function POST(request: NextRequest) {
             levelsGained: levelResult.levelsGained,
             newLevel: levelResult.newLevel,
             cardDropped: dropsResult.cardDropped,
-            cardXpGainedList: dropsResult.cardXpGainedList,
-          });
+              });
         }
 
         // Character nao encontrado — persistir sem EXP, mas ainda atualizar stats/drop
@@ -377,8 +355,7 @@ export async function POST(request: NextRequest) {
           result: "VICTORY",
           expGained: 0,
           cardDropped: dropsResult.cardDropped,
-          cardXpGainedList: dropsResult.cardXpGainedList,
-        });
+          });
       }
 
       // DEFEAT — mobs que o player matou ANTES de morrer ainda contam VICTORY
@@ -417,7 +394,6 @@ export async function POST(request: NextRequest) {
         result: "DEFEAT",
         expGained: 0,
         cardDropped: dropsResult.cardDropped,
-        cardXpGainedList: dropsResult.cardXpGainedList,
       });
     }
 

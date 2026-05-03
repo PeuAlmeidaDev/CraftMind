@@ -51,15 +51,13 @@ api/
 │   └── [id]/
 │       └── route.ts          # DELETE (remover amizade aceita — protegida, sender ou receiver)
 ├── cards/
-│   ├── route.ts          # GET (listar UserCards do usuario, inclui purity, spectralSkillId, createdAt e card.dropChance/cardArtUrl/cardArtUrlSpectral — protegida)
+│   ├── route.ts          # GET (listar UserCards do usuario, inclui purity, spectralSkillId, createdAt e card.dropChance/cardArtUrl/cardArtUrlSpectral — protegida; multiplas copias do mesmo cardId podem aparecer)
 │   ├── total-count/route.ts # GET (total de Cards cadastrados no jogo — protegida, usado pela tela /inventario para o stat "X / Y unicas")
 │   ├── equip/route.ts    # POST (equipar cristal em slot 0-2 — protegida)
 │   ├── unequip/route.ts  # POST (desequipar cristal — protegida)
-│   ├── [id]/
-│   │   └── spectral-skill/route.ts       # PUT (escolher skill espectral do 5o slot — protegida; valida purity 100, ownership e que skillId pertence aos 4 mob skills do mob de origem; resposta { ok: true, spectralSkillId })
-│   └── pending-duplicates/
-│       ├── route.ts                      # GET (listar pendencias do usuario — protegida)
-│       └── [id]/resolve/route.ts         # POST (resolver pendencia: decision REPLACE | CONVERT — protegida, transacao atomica, ownership validada)
+│   └── [id]/
+│       ├── spectral-skill/route.ts       # PUT (escolher skill espectral do 5o slot — protegida; valida purity 100, ownership e que skillId pertence aos 4 mob skills do mob de origem; resposta { ok: true, spectralSkillId })
+│       └── absorb/route.ts               # POST (sacrificar cartas-fonte e transferir XP pra alvo — protegida; body { sourceUserCardIds: string[] } 1..50; valida ownership, mesmo cardId, nao-equipadas; transacao atomica deleta sources e atualiza alvo; resposta AbsorbResponse)
 └── battle/
     ├── route.ts          # POST iniciar batalha
     ├── active/route.ts   # GET (verificar se usuario tem batalha ativa em qualquer modo — protegida, consulta stores locais + Socket.io server)

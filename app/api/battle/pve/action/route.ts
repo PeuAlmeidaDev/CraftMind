@@ -110,7 +110,6 @@ export async function POST(request: NextRequest) {
         levelsGained: 0,
         newLevel: 0,
         cardDropped: null,
-        cardXpGained: null,
       });
     }
 
@@ -161,22 +160,6 @@ export async function POST(request: NextRequest) {
         rarity: string;
         mobId: string;
         purity: number;
-      } | null = null;
-      let xpGained: {
-        cardId: string;
-        cardName: string;
-        rarity: string;
-        xp: number;
-        newLevel: number;
-        leveledUp: boolean;
-      } | null = null;
-      let pendingDuplicate: {
-        id: string;
-        cardId: string;
-        cardName: string;
-        rarity: string;
-        currentPurity: number;
-        newPurity: number;
       } | null = null;
 
       if (result === "VICTORY") {
@@ -254,26 +237,6 @@ export async function POST(request: NextRequest) {
               purity: dropResult.cardDropped.purity,
             };
           }
-          if (dropResult.xpGained) {
-            xpGained = {
-              cardId: dropResult.xpGained.card.id,
-              cardName: dropResult.xpGained.card.name,
-              rarity: dropResult.xpGained.card.rarity,
-              xp: dropResult.xpGained.xp,
-              newLevel: dropResult.xpGained.newLevel,
-              leveledUp: dropResult.xpGained.leveledUp,
-            };
-          }
-          if (dropResult.pendingDuplicate) {
-            pendingDuplicate = {
-              id: dropResult.pendingDuplicate.id,
-              cardId: dropResult.pendingDuplicate.card.id,
-              cardName: dropResult.pendingDuplicate.card.name,
-              rarity: dropResult.pendingDuplicate.card.rarity,
-              currentPurity: dropResult.pendingDuplicate.currentPurity,
-              newPurity: dropResult.pendingDuplicate.newPurity,
-            };
-          }
 
           // Broadcast global de Espectral (purity 100) — fire and forget,
           // FORA da transacao. Erros nao quebram a resposta do drop.
@@ -347,8 +310,6 @@ export async function POST(request: NextRequest) {
         levelsGained,
         newLevel,
         cardDropped,
-        cardXpGained: xpGained,
-        pendingDuplicate,
       });
     }
 

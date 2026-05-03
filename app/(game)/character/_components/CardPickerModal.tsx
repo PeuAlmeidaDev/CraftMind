@@ -137,10 +137,17 @@ export default function CardPickerModal({
     [userCards, slotIndex],
   );
 
-  const filtered = useMemo(
-    () => candidates.filter((u) => activeRarities.has(u.card.rarity)),
-    [candidates, activeRarities],
-  );
+  const filtered = useMemo(() => {
+    const list = candidates.filter((u) => activeRarities.has(u.card.rarity));
+    // Agrupa copias do mesmo cardId, melhor primeiro (purity desc, depois level desc).
+    return list.sort((a, b) => {
+      if (a.card.id !== b.card.id) {
+        return a.card.id.localeCompare(b.card.id);
+      }
+      if (b.purity !== a.purity) return b.purity - a.purity;
+      return b.level - a.level;
+    });
+  }, [candidates, activeRarities]);
 
   const totalCards = userCards.length;
 

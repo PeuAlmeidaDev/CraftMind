@@ -9,8 +9,6 @@ import BattleIdle from "./_components/BattleIdle";
 import BattleArena from "./_components/BattleArena";
 import CardDropReveal from "./_components/CardDropReveal";
 import type { DroppedCard } from "./_components/CardDropReveal";
-import CardXpReveal from "./_components/CardXpReveal";
-import type { CardXpGainedInfo } from "./_components/CardXpReveal";
 import type { DamageType } from "@/types/skill";
 
 // ---------------------------------------------------------------------------
@@ -167,8 +165,6 @@ export default function BattlePage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [cardDropped, setCardDropped] = useState<DroppedCard | null>(null);
   const [showCardReveal, setShowCardReveal] = useState(false);
-  const [cardXpGained, setCardXpGained] = useState<CardXpGainedInfo | null>(null);
-  const [showCardXpReveal, setShowCardXpReveal] = useState(false);
   /** Indica se o jogador tem ao menos 1 cristal Espectral (purity 100) equipado.
    *  Usado pelo BattleArena para aplicar overlay holografico no painel. */
   const [hasEquippedSpectral, setHasEquippedSpectral] = useState(false);
@@ -546,23 +542,6 @@ export default function BattlePage() {
               flavorText?: string;
               purity?: number;
             } | null;
-            cardXpGained?: {
-              cardId: string;
-              cardName: string;
-              rarity: string;
-              xp: number;
-              newLevel: number;
-              leveledUp: boolean;
-              purity?: number;
-            } | null;
-            pendingDuplicate?: {
-              id: string;
-              cardId: string;
-              cardName: string;
-              rarity: string;
-              currentPurity: number;
-              newPurity: number;
-            } | null;
           };
         };
 
@@ -655,33 +634,6 @@ export default function BattlePage() {
               setCardDropped(hydrated);
               setShowCardReveal(true);
             }
-          }
-          if (data.cardXpGained && mob) {
-            const xp = data.cardXpGained;
-            const validRarity = ["COMUM", "INCOMUM", "RARO", "EPICO", "LENDARIO"].includes(xp.rarity);
-            if (validRarity) {
-              const hydrated: CardXpGainedInfo = {
-                cardId: xp.cardId,
-                cardName: xp.cardName,
-                rarity: xp.rarity as CardXpGainedInfo["rarity"],
-                xp: xp.xp,
-                newLevel: xp.newLevel,
-                leveledUp: xp.leveledUp,
-                purity: xp.purity,
-                mob: {
-                  name: mob.name,
-                  imageUrl: mob.imageUrl,
-                },
-              };
-              setCardXpGained(hydrated);
-              setShowCardXpReveal(true);
-            }
-          }
-          if (data.pendingDuplicate) {
-            // Sinaliza ao usuario que ha pendencia para resolver no /character.
-            // router.refresh() invalida caches do server; o /character refaz fetch
-            // de /api/cards/pending-duplicates ao montar.
-            router.refresh();
           }
           setBattleResult(r);
         }
@@ -1067,16 +1019,6 @@ export default function BattlePage() {
         <CardDropReveal
           card={cardDropped}
           onContinue={() => setShowCardReveal(false)}
-        />
-      )}
-
-      {showCardXpReveal && cardXpGained && (
-        <CardXpReveal
-          info={cardXpGained}
-          onContinue={() => {
-            setShowCardXpReveal(false);
-            setCardXpGained(null);
-          }}
         />
       )}
     </div>

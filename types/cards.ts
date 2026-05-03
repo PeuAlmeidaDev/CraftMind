@@ -107,36 +107,26 @@ export type UserCardSummary = {
 };
 
 // ---------------------------------------------------------------------------
-// PendingCardDuplicate — drop de duplicata aguardando decisao
+// Absorb — resposta do POST /api/cards/[id]/absorb
 // ---------------------------------------------------------------------------
 //
-// Retornado por GET /api/cards/pending-duplicates. O jogador resolve via
-// POST /api/cards/pending-duplicates/[id]/resolve com decision REPLACE ou CONVERT.
+// `[id]` e o userCardId do ALVO (carta que recebe XP). O body especifica os
+// sources (1..50 cartas-fonte do MESMO cardId), que sao deletados na mesma
+// transacao apos transferir o XP.
 
-export type PendingDuplicateDecision = "REPLACE" | "CONVERT";
-
-export type PendingCardDuplicateSummary = {
-  id: string;
-  newPurity: number;
-  createdAt: string;
-  userCard: {
-    id: string;
-    xp: number;
-    level: number;
-    purity: number;
-    card: {
-      id: string;
-      name: string;
-      flavorText: string;
-      rarity: CardRarity;
-      mob: {
-        id: string;
-        name: string;
-        tier: number;
-        imageUrl: string | null;
-      };
-    };
-  };
+export type AbsorbResponse = {
+  /** ID da carta alvo (recebeu o XP). */
+  targetUserCardId: string;
+  /** Total de XP transferido (soma de XP_PER_DUPLICATE_BY_RARITY[rarity] por source). */
+  xpGained: number;
+  /** XP cumulativo do alvo apos a operacao. */
+  newXp: number;
+  /** Level do alvo apos recalculo via getLevelFromXp(newXp). */
+  newLevel: number;
+  /** True se o level do alvo subiu (estritamente). */
+  leveledUp: boolean;
+  /** Quantidade de cartas-fonte deletadas. */
+  sacrificed: number;
 };
 
 // ---------------------------------------------------------------------------

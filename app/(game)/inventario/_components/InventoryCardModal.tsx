@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { CardEffect, CardRarity, UserCardSummary } from "@/types/cards";
 import type { StatName } from "@/types/skill";
-import { scaleEffectForDisplay } from "@/lib/cards/level";
+import { scaleEffectForDisplay, XP_PER_DUPLICATE_BY_RARITY } from "@/lib/cards/level";
 import { isSpectral } from "@/lib/cards/purity";
 import CardLevelBar from "../../_components/CardLevelBar";
 
 type Props = {
   open: boolean;
   userCard: UserCardSummary | null;
+  /** Outras copias do MESMO cardId (sem incluir a aberta) — usadas pra
+   *  alimentar a secao "Sacrificar pra essa carta". */
+  siblings?: UserCardSummary[];
   /** Disparado quando o usuario clica em "Trocar skill espectral" no modal.
    *  A page do inventario abre o SpectralSkillSelectModal por cima. */
   onChangeSpectralSkill?: (userCardId: string) => void;
+  /** Disparado quando o usuario confirma o sacrificio. A page chama o
+   *  endpoint POST /api/cards/[id]/absorb e refaz o fetch do inventario. */
+  onAbsorb?: (
+    targetUserCardId: string,
+    sourceUserCardIds: string[],
+  ) => Promise<void>;
   onClose: () => void;
 };
 
@@ -92,10 +101,23 @@ function formatDate(iso: string | undefined): string {
 export default function InventoryCardModal({
   open,
   userCard,
+  siblings = [],
   onChangeSpectralSkill,
+  onAbsorb,
   onClose,
 }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [absorbing, setAbsorbing] = useState(false);
+  const [absorbError, setAbsorbError] = useState<string | null>(null);
+
+  // Reset selecao quando a carta-alvo muda ou modal fecha.
+  useEffect(() => {
+    setSelectedSources(new Set());
+    setAbsorbError(null);
+  }, [userCard?.id, open]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -137,12 +159,51 @@ export default function InventoryCardModal({
     };
   }, [open, handleKeyDown]);
 
+  // Cartas-fonte elegiveis: outras copias do MESMO cardId, sem incluir a alvo.
+  // Cartas equipadas aparecem mas ficam desabilitadas (API recusa equipadas).
+  const sacrificeCandidates = useMemo(() => {
+    if (!userCard) return [] as UserCardSummary[];
+    return siblings.filter(
+      (s) => s.id !== userCard.id && s.card.id === userCard.card.id,
+    );
+  }, [siblings, userCard]);
+
+  const toggleSource = useCallback((id: string) => {
+    setSelectedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const confirmAbsorb = useCallback(async () => {
+    if (!userCard || !onAbsorb || selectedSources.size === 0 || absorbing) {
+      return;
+    }
+    setAbsorbing(true);
+    setAbsorbError(null);
+    try {
+      await onAbsorb(userCard.id, Array.from(selectedSources));
+      setSelectedSources(new Set());
+    } catch (err: unknown) {
+      setAbsorbError(
+        err instanceof Error ? err.message : "Falha ao sacrificar cartas",
+      );
+    } finally {
+      setAbsorbing(false);
+    }
+  }, [userCard, onAbsorb, selectedSources, absorbing]);
+
   if (!open || !userCard) return null;
 
   const { card } = userCard;
   const rarityClass = RARITY_CLASS[card.rarity];
   const spectral = isSpectral(userCard.purity);
   const purityColor = purityBadgeColor(userCard.purity);
+
+  const xpPerSource = XP_PER_DUPLICATE_BY_RARITY[card.rarity] ?? 0;
+  const previewXp = selectedSources.size * xpPerSource;
 
   // Effects ja escalonados pra display (mesma logica do CardSlots).
   const scaledEffects = card.effects
@@ -484,6 +545,142 @@ export default function InventoryCardModal({
                 </ul>
               )}
             </SectionPanel>
+
+            {/* Sacrifico — converte XP de copias do mesmo cardId nesta carta */}
+            {onAbsorb && sacrificeCandidates.length > 0 && (
+              <SectionPanel title="Sacrificar pra essa carta">
+                <p
+                  className="mb-2 text-[11px] italic"
+                  style={{
+                    fontFamily: "var(--font-garamond)",
+                    color: "color-mix(in srgb, var(--gold) 65%, transparent)",
+                  }}
+                >
+                  Selecione copias do mesmo cristal pra transferir XP. Cada
+                  fonte rende +{xpPerSource} XP. Cartas equipadas precisam ser
+                  desequipadas antes.
+                </p>
+                <ul className="flex max-h-[280px] flex-col gap-1.5 overflow-y-auto">
+                  {sacrificeCandidates.map((src) => {
+                    const checked = selectedSources.has(src.id);
+                    const disabled = src.equipped;
+                    const srcSpectral = isSpectral(src.purity);
+                    return (
+                      <li key={src.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!disabled) toggleSource(src.id);
+                          }}
+                          disabled={disabled}
+                          aria-pressed={checked}
+                          title={
+                            disabled
+                              ? "Desequipe essa carta antes de sacrificar"
+                              : srcSpectral
+                                ? "Atencao: voce esta sacrificando um Espectral"
+                                : undefined
+                          }
+                          className="flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            background: checked
+                              ? "color-mix(in srgb, var(--ember) 12%, transparent)"
+                              : "color-mix(in srgb, var(--bg-primary) 50%, transparent)",
+                            border: `1px solid ${checked ? "var(--ember)" : "color-mix(in srgb, var(--gold) 18%, transparent)"}`,
+                          }}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="flex h-4 w-4 items-center justify-center text-[10px]"
+                              style={{
+                                color: checked
+                                  ? "var(--ember)"
+                                  : "color-mix(in srgb, var(--gold) 50%, transparent)",
+                                border: `1px solid ${checked ? "var(--ember)" : "color-mix(in srgb, var(--gold) 30%, transparent)"}`,
+                                background: checked
+                                  ? "color-mix(in srgb, var(--ember) 18%, transparent)"
+                                  : "transparent",
+                              }}
+                            >
+                              {checked ? "x" : ""}
+                            </span>
+                            <span
+                              className="text-[11px]"
+                              style={{ color: "white" }}
+                            >
+                              Lv {src.level} · {src.purity}%
+                              {srcSpectral ? " ESPECTRAL" : ""}
+                            </span>
+                          </span>
+                          <span
+                            className="text-[10px] uppercase tracking-[0.2em]"
+                            style={{
+                              color: src.equipped
+                                ? "color-mix(in srgb, var(--ember) 80%, transparent)"
+                                : "color-mix(in srgb, var(--gold) 55%, transparent)",
+                            }}
+                          >
+                            {src.equipped
+                              ? `EQUIP S${(src.slotIndex ?? 0) + 1}`
+                              : `+${xpPerSource} XP`}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {absorbError && (
+                  <p
+                    className="mt-2 text-[11px]"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      color: "#d96a52",
+                    }}
+                    role="alert"
+                  >
+                    {absorbError}
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3"
+                  style={{
+                    borderColor:
+                      "color-mix(in srgb, var(--gold) 14%, transparent)",
+                  }}
+                >
+                  <span
+                    className="text-[11px]"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      color: "color-mix(in srgb, var(--gold) 80%, transparent)",
+                    }}
+                  >
+                    {selectedSources.size} selecionada
+                    {selectedSources.size === 1 ? "" : "s"} · transfere{" "}
+                    <strong style={{ color: "var(--ember)" }}>
+                      +{previewXp} XP
+                    </strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={confirmAbsorb}
+                    disabled={selectedSources.size === 0 || absorbing}
+                    className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-[0.3em] text-white transition-transform duration-150 disabled:cursor-not-allowed disabled:opacity-50 hover:-translate-y-px"
+                    style={{
+                      fontFamily: "var(--font-cinzel)",
+                      background:
+                        "linear-gradient(135deg, var(--accent-primary), var(--ember))",
+                      border: "1px solid var(--ember)",
+                    }}
+                  >
+                    {absorbing ? "Sacrificando..." : "Sacrificar"}
+                  </button>
+                </div>
+              </SectionPanel>
+            )}
 
             {/* Skill espectral */}
             {spectral && (

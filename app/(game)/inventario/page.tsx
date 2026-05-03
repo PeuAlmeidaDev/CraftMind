@@ -396,10 +396,48 @@ export default function InventarioPage() {
       <InventoryCardModal
         open={selectedCard !== null}
         userCard={selectedCard}
+        siblings={
+          selectedCard
+            ? userCards.filter(
+                (u) =>
+                  u.card.id === selectedCard.card.id && u.id !== selectedCard.id,
+              )
+            : []
+        }
         onClose={() => setSelectedCard(null)}
         onChangeSpectralSkill={(userCardId) =>
           setSpectralModalUserCardId(userCardId)
         }
+        onAbsorb={async (targetUserCardId, sourceUserCardIds) => {
+          const token = getToken();
+          if (!token) {
+            clearAuthAndRedirect(router);
+            throw new Error("Sessao expirada");
+          }
+          const res = await fetch(
+            `/api/cards/${encodeURIComponent(targetUserCardId)}/absorb`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: "include",
+              body: JSON.stringify({ sourceUserCardIds }),
+            },
+          );
+          if (res.status === 401) {
+            clearAuthAndRedirect(router);
+            throw new Error("Sessao expirada");
+          }
+          if (!res.ok) {
+            const body = (await res.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            throw new Error(body?.error ?? "Falha ao sacrificar cartas");
+          }
+          await refetchCards();
+        }}
       />
 
       {/* Modal de skill espectral (5o slot em batalha) */}
