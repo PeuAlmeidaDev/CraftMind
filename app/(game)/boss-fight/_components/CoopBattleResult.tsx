@@ -59,9 +59,9 @@ export default function CoopBattleResult({
   }, [config.sfx]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-coop-fade-in">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6 animate-coop-fade-in">
       <div
-        className="max-w-md w-full mx-4 rounded-xl border border-[var(--border-subtle)] p-8 text-center animate-coop-scale-in"
+        className="mx-auto max-w-md w-full rounded-xl border border-[var(--border-subtle)] p-8 text-center animate-coop-scale-in md:my-auto"
         style={{
           background:
             "linear-gradient(to bottom, var(--bg-card), var(--bg-primary))",
