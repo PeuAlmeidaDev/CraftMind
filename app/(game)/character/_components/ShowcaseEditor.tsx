@@ -124,12 +124,12 @@ export default function ShowcaseEditor({
       role="dialog"
       aria-modal="true"
       aria-label="Editar vitrine de cristais"
-      className="fixed inset-0 z-[80] flex items-center justify-center px-4"
+      className="fixed inset-0 z-[80] overflow-y-auto px-4 py-6"
       style={{ background: "rgba(5, 3, 10, 0.7)" }}
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden"
+        className="relative flex w-full max-w-3xl flex-col md:max-h-[85vh] md:overflow-hidden mx-auto md:my-auto"
         style={{
           background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
           border: "1px solid color-mix(in srgb, var(--gold) 25%, transparent)",
@@ -138,8 +138,9 @@ export default function ShowcaseEditor({
       >
         {/* Header */}
         <header
-          className="flex items-baseline justify-between px-5 py-4"
+          className="sticky top-0 z-10 flex items-baseline justify-between px-5 py-4"
           style={{
+            background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
             borderBottom:
               "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
           }}
@@ -217,7 +218,7 @@ export default function ShowcaseEditor({
         </div>
 
         {/* Inventario */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 md:overflow-y-auto px-5 py-4">
           {inventory.length === 0 ? (
             <p
               className="text-center text-[11px] italic"
@@ -276,8 +277,9 @@ export default function ShowcaseEditor({
 
         {/* Footer */}
         <footer
-          className="flex items-center justify-between gap-3 px-5 py-4"
+          className="sticky bottom-0 z-10 flex items-center justify-between gap-3 px-5 py-4"
           style={{
+            background: "linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-card) 100%)",
             borderTop:
               "1px solid color-mix(in srgb, var(--gold) 14%, transparent)",
           }}
