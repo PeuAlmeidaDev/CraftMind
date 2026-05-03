@@ -200,7 +200,7 @@ export default function SpectralSkillSelectModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center p-6"
+      className="fixed inset-0 z-50 overflow-y-auto p-6"
       style={{ background: "rgba(5, 3, 10, 0.82)" }}
       role="dialog"
       aria-modal="true"
@@ -210,7 +210,7 @@ export default function SpectralSkillSelectModal({
         ref={dialogRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[85vh] w-full max-w-2xl overflow-hidden focus:outline-none"
+        className="relative mx-auto w-full max-w-2xl focus:outline-none md:my-auto md:max-h-[85vh] md:overflow-hidden"
         style={{
           background:
             "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
@@ -221,8 +221,10 @@ export default function SpectralSkillSelectModal({
       >
         {/* Header */}
         <header
-          className="flex items-center justify-between border-b px-5 py-3"
+          className="sticky top-0 z-10 flex items-center justify-between border-b px-5 py-3"
           style={{
+            background:
+              "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%)",
             borderColor: "color-mix(in srgb, var(--gold) 35%, transparent)",
           }}
         >
@@ -251,7 +253,7 @@ export default function SpectralSkillSelectModal({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="cursor-pointer text-[18px] transition-colors"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center text-[18px] transition-colors md:h-auto md:w-auto"
             style={{
               fontFamily: "monospace",
               color: "color-mix(in srgb, var(--gold) 60%, transparent)",
@@ -269,7 +271,7 @@ export default function SpectralSkillSelectModal({
         </header>
 
         {/* Content */}
-        <div className="max-h-[60vh] overflow-y-auto p-5">
+        <div className="p-5 md:max-h-[60vh] md:overflow-y-auto">
           {loading && (
             <p
               className="text-center text-[12px] italic"
