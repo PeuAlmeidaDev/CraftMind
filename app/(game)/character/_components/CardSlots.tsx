@@ -571,7 +571,7 @@ export default function CardSlots({
       </header>
 
       {/* Grid de 3 slots */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[0, 1, 2].map((slotIndex) => {
           const card = equippedBySlot[slotIndex];
           if (card) {

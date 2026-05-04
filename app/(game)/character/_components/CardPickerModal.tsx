@@ -165,7 +165,7 @@ export default function CardPickerModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center p-6"
+      className="fixed inset-0 z-50 overflow-y-auto p-6"
       style={{
         background: "rgba(5, 3, 10, 0.82)",
         backdropFilter: "blur(4px)",
@@ -179,9 +179,8 @@ export default function CardPickerModal({
         aria-label={`Escolher cristal para slot ${slotIndex + 1}`}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="flex w-full max-w-[720px] flex-col outline-none"
+        className="mx-auto md:my-auto md:max-h-[calc(100vh-48px)] flex w-full max-w-[720px] flex-col outline-none"
         style={{
-          maxHeight: "calc(100vh - 48px)",
           background:
             "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
           border: "1px solid color-mix(in srgb, var(--ember) 40%, transparent)",
@@ -191,8 +190,11 @@ export default function CardPickerModal({
       >
         {/* Header */}
         <header
-          className="flex items-center justify-between border-b px-5 py-4"
-          style={{ borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)" }}
+          className="sticky top-0 z-10 flex items-center justify-between border-b px-5 py-4"
+          style={{
+            background: "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+            borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)",
+          }}
         >
           <div>
             <div
@@ -215,7 +217,7 @@ export default function CardPickerModal({
             type="button"
             onClick={onClose}
             aria-label="Fechar modal"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center text-lg transition-colors"
+            className="flex h-10 w-10 md:h-8 md:w-8 cursor-pointer items-center justify-center text-lg transition-colors"
             style={{
               fontFamily: "monospace",
               color: "color-mix(in srgb, var(--gold) 80%, transparent)",
@@ -269,7 +271,7 @@ export default function CardPickerModal({
         )}
 
         {/* Lista */}
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-3.5">
+        <div className="flex flex-1 flex-col gap-2 px-5 py-3.5 md:overflow-y-auto">
           {totalCards === 0 ? (
             <div
               className="py-9 text-center italic"

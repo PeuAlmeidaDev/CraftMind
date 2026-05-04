@@ -172,12 +172,12 @@ export default function InviteFriendModal({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+        className="fixed inset-0 z-50 overflow-y-auto bg-black/60 py-6 flex justify-center"
         onClick={onClose}
       >
         {/* Modal card */}
         <div
-          className="relative w-full max-w-md mx-4 border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl animate-modalIn"
+          className="relative w-full max-w-md mx-auto md:my-auto border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl animate-modalIn"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -407,7 +407,7 @@ export default function InviteFriendModal({
                     <p className="text-xs text-gray-500 mt-1">Adicione amigos pela barra de busca</p>
                   </div>
                 ) : (
-                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                  <div className="max-h-64 md:overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                     {sortedFriends.map((friend) => {
                       const isOnline = onlineStatus[friend.user.id] ?? false;
                       const alreadyInvited = invitedUserIds.has(friend.user.id);

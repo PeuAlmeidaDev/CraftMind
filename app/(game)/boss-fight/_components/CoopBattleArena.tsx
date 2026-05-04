@@ -59,7 +59,7 @@ export default function CoopBattleArena({
   const nameMap = useMemo(() => ({ ...playerNames }), [playerNames]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4 space-y-4">
+    <div className="mx-auto max-w-4xl py-4 space-y-4 overflow-x-hidden">
       {/* Turn timer (full width) */}
       <TurnTimer timeRemaining={turnTimeRemaining} maxTime={30} />
 
@@ -88,7 +88,7 @@ export default function CoopBattleArena({
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Skill bar */}
         <div className="flex-1">
-          <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] p-4 min-h-[120px]">
+          <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] p-2 sm:p-4 min-h-[120px]">
             {canAct ? (
               <CoopSkillBar
                 skills={skills}

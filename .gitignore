@@ -40,3 +40,6 @@ reviews-backend.md
 # Documentação
 *.md
 .claude-design
+
+# SQL
+*.sql

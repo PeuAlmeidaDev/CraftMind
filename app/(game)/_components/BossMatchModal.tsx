@@ -30,8 +30,8 @@ export default function BossMatchModal() {
   const { boss, teammates } = matchData;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-[var(--accent-primary)] bg-[var(--bg-card)] p-6 shadow-2xl shadow-black/60">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 py-6 flex justify-center">
+      <div className="mx-auto md:my-auto w-full max-w-md rounded-xl border border-[var(--accent-primary)] bg-[var(--bg-card)] p-6 shadow-2xl shadow-black/60">
         {/* Title */}
         <h2 className="text-center text-2xl font-bold text-emerald-400 mb-5">
           Match Encontrado!

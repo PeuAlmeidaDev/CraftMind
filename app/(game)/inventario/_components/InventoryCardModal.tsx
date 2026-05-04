@@ -227,7 +227,7 @@ export default function InventoryCardModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-40 grid place-items-center px-4 pt-[80px] pb-6 sm:px-6"
+      className="fixed inset-0 z-40 overflow-y-auto px-4 pt-[80px] pb-6 sm:px-6"
       style={{
         background: "rgba(5, 3, 10, 0.85)",
         backdropFilter: "blur(6px)",
@@ -241,9 +241,8 @@ export default function InventoryCardModal({
         aria-label={`Detalhes de ${card.name}`}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`flex w-full max-w-[860px] flex-col outline-none ${rarityClass}`}
+        className={`mx-auto flex w-full max-w-[860px] flex-col outline-none md:my-auto md:max-h-[calc(100vh-104px)] ${rarityClass}`}
         style={{
-          maxHeight: "calc(100vh - 104px)",
           background:
             "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
           border: "1px solid var(--rarity-color)",
@@ -254,8 +253,11 @@ export default function InventoryCardModal({
       >
         {/* Header */}
         <header
-          className="flex items-center justify-between border-b px-5 py-4"
-          style={{ borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)" }}
+          className="sticky top-0 z-10 flex items-center justify-between border-b px-5 py-4"
+          style={{
+            borderColor: "color-mix(in srgb, var(--gold) 14%, transparent)",
+            background: "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+          }}
         >
           <div className="flex items-center gap-2">
             <span
@@ -296,7 +298,7 @@ export default function InventoryCardModal({
             type="button"
             onClick={onClose}
             aria-label="Fechar modal"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center text-lg transition-colors"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center text-lg transition-colors md:h-8 md:w-8"
             style={{
               fontFamily: "monospace",
               color: "color-mix(in srgb, var(--gold) 80%, transparent)",
@@ -309,7 +311,7 @@ export default function InventoryCardModal({
         </header>
 
         {/* Conteudo */}
-        <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+        <div className="flex flex-1 flex-col md:flex-row md:overflow-hidden">
           {/* Coluna esquerda — arte da carta + nome + flavor */}
           <aside
             className="flex flex-col items-center gap-3 border-b p-5 md:w-[320px] md:shrink-0 md:border-b-0 md:border-r"
@@ -387,7 +389,7 @@ export default function InventoryCardModal({
           </aside>
 
           {/* Coluna direita — secoes em scroll */}
-          <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex flex-1 flex-col gap-4 p-5 md:overflow-y-auto">
             {/* Stats */}
             <SectionPanel title="Cristal">
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">

@@ -21,7 +21,7 @@ export default function CoopPveResult({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center"
+      className="fixed inset-0 z-50 overflow-y-auto px-4 py-6"
       style={{
         background: "rgba(5, 3, 10, 0.82)",
         backdropFilter: "blur(6px)",
@@ -30,7 +30,7 @@ export default function CoopPveResult({
       }}
     >
       <div
-        className="mx-4 w-full max-w-md p-8 text-center"
+        className="mx-auto w-full max-w-md p-8 text-center md:my-auto"
         style={{
           background: "linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
           border: "1px solid color-mix(in srgb, var(--ember) 40%, transparent)",

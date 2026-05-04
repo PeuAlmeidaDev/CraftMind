@@ -116,13 +116,13 @@ export default function CoopSkillBar({
   return (
     <div>
       {/* Skill grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         {slots.map((skill, idx) => {
           if (!skill) {
             return (
               <div
                 key={`empty-${idx}`}
-                className="rounded-lg border border-dashed border-[var(--border-subtle)] p-3 min-h-[72px]"
+                className="rounded-lg border border-dashed border-[var(--border-subtle)] p-2 sm:p-3 min-h-[64px] sm:min-h-[72px]"
               />
             );
           }
@@ -142,7 +142,7 @@ export default function CoopSkillBar({
               type="button"
               disabled={isDisabled}
               onClick={() => handleSkillClick(skill)}
-              className={`relative rounded-lg border p-3 text-left transition-colors ${
+              className={`relative rounded-lg border p-2 sm:p-3 text-left transition-colors ${
                 isSpectral
                   ? "bg-[var(--bg-secondary)]/60"
                   : isSelectingThis

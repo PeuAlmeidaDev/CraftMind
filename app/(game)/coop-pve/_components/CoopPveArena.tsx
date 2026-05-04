@@ -210,7 +210,7 @@ export default function CoopPveArena({
   }, [onAction]);
 
   return (
-    <div className="flex flex-col gap-2 sm:gap-3 p-2 md:p-4 max-w-5xl mx-auto">
+    <div className="flex flex-col gap-2 sm:gap-3 max-w-5xl mx-auto overflow-x-hidden">
       {/* Turn timer bar */}
       <div className="rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] p-1.5 sm:p-2">
         <div className="flex items-center justify-between mb-1">
